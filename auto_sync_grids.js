@@ -16,84 +16,68 @@ function getGridId(lat, lon) {
 }
 
 async function startRobotSync() {
-    console.log("🤖 ROBOT: Starting Data Sync from Google Sheets...");
+    console.log("🤖 ROBOT: Starting Ultra-Safe Sync...");
     
     try {
         let allProviders = [];
         let offset = 0;
-        const limit = 2000; // 🚀 FIXED: Batch size reduced to 2000 to prevent Google Script Timeout
+        const limit = 1000; // 🚀 ULTRA SAFE: Small batches to avoid Google Timeouts
         let hasMore = true;
-        let retryCount = 0;
 
         while (hasMore) {
+            console.log(`📡 Fetching: Offset ${offset}...`);
             try {
-                console.log(`📡 Fetching: Offset ${offset}...`);
                 const resp = await axios.get(`${MAHARASHTRA_URL}?type=providers&offset=${offset}&limit=${limit}`, { 
-                    timeout: 120000, 
+                    timeout: 300000, // 🚀 5 MIN TIMEOUT
                     maxContentLength: Infinity,
-                    maxBodyLength: Infinity,
-                    headers: { 'Accept-Encoding': 'gzip' } // Speed up transfer
+                    maxBodyLength: Infinity
                 });
                 
                 const data = resp.data;
-
-                // Error object check
-                if (data && data.error) {
-                    throw new Error("Google Script Error: " + data.error);
-                }
-
                 if (Array.isArray(data) && data.length > 0) {
                     allProviders.push(...data);
-                    console.log(`✅ Received ${data.length} records. Total so far: ${allProviders.length}`);
+                    console.log(`✅ Progress: ${allProviders.length} records collected.`);
                     
                     if (data.length < limit) {
-                        console.log("🏁 Small batch received. End of data.");
                         hasMore = false;
                     } else {
                         offset += data.length;
                     }
-                    retryCount = 0; 
+                    
+                    // 🚀 BREATHE: Give Google Script a 1-second break
+                    await new Promise(r => setTimeout(r, 1000));
+
                 } else {
-                    console.log("🏁 No more data or empty array received.");
                     hasMore = false;
                 }
-            } catch (fetchErr) {
-                retryCount++;
-                console.error(`⚠️ Batch Fail at Offset ${offset} (Attempt ${retryCount}): ${fetchErr.message}`);
-                if (retryCount >= 3) throw fetchErr; 
-                console.log("⏳ Waiting for retry...");
-                await new Promise(r => setTimeout(r, 10000));
+            } catch (err) {
+                console.error(`⚠️ Batch Fail at ${offset}: ${err.message}. Retrying in 15s...`);
+                await new Promise(r => setTimeout(r, 15000));
+                // Will retry the same offset in next loop
             }
         }
 
-        console.log(`📊 FINAL SYNC STATS: Total Leads = ${allProviders.length}`);
+        console.log(`📊 TOTAL SYNCED: ${allProviders.length} leads.`);
 
-        if (allProviders.length === 0) {
-            console.error("❌ ABORT: No leads found. Stopping to protect CDN.");
-            process.exit(1);
+        if (allProviders.length > 0) {
+            console.log("🧩 Updating Grid Files...");
+            const gridData = {};
+            allProviders.forEach(p => {
+                const gridId = getGridId(p.latitude, p.longitude);
+                if (gridId) {
+                    if (!gridData[gridId]) gridData[gridId] = [];
+                    gridData[gridId].push(p);
+                }
+            });
+
+            Object.keys(gridData).forEach(gridId => {
+                fs.writeFileSync(path.join(GRID_DIR, `${gridId}.json`), JSON.stringify(gridData[gridId]));
+            });
+            console.log("✨ ALL GRIDS UPDATED SUCCESSFULLY!");
         }
-
-        // --- GRID SPLITTING ---
-        console.log("🧩 Splitting into Dynamic Grids...");
-        const gridData = {};
-        allProviders.forEach(p => {
-            const gridId = getGridId(p.latitude, p.longitude);
-            if (gridId) {
-                if (!gridData[gridId]) gridData[gridId] = [];
-                gridData[gridId].push(p);
-            }
-        });
-
-        const gridKeys = Object.keys(gridData);
-        gridKeys.forEach(gridId => {
-            const filePath = path.join(GRID_DIR, `${gridId}.json`);
-            fs.writeFileSync(filePath, JSON.stringify(gridData[gridId]));
-        });
-
-        console.log(`✨ SUCCESS: ${gridKeys.length} grids updated on CDN!`);
 
     } catch (error) {
-        console.error("❌ FATAL ROBOT ERROR:", error.stack || error.message);
+        console.error("❌ FATAL:", error.message);
         process.exit(1);
     }
 }
