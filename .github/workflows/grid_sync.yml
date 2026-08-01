@@ -1,1 +1,26 @@
+name: Dynamic Grid Auto-Sync
+on:
+  schedule:
+    - cron: '0 */4 * * *' # Dar 4 tasane automatic chalel
+  workflow_dispatch:      # Manual run sathi button minal
 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Install Axios
+        run: npm install axios
+      - name: Run Robot Script
+        run: node auto_sync_grids.js
+      - name: Commit and Push
+        run: |
+          git config --global user.name "RapidHelp-Robot"
+          git config --global user.email "robot@kaamwale.com"
+          git add maharashtra_grids/*.json
+          git commit -m "Robot: Update dynamic coordinate grids [Auto-Sync]" || echo "No changes to commit"
+          git push
