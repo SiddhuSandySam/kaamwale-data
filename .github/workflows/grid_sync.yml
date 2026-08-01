@@ -11,27 +11,23 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          
       - name: Install Axios
         run: npm install axios
-        
       - name: Run Robot Script
         run: node auto_sync_grids.js
-        
       - name: Commit and Push
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           git config --global user.name "RapidHelp-Robot"
           git config --global user.email "robot@kaamwale.com"
-          # 🚀 FIXED: Add hub_data.json along with grids
+          # 🚀 DISCARD any accidental changes to workflow file to avoid permission error
+          git checkout .github/workflows/grid_sync.yml
           git add hub_data.json maharashtra_grids/*.json
-          git commit -m "Robot: Update Hub Data and Grids [Auto-Sync]" || exit 0
-          git push --force https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main
+          git commit -m "Robot: Data Update [Auto-Sync]" || exit 0
+          # 🚀 Secure Push
+          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main
