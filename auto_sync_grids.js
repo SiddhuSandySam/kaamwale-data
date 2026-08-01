@@ -6,7 +6,6 @@ const path = require('path');
 const MAHARASHTRA_URL = "https://script.google.com/macros/s/AKfycbzbK2ij2FS5bQjWYgv3gYdyTohXlJsCQcOXrEn9TArWLTEh3kQU50zvTZa87w9tb2vM/exec";
 const GRID_DIR = path.join(__dirname, 'maharashtra_grids');
 
-// Create folder if missing
 if (!fs.existsSync(GRID_DIR)) fs.mkdirSync(GRID_DIR, { recursive: true });
 
 function getGridId(lat, lon) {
@@ -22,14 +21,14 @@ async function startRobotSync() {
     try {
         let allProviders = [];
         let offset = 0;
-        const limit = 1000; // 🚀 OPTIMIZED: Small batches to keep Google Sheets happy
+        const limit = 1000;
         let hasMore = true;
 
         while (hasMore) {
             console.log(`📡 Fetching: Offset ${offset}...`);
             try {
                 const resp = await axios.get(`${MAHARASHTRA_URL}?type=providers&offset=${offset}&limit=${limit}`, {
-                    timeout: 180000, // 3 MIN TIMEOUT
+                    timeout: 180000,
                     maxContentLength: Infinity,
                     maxBodyLength: Infinity
                 });
@@ -38,30 +37,21 @@ async function startRobotSync() {
                 if (Array.isArray(data) && data.length > 0) {
                     allProviders.push(...data);
                     console.log(`✅ Success: ${allProviders.length} records so far.`);
-
-                    if (data.length < limit) {
-                        console.log("🏁 Final batch received.");
-                        hasMore = false;
-                    } else {
-                        offset += data.length;
-                    }
-
-                    // 🚀 PAUSE: 1 sec delay to avoid rate-limiting
+                    if (data.length < limit) hasMore = false;
+                    else offset += data.length;
                     await new Promise(r => setTimeout(r, 1000));
                 } else {
-                    console.log("🏁 No more records found.");
                     hasMore = false;
                 }
             } catch (err) {
-                console.error(`⚠️ Error at Offset ${offset}: ${err.message}. Retrying in 15s...`);
-                await new Promise(r => setTimeout(r, 15000));
+                console.error(`⚠️ Error at ${offset}: ${err.message}. Retrying...`);
+                await new Promise(r => setTimeout(r, 10000));
             }
         }
 
-        console.log(`📊 FINAL TOTAL: ${allProviders.length} leads fetched.`);
+        console.log(`📊 FINAL TOTAL: ${allProviders.length} leads.`);
 
         if (allProviders.length > 0) {
-            console.log("🧩 Updating Grid Files...");
             const gridData = {};
             allProviders.forEach(p => {
                 const gridId = getGridId(p.latitude, p.longitude);
@@ -71,12 +61,10 @@ async function startRobotSync() {
                 }
             });
 
-            const gridKeys = Object.keys(gridData);
-            gridKeys.forEach(gridId => {
-                const filePath = path.join(GRID_DIR, `${gridId}.json`);
-                fs.writeFileSync(filePath, JSON.stringify(gridData[gridId]));
+            Object.keys(gridData).forEach(gridId => {
+                fs.writeFileSync(path.join(GRID_DIR, `${gridId}.json`), JSON.stringify(gridData[gridId]));
             });
-            console.log(`✨ SUCCESS: ${gridKeys.length} grids updated locally!`);
+            console.log("✨ CDN UPDATED SUCCESSFULLY!");
         }
 
     } catch (error) {

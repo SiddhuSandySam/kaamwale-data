@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # 🚀 Get full history to avoid push rejection
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -33,5 +33,4 @@ jobs:
           git config --global user.email "robot@kaamwale.com"
           git add maharashtra_grids/*.json
           git commit -m "Robot: Update dynamic coordinate grids [Auto-Sync]" || exit 0
-          # 🚀 Force push to ensure CDN is always updated
           git push --force https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main
