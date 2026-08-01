@@ -31,6 +31,7 @@ jobs:
         run: |
           git config --global user.name "RapidHelp-Robot"
           git config --global user.email "robot@kaamwale.com"
-          git add maharashtra_grids/*.json
-          git commit -m "Robot: Update dynamic coordinate grids [Auto-Sync]" || exit 0
+          # 🚀 FIXED: Add hub_data.json along with grids
+          git add hub_data.json maharashtra_grids/*.json
+          git commit -m "Robot: Update Hub Data and Grids [Auto-Sync]" || exit 0
           git push --force https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main
