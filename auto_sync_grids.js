@@ -15,7 +15,7 @@ function getGridId(lat, lon) {
 }
 
 async function startRobotSync() {
-    console.log("🚀 MASTER ROBOT: Starting Fast Sync (Batch: 5000)...");
+    console.log("🤖 MASTER ROBOT: Starting Full Sync (Batch: 1000)");
     try {
         // Fetch Hub Data
         const hubResp = await axios.get(`${HUB_URL}?type=app_data`, { timeout: 60000 });
@@ -24,27 +24,39 @@ async function startRobotSync() {
         // Fetch Maharashtra Providers
         let allProviders = [];
         let offset = 0;
-        const limit = 5000;
+        const limit = 1000; // 🚀 BACK TO 1000: Proven stability for 70k+ rows
         let hasMore = true;
+        let emptyRetry = 0;
 
         while (hasMore) {
             console.log(`📡 Fetching Offset ${offset}...`);
             try {
                 const resp = await axios.get(`${MAHARASHTRA_URL}?type=providers&offset=${offset}&limit=${limit}`, { timeout: 120000 });
                 const data = resp.data;
+
                 if (Array.isArray(data) && data.length > 0) {
                     allProviders.push(...data);
-                    console.log(`✅ Success: ${allProviders.length} collected.`);
+                    console.log(`✅ Success: ${allProviders.length} records collected.`);
                     if (data.length < limit) hasMore = false;
                     else offset += data.length;
-                    // Wait 3s to let Google Script rest
-                    await new Promise(r => setTimeout(r, 3000));
-                } else { hasMore = false; }
+                    emptyRetry = 0;
+                    await new Promise(r => setTimeout(r, 800)); // 0.8s break
+                } else {
+                    if (emptyRetry < 2) {
+                        emptyRetry++;
+                        console.warn(`⚠️ Empty batch at ${offset}. Retry ${emptyRetry}...`);
+                        await new Promise(r => setTimeout(r, 5000));
+                    } else {
+                        hasMore = false;
+                    }
+                }
             } catch (err) {
-                console.warn(`⚠️ Error: ${err.message}. Retrying in 10s...`);
+                console.error(`❌ Batch Fail: ${err.message}. Retrying...`);
                 await new Promise(r => setTimeout(r, 10000));
             }
         }
+
+        console.log(`📊 FINAL SYNC STATS: Total = ${allProviders.length}`);
 
         if (allProviders.length > 50000) {
             const gridData = {};
@@ -53,7 +65,9 @@ async function startRobotSync() {
                 if (gid) { if (!gridData[gid]) gridData[gid] = []; gridData[gid].push(p); }
             });
             Object.keys(gridData).forEach(gid => fs.writeFileSync(path.join(GRID_DIR, `${gid}.json`), JSON.stringify(gridData[gid])));
-            console.log("✨ ALL DATA UPDATED!");
+            console.log("✨ ALL DATA UPDATED AND LIVE ON CDN!");
+        } else {
+            console.error("⚠️ DATA TOO SMALL! Sync aborted to protect production.");
         }
     } catch (e) { console.error(e.message); process.exit(1); }
 }
