@@ -1,17 +1,19 @@
 name: Dynamic Grid Auto-Sync
 on:
   schedule:
-    - cron: '0 */4 * * *' # Dar 4 tasane automatic chalel
-  workflow_dispatch:      # Manual run sathi button
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 🚀 IMPORTANT: Permission fix
+      contents: write
     steps:
       - uses: actions/checkout@v4
-      
+        with:
+          fetch-depth: 0 # 🚀 Get full history to avoid push rejection
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -30,7 +32,6 @@ jobs:
           git config --global user.name "RapidHelp-Robot"
           git config --global user.email "robot@kaamwale.com"
           git add maharashtra_grids/*.json
-          # Commit only if changes exist
           git commit -m "Robot: Update dynamic coordinate grids [Auto-Sync]" || exit 0
-          # Secure push using Token
-          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main
+          # 🚀 Force push to ensure CDN is always updated
+          git push --force https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main
