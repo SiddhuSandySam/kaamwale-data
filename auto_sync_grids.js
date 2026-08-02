@@ -10,15 +10,15 @@ function getGridId(lat, lon) {
 }
 
 async function startRobotSync() {
-    console.log("🤖 MULTI-STATE MASTER ROBOT: Starting with Persistent Retries...");
+    console.log("🤖 MASTER ROBOT: Starting Multi-State Sync with Debug Mode...");
     try {
-        console.log(`📡 Step 1: Fetching Master Config from Hub...`);
+        console.log(`📡 Step 1: Fetching Master Config...`);
         const hubResp = await axios.get(`${HUB_URL}?type=app_data`, { timeout: 90000 });
         const appData = hubResp.data;
-        if (!appData || !appData.stateUrls) throw new Error("Invalid Hub Data received.");
+        if (!appData || !appData.stateUrls) throw new Error("Invalid Hub Data");
 
         fs.writeFileSync(path.join(__dirname, 'hub_data.json'), JSON.stringify(appData));
-        console.log("✅ Hub Config Updated and Saved.");
+        console.log("✅ Hub Config Saved.");
 
         const states = Object.keys(appData.stateUrls);
         for (const stateName of states) {
@@ -26,71 +26,44 @@ async function startRobotSync() {
             const folderName = `${stateName.toLowerCase().replace(/ /g, '_')}_grids`;
             const gridDir = path.join(__dirname, folderName);
 
-            console.log(`--------------------------------------------------`);
-            console.log(`🏙️  STATE: ${stateName}`);
-            console.log(`🔗 URL: ${stateUrl}`);
-            console.log(`--------------------------------------------------`);
+            console.log(`\n🏙️  PROCESSING STATE: ${stateName}`);
+            console.log(`🔗 TARGET URL: ${stateUrl}`);
 
             let allProviders = [];
             let offset = 0;
             const limit = 5000;
             let hasMore = true;
-            let errorStreak = 0;
 
             while (hasMore) {
-                console.log(`  📡 [${stateName}] Fetching Offset ${offset}...`);
                 try {
-                    const resp = await axios.get(`${stateUrl}?type=providers&offset=${offset}&limit=${limit}`, {
-                        timeout: 120000,
-                        headers: { 'Cache-Control': 'no-cache' }
-                    });
-
+                    // 🚀 CACHE BUSTER: Added timestamp to force fresh data from Google
+                    const finalUrl = `${stateUrl}?type=providers&offset=${offset}&limit=${limit}&cb=${Date.now()}`;
+                    const resp = await axios.get(finalUrl, { timeout: 120000 });
                     const data = resp.data;
-
-                    if (data && data.error) {
-                        console.error(`  ❌ Google Script Error: ${data.error}`);
-                        break; // Stop THIS state on script logic error
-                    }
 
                     if (Array.isArray(data) && data.length > 0) {
                         allProviders.push(...data);
-                        console.log(`  ✅ Success: ${allProviders.length} records collected.`);
 
-                        if (data.length < limit) {
-                            console.log(`  🏁 End of data reached for ${stateName}.`);
-                            hasMore = false;
-                        } else {
-                            offset += data.length;
+                        // 🔍 DEBUG LOG: Show what we actually got
+                        if (offset === 0) {
+                            console.log(`  🕵️ DEBUG: First record received for ${stateName} is from state: "${data[0].state}" and city: "${data[0].city}"`);
                         }
-                        errorStreak = 0; // Reset on success
-                        await new Promise(r => setTimeout(r, 1000)); // Short breather
+
+                        console.log(`  ✅ Success: ${allProviders.length} records collected.`);
+                        if (data.length < limit) hasMore = false;
+                        else offset += data.length;
                     } else {
-                        // 🚀 Persistent Retry for Empty Array (mid-way)
-                        console.warn(`  ⚠️ Received empty array at offset ${offset}. Retrying in 15s...`);
-                        await new Promise(r => setTimeout(r, 15000));
-                        // Note: We don't increment offset, so it tries the same one again.
-                        // We check for final end by checking if we have at least SOME data
-                        if (allProviders.length > 0 && errorStreak > 2) {
-                             console.log(`  🏁 End assumed after multiple empty responses.`);
-                             hasMore = false;
-                        }
-                        errorStreak++;
+                        hasMore = false;
                     }
                 } catch (e) {
-                    errorStreak++;
-                    const statusCode = e.response ? e.response.status : "TIMEOUT";
-                    console.error(`  ❌ Batch Fail (Error ${statusCode}): ${e.message}`);
-                    console.log(`  ⏳ Persistent Retry: Retrying offset ${offset} in 20s...`);
-                    await new Promise(r => setTimeout(r, 20000));
+                    console.error(`  ⚠️ Batch Fail for ${stateName}: ${e.message}`);
+                    hasMore = false;
                 }
             }
-
-            console.log(`📊 [${stateName}] Total Fetched: ${allProviders.length}`);
 
             if (allProviders.length > 0) {
                 const gridData = {};
                 let validCount = 0;
-
                 allProviders.forEach(p => {
                     if (p.state && p.state.toLowerCase() === stateName.toLowerCase()) {
                         const gid = getGridId(p.latitude, p.longitude);
@@ -109,15 +82,11 @@ async function startRobotSync() {
                     });
                     console.log(`✨ [${stateName}] Success: ${validCount} leads saved.`);
                 } else {
-                    console.warn(`  ⚠️ Rejected: All records belonged to other states.`);
+                    console.warn(`  ⚠️ REJECTED: All ${allProviders.length} records received from this URL belong to "${allProviders[0].state}", not "${stateName}"!`);
                 }
             }
         }
-        console.log(`\n🚀 FULL SYNC CYCLE COMPLETE!\n`);
-    } catch (e) {
-        console.error(`❌ FATAL GLOBAL ERROR: ${e.message}`);
-        process.exit(1);
-    }
+        console.log(`\n🚀 SYNC COMPLETE!\n`);
+    } catch (e) { console.error(`❌ FATAL ERROR: ${e.message}`); }
 }
-
 startRobotSync();
