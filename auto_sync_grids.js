@@ -63,7 +63,7 @@ async function startRobotSync() {
                     if (gid) { if (!gridData[gid]) gridData[gid] = []; gridData[gid].push(p); }
                 });
                 Object.keys(gridData).forEach(gid => {
-                    fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(gridData[gridId]));
+                    fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(gridData[gid]));
                 });
                 console.log(`✨ ${stateName} Updated: ${Object.keys(gridData).length} grids.`);
             }
