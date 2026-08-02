@@ -2,12 +2,8 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-// 🚀 SETTINGS
+// 🚀 MASTER HUB URL
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
-const MAHARASHTRA_URL = "https://script.google.com/macros/s/AKfycbzbK2ij2FS5bQjWYgv3gYdyTohXlJsCQcOXrEn9TArWLTEh3kQU50zvTZa87w9tb2vM/exec";
-const GRID_DIR = path.join(__dirname, 'maharashtra_grids');
-
-if (!fs.existsSync(GRID_DIR)) fs.mkdirSync(GRID_DIR, { recursive: true });
 
 function getGridId(lat, lon) {
     if (!lat || !lon || lat === 0 || lon === 0) return null;
@@ -15,60 +11,64 @@ function getGridId(lat, lon) {
 }
 
 async function startRobotSync() {
-    console.log("🤖 MASTER ROBOT: Starting Full Sync (Batch: 1000)");
+    console.log("🤖 MULTI-STATE MASTER ROBOT: Starting...");
     try {
-        // Fetch Hub Data
+        // Step 1: Fetch Hub Data (Config/URLs)
+        console.log("📡 Step 1: Fetching Master Config...");
         const hubResp = await axios.get(`${HUB_URL}?type=app_data`, { timeout: 60000 });
-        if (hubResp.data) fs.writeFileSync(path.join(__dirname, 'hub_data.json'), JSON.stringify(hubResp.data));
+        const appData = hubResp.data;
+        if (!appData || !appData.stateUrls) throw new Error("Invalid Hub Data");
 
-        // Fetch Maharashtra Providers
-        let allProviders = [];
-        let offset = 0;
-        const limit = 1000; // 🚀 BACK TO 1000: Proven stability for 70k+ rows
-        let hasMore = true;
-        let emptyRetry = 0;
+        fs.writeFileSync(path.join(__dirname, 'hub_data.json'), JSON.stringify(appData));
+        console.log("✅ Hub Config Updated.");
 
-        while (hasMore) {
-            console.log(`📡 Fetching Offset ${offset}...`);
-            try {
-                const resp = await axios.get(`${MAHARASHTRA_URL}?type=providers&offset=${offset}&limit=${limit}`, { timeout: 120000 });
-                const data = resp.data;
+        // Step 2: Loop through each State defined in Hub
+        const states = Object.keys(appData.stateUrls);
+        for (const stateName of states) {
+            const stateUrl = appData.stateUrls[stateName];
+            const folderName = `${stateName.toLowerCase().replace(/ /g, '_')}_grids`;
+            const gridDir = path.join(__dirname, folderName);
 
-                if (Array.isArray(data) && data.length > 0) {
-                    allProviders.push(...data);
-                    console.log(`✅ Success: ${allProviders.length} records collected.`);
-                    if (data.length < limit) hasMore = false;
-                    else offset += data.length;
-                    emptyRetry = 0;
-                    await new Promise(r => setTimeout(r, 800)); // 0.8s break
-                } else {
-                    if (emptyRetry < 2) {
-                        emptyRetry++;
-                        console.warn(`⚠️ Empty batch at ${offset}. Retry ${emptyRetry}...`);
-                        await new Promise(r => setTimeout(r, 5000));
-                    } else {
-                        hasMore = false;
-                    }
+            console.log(`📡 Processing State: ${stateName} (${folderName})...`);
+            if (!fs.existsSync(gridDir)) fs.mkdirSync(gridDir, { recursive: true });
+
+            let allProviders = [];
+            let offset = 0;
+            const limit = 5000;
+            let hasMore = true;
+
+            while (hasMore) {
+                console.log(`  🔍 Fetching ${stateName} | Offset: ${offset}...`);
+                try {
+                    const resp = await axios.get(`${stateUrl}?type=providers&offset=${offset}&limit=${limit}`, { timeout: 120000 });
+                    const data = resp.data;
+                    if (Array.isArray(data) && data.length > 0) {
+                        allProviders.push(...data);
+                        console.log(`  ✅ ${allProviders.length} leads collected.`);
+                        if (data.length < limit) hasMore = false;
+                        else offset += data.length;
+                        await new Promise(r => setTimeout(r, 2000)); // 2s break to prevent rate limits
+                    } else { hasMore = false; }
+                } catch (e) {
+                    console.warn(`  ⚠️ Batch Fail: ${e.message}. Retrying...`);
+                    await new Promise(r => setTimeout(r, 10000));
                 }
-            } catch (err) {
-                console.error(`❌ Batch Fail: ${err.message}. Retrying...`);
-                await new Promise(r => setTimeout(r, 10000));
+            }
+
+            // Step 3: Split into Grids for this State
+            if (allProviders.length > 0) {
+                const gridData = {};
+                allProviders.forEach(p => {
+                    const gid = getGridId(p.latitude, p.longitude);
+                    if (gid) { if (!gridData[gid]) gridData[gid] = []; gridData[gid].push(p); }
+                });
+                Object.keys(gridData).forEach(gid => {
+                    fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(gridData[gridId]));
+                });
+                console.log(`✨ ${stateName} Updated: ${Object.keys(gridData).length} grids.`);
             }
         }
-
-        console.log(`📊 FINAL SYNC STATS: Total = ${allProviders.length}`);
-
-        if (allProviders.length > 50000) {
-            const gridData = {};
-            allProviders.forEach(p => {
-                const gid = getGridId(p.latitude, p.longitude);
-                if (gid) { if (!gridData[gid]) gridData[gid] = []; gridData[gid].push(p); }
-            });
-            Object.keys(gridData).forEach(gid => fs.writeFileSync(path.join(GRID_DIR, `${gid}.json`), JSON.stringify(gridData[gid])));
-            console.log("✨ ALL DATA UPDATED AND LIVE ON CDN!");
-        } else {
-            console.error("⚠️ DATA TOO SMALL! Sync aborted to protect production.");
-        }
-    } catch (e) { console.error(e.message); process.exit(1); }
+        console.log("🚀 ALL STATES SYNCED SUCCESSFULLY!");
+    } catch (e) { console.error("❌ FATAL:", e.message); process.exit(1); }
 }
 startRobotSync();

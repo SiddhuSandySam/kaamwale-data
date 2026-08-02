@@ -25,9 +25,9 @@ jobs:
         run: |
           git config --global user.name "RapidHelp-Robot"
           git config --global user.email "robot@kaamwale.com"
-          # 🚀 DISCARD any accidental changes to workflow file to avoid permission error
           git checkout .github/workflows/grid_sync.yml
-          git add hub_data.json maharashtra_grids/*.json
-          git commit -m "Robot: Data Update [Auto-Sync]" || exit 0
-          # 🚀 Secure Push
-          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main
+          # 🚀 ADD ALL STATE GRIDS: Use wildcard to include any folder ending in _grids
+          git add hub_data.json *_grids/*.json
+          git commit -m "Robot: Multi-State Data Sync [Auto-Sync]" || exit 0
+          git config --local --unset-all http.https://github.com/.extraheader
+          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main --force
