@@ -10,7 +10,7 @@ function getGridId(lat, lon) {
 }
 
 async function startRobotSync() {
-    console.log("🤖 MULTI-STATE MASTER ROBOT: Starting with Enhanced Retry Logic...");
+    console.log("🤖 MULTI-STATE MASTER ROBOT: Starting with Persistent Retries...");
     try {
         console.log(`📡 Step 1: Fetching Master Config from Hub...`);
         const hubResp = await axios.get(`${HUB_URL}?type=app_data`, { timeout: 90000 });
@@ -33,9 +33,9 @@ async function startRobotSync() {
 
             let allProviders = [];
             let offset = 0;
-            const limit = 1000; // 🚀 BACK TO STABLE 1000: Best for Google Apps Script concurrency
+            const limit = 1000;
             let hasMore = true;
-            let consecutiveErrors = 0;
+            let errorStreak = 0;
 
             while (hasMore) {
                 console.log(`  📡 [${stateName}] Fetching Offset ${offset}...`);
@@ -49,7 +49,7 @@ async function startRobotSync() {
 
                     if (data && data.error) {
                         console.error(`  ❌ Google Script Error: ${data.error}`);
-                        break;
+                        break; // Stop THIS state on script logic error
                     }
 
                     if (Array.isArray(data) && data.length > 0) {
@@ -62,31 +62,26 @@ async function startRobotSync() {
                         } else {
                             offset += data.length;
                         }
-                        consecutiveErrors = 0; // Reset on success
-                        await new Promise(r => setTimeout(r, 1000)); // Breathe
+                        errorStreak = 0; // Reset on success
+                        await new Promise(r => setTimeout(r, 1000)); // Short breather
                     } else {
-                        // Sometimes Google returns empty array mid-way, retry once
-                        if (consecutiveErrors < 1) {
-                            consecutiveErrors++;
-                            console.warn(`  ⚠️ Received empty array. Retrying same offset in 10s...`);
-                            await new Promise(r => setTimeout(r, 10000));
-                        } else {
-                            console.log(`  🏁 Final end reached.`);
-                            hasMore = false;
+                        // 🚀 Persistent Retry for Empty Array (mid-way)
+                        console.warn(`  ⚠️ Received empty array at offset ${offset}. Retrying in 15s...`);
+                        await new Promise(r => setTimeout(r, 15000));
+                        // Note: We don't increment offset, so it tries the same one again.
+                        // We check for final end by checking if we have at least SOME data
+                        if (allProviders.length > 0 && errorStreak > 2) {
+                             console.log(`  🏁 End assumed after multiple empty responses.`);
+                             hasMore = false;
                         }
+                        errorStreak++;
                     }
                 } catch (e) {
-                    consecutiveErrors++;
+                    errorStreak++;
                     const statusCode = e.response ? e.response.status : "TIMEOUT";
                     console.error(`  ❌ Batch Fail (Error ${statusCode}): ${e.message}`);
-
-                    if (consecutiveErrors > 5) {
-                        console.error(`  ‼️ Too many failures. Skipping remaining data for ${stateName}.`);
-                        break;
-                    }
-
-                    console.log(`  ⏳ Retrying offset ${offset} in 15s (Attempt ${consecutiveErrors}/5)...`);
-                    await new Promise(r => setTimeout(r, 15000));
+                    console.log(`  ⏳ Persistent Retry: Retrying offset ${offset} in 20s...`);
+                    await new Promise(r => setTimeout(r, 20000));
                 }
             }
 
@@ -97,7 +92,6 @@ async function startRobotSync() {
                 let validCount = 0;
 
                 allProviders.forEach(p => {
-                    // 🚀 MASTER FILTER: Verify data integrity
                     if (p.state && p.state.toLowerCase() === stateName.toLowerCase()) {
                         const gid = getGridId(p.latitude, p.longitude);
                         if (gid) {
@@ -110,16 +104,13 @@ async function startRobotSync() {
 
                 if (validCount > 0) {
                     if (!fs.existsSync(gridDir)) fs.mkdirSync(gridDir, { recursive: true });
-                    // Clean folder optionally? For now just overwrite.
                     Object.keys(gridData).forEach(gid => {
                         fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(gridData[gid]));
                     });
-                    console.log(`✨ [${stateName}] Success: ${validCount} leads saved into ${Object.keys(gridData).length} grids.`);
+                    console.log(`✨ [${stateName}] Success: ${validCount} leads saved.`);
                 } else {
-                    console.warn(`  ⚠️ Rejected: Found ${allProviders.length} records, but 0 belong to "${stateName}".`);
+                    console.warn(`  ⚠️ Rejected: All records belonged to other states.`);
                 }
-            } else {
-                console.log(`  ℹ️ Skipping ${stateName}: No data found.`);
             }
         }
         console.log(`\n🚀 FULL SYNC CYCLE COMPLETE!\n`);
