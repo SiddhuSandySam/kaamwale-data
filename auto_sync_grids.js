@@ -2,7 +2,6 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-// 🚀 MASTER HUB URL
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
 
 function getGridId(lat, lon) {
@@ -13,8 +12,7 @@ function getGridId(lat, lon) {
 async function startRobotSync() {
     console.log("🤖 MULTI-STATE MASTER ROBOT: Starting...");
     try {
-        // Step 1: Fetch Hub Data (Config/URLs)
-        console.log("📡 Step 1: Fetching Master Config...");
+        console.log("📡 Fetching Master Config...");
         const hubResp = await axios.get(`${HUB_URL}?type=app_data`, { timeout: 60000 });
         const appData = hubResp.data;
         if (!appData || !appData.stateUrls) throw new Error("Invalid Hub Data");
@@ -22,15 +20,13 @@ async function startRobotSync() {
         fs.writeFileSync(path.join(__dirname, 'hub_data.json'), JSON.stringify(appData));
         console.log("✅ Hub Config Updated.");
 
-        // Step 2: Loop through each State defined in Hub
         const states = Object.keys(appData.stateUrls);
         for (const stateName of states) {
             const stateUrl = appData.stateUrls[stateName];
             const folderName = `${stateName.toLowerCase().replace(/ /g, '_')}_grids`;
             const gridDir = path.join(__dirname, folderName);
 
-            console.log(`📡 Processing State: ${stateName} (${folderName})...`);
-            if (!fs.existsSync(gridDir)) fs.mkdirSync(gridDir, { recursive: true });
+            console.log(`📡 Processing State: ${stateName}...`);
 
             let allProviders = [];
             let offset = 0;
@@ -38,25 +34,33 @@ async function startRobotSync() {
             let hasMore = true;
 
             while (hasMore) {
-                console.log(`  🔍 Fetching ${stateName} | Offset: ${offset}...`);
                 try {
                     const resp = await axios.get(`${stateUrl}?type=providers&offset=${offset}&limit=${limit}`, { timeout: 120000 });
                     const data = resp.data;
+
+                    if (data && data.error) {
+                        console.error(`  ❌ Google Script Error in ${stateName}: ${data.error}`);
+                        hasMore = false;
+                        continue;
+                    }
+
                     if (Array.isArray(data) && data.length > 0) {
                         allProviders.push(...data);
-                        console.log(`  ✅ ${allProviders.length} leads collected.`);
+                        console.log(`  ✅ ${allProviders.length} leads collected for ${stateName}.`);
                         if (data.length < limit) hasMore = false;
                         else offset += data.length;
-                        await new Promise(r => setTimeout(r, 2000)); // 2s break to prevent rate limits
-                    } else { hasMore = false; }
+                        await new Promise(r => setTimeout(r, 1000));
+                    } else {
+                        hasMore = false;
+                    }
                 } catch (e) {
-                    console.warn(`  ⚠️ Batch Fail: ${e.message}. Retrying...`);
-                    await new Promise(r => setTimeout(r, 10000));
+                    console.warn(`  ⚠️ Connection Error for ${stateName}: ${e.message}`);
+                    hasMore = false;
                 }
             }
 
-            // Step 3: Split into Grids for this State
             if (allProviders.length > 0) {
+                if (!fs.existsSync(gridDir)) fs.mkdirSync(gridDir, { recursive: true });
                 const gridData = {};
                 allProviders.forEach(p => {
                     const gid = getGridId(p.latitude, p.longitude);
@@ -65,10 +69,12 @@ async function startRobotSync() {
                 Object.keys(gridData).forEach(gid => {
                     fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(gridData[gid]));
                 });
-                console.log(`✨ ${stateName} Updated: ${Object.keys(gridData).length} grids.`);
+                console.log(`✨ ${stateName} Success: ${Object.keys(gridData).length} grids updated.`);
+            } else {
+                console.log(`  ℹ️ Skipping ${stateName}: No leads found.`);
             }
         }
-        console.log("🚀 ALL STATES SYNCED SUCCESSFULLY!");
+        console.log("🚀 SYNC CYCLE COMPLETE!");
     } catch (e) { console.error("❌ FATAL:", e.message); process.exit(1); }
 }
 startRobotSync();
