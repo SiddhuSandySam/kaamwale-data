@@ -59,17 +59,31 @@ async function startRobotSync() {
                 }
             }
 
+            // 🚀 MASTER FILTER: Only accept data that belongs to the current state
             if (allProviders.length > 0) {
-                if (!fs.existsSync(gridDir)) fs.mkdirSync(gridDir, { recursive: true });
                 const gridData = {};
+                let validCount = 0;
+
                 allProviders.forEach(p => {
-                    const gid = getGridId(p.latitude, p.longitude);
-                    if (gid) { if (!gridData[gid]) gridData[gid] = []; gridData[gid].push(p); }
+                    if (p.state && p.state.toLowerCase() === stateName.toLowerCase()) {
+                        const gid = getGridId(p.latitude, p.longitude);
+                        if (gid) {
+                            if (!gridData[gid]) gridData[gid] = [];
+                            gridData[gid].push(p);
+                            validCount++;
+                        }
+                    }
                 });
-                Object.keys(gridData).forEach(gid => {
-                    fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(gridData[gid]));
-                });
-                console.log(`✨ ${stateName} Success: ${Object.keys(gridData).length} grids updated.`);
+
+                if (validCount > 0) {
+                    if (!fs.existsSync(gridDir)) fs.mkdirSync(gridDir, { recursive: true });
+                    Object.keys(gridData).forEach(gid => {
+                        fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(gridData[gid]));
+                    });
+                    console.log(`✨ ${stateName} Success: ${validCount} valid grids updated.`);
+                } else {
+                    console.warn(`  ⚠️ Rejected ${stateName}: All ${allProviders.length} records were for different states!`);
+                }
             } else {
                 console.log(`  ℹ️ Skipping ${stateName}: No leads found.`);
             }
