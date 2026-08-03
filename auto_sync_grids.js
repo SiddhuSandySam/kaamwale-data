@@ -30,7 +30,7 @@ async function startRobotSync() {
 
             let allProviders = [];
             let offset = 0;
-            const limit = 1000;
+            const limit = 5000;
             let hasMore = true;
             let errorCount = 0;
 
