@@ -10,7 +10,7 @@ function getGridId(lat, lon) {
 }
 
 async function startRobotSync() {
-    console.log("🤖 MASTER ROBOT: Starting Persistent Multi-State Sync...");
+    console.log("🤖 MASTER ROBOT: Starting Smart Multi-State Sync...");
     try {
         console.log(`📡 Step 1: Fetching Master Config...`);
         const hubResp = await axios.get(`${HUB_URL}?type=app_data&nocache=true`, { timeout: 90000 });
@@ -30,9 +30,9 @@ async function startRobotSync() {
 
             let allProviders = [];
             let offset = 0;
-            const limit = 1000; // 🚀 BACK TO STABLE 1000 for 75k+ rows
+            const limit = 1000;
             let hasMore = true;
-            let errorStreak = 0;
+            let errorCount = 0;
 
             while (hasMore) {
                 console.log(`  📡 [${stateName}] Fetching Offset ${offset}...`);
@@ -41,35 +41,45 @@ async function startRobotSync() {
                     const resp = await axios.get(finalUrl, { timeout: 120000 });
                     const data = resp.data;
 
-                    if (Array.isArray(data) && data.length > 0) {
-                        allProviders.push(...data);
-                        console.log(`  ✅ Success: ${allProviders.length} records collected.`);
+                    if (Array.isArray(data)) {
+                        if (data.length > 0) {
+                            allProviders.push(...data);
+                            console.log(`  ✅ Success: ${allProviders.length} records collected.`);
 
-                        if (data.length < limit) {
-                            hasMore = false;
+                            if (data.length < limit) {
+                                hasMore = false; // Last batch
+                            } else {
+                                offset += data.length;
+                            }
+                            errorCount = 0; // Reset errors on success
+                            await new Promise(r => setTimeout(r, 800)); // Breathe
                         } else {
-                            offset += data.length;
+                            // 🚀 CORRECT LOGIC: Empty array is a valid end of data, NOT an error.
+                            console.log("  🏁 End of data reached (Empty Array).");
+                            hasMore = false;
                         }
-                        errorStreak = 0; // Reset
-                        await new Promise(r => setTimeout(r, 800)); // Breathe
+                    } else if (data && data.error) {
+                        console.error(`  ❌ Google Script Logic Error: ${data.error}`);
+                        hasMore = false; // Stop this state
                     } else {
-                        // Empty array could be end of data or a glitch
-                        if (allProviders.length > 50000 && errorStreak > 1) {
-                            console.log("  🏁 End assumed.");
-                            hasMore = false;
-                        } else {
-                            console.warn("  ⚠️ Received empty response. Retrying...");
-                            errorStreak++;
-                            await new Promise(r => setTimeout(r, 10000));
-                        }
+                        throw new Error("Received non-array response (HTML or Malformed JSON)");
                     }
                 } catch (e) {
-                    errorStreak++;
-                    console.error(`  ❌ Batch Fail: ${e.message}. Attempt ${errorStreak}...`);
-                    console.log(`  ⏳ PERSISTENT RETRY: Trying same offset ${offset} again in 20s...`);
-                    await new Promise(r => setTimeout(r, 20000));
+                    errorCount++;
+                    const statusCode = e.response ? e.response.status : "TIMEOUT/NETWORK";
+                    console.error(`  ❌ Batch Fail (Attempt ${errorCount}): ${e.message} [Status: ${statusCode}]`);
+
+                    if (errorCount > 10) {
+                        console.error(`  ‼️ Too many real errors. Skipping state ${stateName}.`);
+                        hasMore = false;
+                    } else {
+                        console.log(`  ⏳ Retrying same offset ${offset} in 20s...`);
+                        await new Promise(r => setTimeout(r, 20000));
+                    }
                 }
             }
+
+            console.log(`📊 [${stateName}] Total Fetched: ${allProviders.length}`);
 
             if (allProviders.length > 0) {
                 const gridData = {};
@@ -90,11 +100,11 @@ async function startRobotSync() {
                     Object.keys(gridData).forEach(gid => {
                         fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(gridData[gid]));
                     });
-                    console.log(`✨ [${stateName}] Success: ${validCount} valid leads saved.`);
+                    console.log(`✨ [${stateName}] Success: ${validCount} leads saved.`);
                 }
             }
         }
         console.log(`\n🚀 SYNC COMPLETE!\n`);
-    } catch (e) { console.error(`❌ FATAL: ${e.message}`); }
+    } catch (e) { console.error(`❌ FATAL GLOBAL ERROR: ${e.message}`); }
 }
 startRobotSync();
