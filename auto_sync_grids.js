@@ -10,7 +10,7 @@ function getGridId(lat, lon) {
 }
 
 async function startRobotSync() {
-    console.log("🤖 MASTER ROBOT: Starting Ultra-Clean Sync (No Cache Mode)...");
+    console.log("🤖 MASTER ROBOT: Starting Persistent Multi-State Sync...");
     try {
         console.log(`📡 Step 1: Fetching Master Config...`);
         const hubResp = await axios.get(`${HUB_URL}?type=app_data&nocache=true`, { timeout: 90000 });
@@ -30,28 +30,44 @@ async function startRobotSync() {
 
             let allProviders = [];
             let offset = 0;
-            const limit = 5000;
+            const limit = 1000; // 🚀 BACK TO STABLE 1000 for 75k+ rows
             let hasMore = true;
+            let errorStreak = 0;
 
             while (hasMore) {
+                console.log(`  📡 [${stateName}] Fetching Offset ${offset}...`);
                 try {
-                    // 🚀 FORCE FRESH DATA: Added nocache=true and timestamp
                     const finalUrl = `${stateUrl}?type=providers&offset=${offset}&limit=${limit}&nocache=true&cb=${Date.now()}`;
                     const resp = await axios.get(finalUrl, { timeout: 120000 });
                     const data = resp.data;
 
                     if (Array.isArray(data) && data.length > 0) {
                         allProviders.push(...data);
-                        console.log(`  ✅ Success: ${allProviders.length} records collected for ${stateName}.`);
-                        if (data.length < limit) hasMore = false;
-                        else offset += data.length;
-                        await new Promise(r => setTimeout(r, 1000));
+                        console.log(`  ✅ Success: ${allProviders.length} records collected.`);
+
+                        if (data.length < limit) {
+                            hasMore = false;
+                        } else {
+                            offset += data.length;
+                        }
+                        errorStreak = 0; // Reset
+                        await new Promise(r => setTimeout(r, 800)); // Breathe
                     } else {
-                        hasMore = false;
+                        // Empty array could be end of data or a glitch
+                        if (allProviders.length > 50000 && errorStreak > 1) {
+                            console.log("  🏁 End assumed.");
+                            hasMore = false;
+                        } else {
+                            console.warn("  ⚠️ Received empty response. Retrying...");
+                            errorStreak++;
+                            await new Promise(r => setTimeout(r, 10000));
+                        }
                     }
                 } catch (e) {
-                    console.error(`  ⚠️ Batch Fail for ${stateName}: ${e.message}`);
-                    hasMore = false;
+                    errorStreak++;
+                    console.error(`  ❌ Batch Fail: ${e.message}. Attempt ${errorStreak}...`);
+                    console.log(`  ⏳ PERSISTENT RETRY: Trying same offset ${offset} again in 20s...`);
+                    await new Promise(r => setTimeout(r, 20000));
                 }
             }
 
@@ -59,7 +75,6 @@ async function startRobotSync() {
                 const gridData = {};
                 let validCount = 0;
                 allProviders.forEach(p => {
-                    // 🚀 MASTER FILTER: Ensure data belongs to the correct state
                     if (p.state && p.state.toLowerCase() === stateName.toLowerCase()) {
                         const gid = getGridId(p.latitude, p.longitude);
                         if (gid) {
@@ -76,14 +91,10 @@ async function startRobotSync() {
                         fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(gridData[gid]));
                     });
                     console.log(`✨ [${stateName}] Success: ${validCount} valid leads saved.`);
-                } else {
-                    console.warn(`  ⚠️ REJECTED: All ${allProviders.length} records belonged to another state! URL check required.`);
                 }
-            } else {
-                console.log(`  ℹ️ Skipping ${stateName}: No data found.`);
             }
         }
-        console.log(`\n🚀 FULL CLEAN SYNC COMPLETE!\n`);
-    } catch (e) { console.error(`❌ FATAL ERROR: ${e.message}`); }
+        console.log(`\n🚀 SYNC COMPLETE!\n`);
+    } catch (e) { console.error(`❌ FATAL: ${e.message}`); }
 }
 startRobotSync();
