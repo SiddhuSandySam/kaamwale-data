@@ -5,6 +5,11 @@ on:
     - cron: '0 */6 * * *' 
   workflow_dispatch: 
 
+# 🚀 PREVENT CONFLICTS: Only one instance of the scraper can run at a time
+concurrency:
+  group: rapidhelp-scraper-factory
+  cancel-in-progress: false 
+
 permissions:
   contents: write
 
