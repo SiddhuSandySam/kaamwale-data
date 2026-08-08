@@ -1,0 +1,25 @@
+name: 🕵️‍♂️ Verify GitHub Scraper
+
+on:
+  workflow_dispatch: # Allow manual start only
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: |
+          npm install
+          npx playwright install chromium --with-deps
+
+      - name: Run Verification Test
+        run: node verify_scraper.js
