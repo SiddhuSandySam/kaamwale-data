@@ -367,19 +367,25 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             let latitude = urlCoords ? parseFloat(urlCoords[1]) : 0;
             let longitude = urlCoords ? parseFloat(urlCoords[2]) : 0;
 
-            // 🚀 SMART ADDRESS PARSING 🛡️
+            // 🚀 SMART ADDRESS PARSING 🛡️ (Updated for India suffix)
             const cleanFullAddress = fullAddress.replace('\n', '').replace('', '').trim();
             const addressParts = cleanFullAddress.split(',').map(p => p.trim());
 
-            let detectedCity = city; // Fallback to search city
-            let detectedLocality = city; // Fallback to search city
+            let detectedCity = city;
+            let detectedLocality = city;
 
-            if (addressParts.length >= 3) {
-                // Format: [..., Locality, City, State PIN]
-                const cityPart = addressParts[addressParts.length - 2];
-                const statePart = addressParts[addressParts.length - 1];
+            if (addressParts.length >= 2) {
+                let statePartIndex = addressParts.length - 1;
 
-                // 🛑 Cross-State Protection
+                // If last part is "India", check the part before it
+                if (addressParts[statePartIndex].toLowerCase() === "india" && addressParts.length >= 3) {
+                    statePartIndex--;
+                }
+
+                const statePart = addressParts[statePartIndex];
+                const cityPart = addressParts[statePartIndex - 1];
+
+                // 🛑 Cross-State Protection (Case Insensitive)
                 if (!statePart.toLowerCase().includes(state.toLowerCase())) {
                     console.log(`Worker ${WORKER_ID} | [🛑] | Skip: Result in wrong state (${statePart})`);
                     continue;
@@ -388,15 +394,10 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
                 detectedCity = cityPart;
 
                 // Extract Locality (the part before City)
-                if (addressParts.length >= 4) {
-                    detectedLocality = addressParts[addressParts.length - 3];
+                if (statePartIndex >= 2) {
+                    detectedLocality = addressParts[statePartIndex - 2];
                 } else {
                     detectedLocality = detectedCity;
-                }
-
-                // Clean plot/shop numbers from locality
-                if (/^\d+/.test(detectedLocality) || detectedLocality.toLowerCase().includes('plot') || detectedLocality.toLowerCase().includes('shop') || detectedLocality.toLowerCase().includes('floor')) {
-                    if (addressParts.length >= 5) detectedLocality = addressParts[addressParts.length - 4];
                 }
             }
 
