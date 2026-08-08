@@ -302,10 +302,9 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
         // 🚀 INCREASED TIMEOUT: Wait up to 60s for slow internet/Chrome response
         await page.waitForSelector('a.hfpxzc', { timeout: 60000 });
     } catch (e) {
-        // 🛡️ Extra check: If it was just a timeout, maybe wait 5s more and try one last time
-        console.log(`Worker ${WORKER_ID} | [WAIT] | Results slow to load in ${city}. Retrying wait...`);
-        try { await page.waitForTimeout(5000); await page.waitForSelector('a.hfpxzc', { timeout: 15000 }); }
-        catch (e2) { return 0; }
+        // 🛡️ BLOCK/TIMEOUT PROTECTION: If map doesn't load, STOP EVERYTHING to prevent data skipping.
+        console.error(`Worker ${WORKER_ID} | [FATAL] | Google Maps not responding or Blocked in ${city}. Stopping current run.`);
+        return -1; // 🛑 SIGNAL: Fatal stop
     }
     for (let i = 0; i < 2; i++) { if (isStopping || page.isClosed()) return 0; await page.mouse.wheel(0, 3000); await page.waitForTimeout(1000); }
 
@@ -560,7 +559,14 @@ async function runOrchestrator() {
                         if (isStopping) break;
                         const subcategory = category.sub[subIdx]; progress.subcategoryIndex = subIdx;
                         console.log(`\nWorker ${WORKER_ID} | SCAN | ${category.name} > ${subcategory} in ${city} (${state.name})`);
-                        await scrapeCombination(page, city, state.name, category.id, subcategory);
+                        const result = await scrapeCombination(page, city, state.name, category.id, subcategory);
+
+                        if (result === -1) {
+                            console.log(`Worker ${WORKER_ID} | [STOP] | Shutting down to avoid skipping data...`);
+                            await gracefulShutdown();
+                            return;
+                        }
+
                         await saveProgress();
                         if (!isStopping) await page.waitForTimeout(COOL_DOWN_MS);
                     }
