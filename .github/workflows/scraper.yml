@@ -1,0 +1,59 @@
+name: RapidHelp Autonomous Scraper Factory
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' 
+  workflow_dispatch: 
+
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    name: Worker ${{ matrix.worker_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        worker_id: [0, 1, 2, 3, 4] 
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: |
+          npm install
+          npx playwright install chromium --with-deps
+
+      - name: Setup Virtual Display (Xvfb)
+        run: |
+          sudo apt-get install -y xvfb
+          Xvfb :99 -screen 0 1280x1024x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+
+      - name: Restore Firebase Key
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > serviceAccountKey.json
+
+      - name: Run Scraper
+        env:
+          DISPLAY: :99
+          HEADLESS: "false"
+        run: |
+          timeout 19800s node multi_worker.js ${{ matrix.worker_id }} 5 || echo "Cycle complete"
+
+      - name: Commit and Push Progress
+        run: |
+          git config --global user.name "RapidHelp-Bot"
+          git config --global user.email "bot@rapidhelp.in"
+          git add progress_W${{ matrix.worker_id }}.json
+          git commit -m "Worker ${{ matrix.worker_id }} progress update [skip ci]" || echo "No changes"
+          git push origin main
