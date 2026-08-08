@@ -51,8 +51,26 @@ let lastFullSyncTime = 0;
 registry.migrateFromJson();
 
 let progress = { stateIndex: 0, cityIndex: 0, categoryIndex: 0, subcategoryIndex: 0, lastRegistrySync: 0 };
-if (fs.existsSync(PROGRESS_FILE)) {
-    progress = JSON.parse(fs.readFileSync(PROGRESS_FILE));
+
+async function loadProgress() {
+    // 1. Try Local File first
+    if (fs.existsSync(PROGRESS_FILE)) {
+        progress = JSON.parse(fs.readFileSync(PROGRESS_FILE));
+        console.log(`Worker ${WORKER_ID} | INFO | Local Progress Loaded.`);
+    }
+
+    // 2. Try Firebase (The ultimate truth)
+    if (db) {
+        try {
+            const doc = await db.collection('metadata').doc(`progress_W${WORKER_ID}`).get();
+            if (doc.exists) {
+                progress = doc.data();
+                console.log(`Worker ${WORKER_ID} | INFO | Firebase Progress Loaded.`);
+            }
+        } catch (e) {
+            console.warn(`Worker ${WORKER_ID} | WARN | Could not load progress from Firebase.`);
+        }
+    }
 }
 
 let sheetBuffer = [];
@@ -448,6 +466,7 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
 }
 
 async function runOrchestrator() {
+    await loadProgress(); // 🚀 LOAD PROGRESS BEFORE STARTING
     const browser = await chromium.launch({ headless: HEADLESS });
     const page = await browser.newPage();
 
