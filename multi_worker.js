@@ -533,17 +533,20 @@ async function runOrchestrator() {
             currentTargetUrl = stateUrls[state.name];
             if (!currentTargetUrl) continue;
 
-            // 🚀 SMART FIX: Flush buffers before switching to a new state
             if (sheetBuffer.length > 0 || firestoreBuffer.length > 0) {
-                console.log(`Worker ${WORKER_ID} | INFO | Flushing remaining leads before switching to ${state.name}...`);
+                console.log(`Worker ${WORKER_ID} | INFO | Flushing leads before switching to ${state.name}...`);
                 await flushBuffers();
             }
 
             await syncFromSatellite(currentTargetUrl);
 
             let cities = [...state.cities]; if (WORKER_ID % 2 === 0) cities.reverse();
+
             for (let catIdx = progress.categoryIndex; catIdx < config.categories.length; catIdx++) {
-                if (catIdx % TOTAL_WORKERS !== WORKER_ID) continue;
+                if (catIdx % TOTAL_WORKERS !== WORKER_ID) {
+                    progress.cityIndex = 0; // 🚀 FIX: Ensure city reset for next worker category
+                    continue;
+                }
 
                 const category = config.categories[catIdx]; progress.categoryIndex = catIdx;
                 for (let cIdx = progress.cityIndex; cIdx < cities.length; cIdx++) {
@@ -551,7 +554,7 @@ async function runOrchestrator() {
 
                     if (Date.now() - lastFullSyncTime > 180000) {
                          await syncFromSatellite(currentTargetUrl);
-bhai                     }
+                    }
 
                     for (let subIdx = progress.subcategoryIndex; subIdx < category.sub.length; subIdx++) {
                         if (isStopping) break;
@@ -563,9 +566,11 @@ bhai                     }
                     }
                     if (isStopping) break; progress.subcategoryIndex = 0;
                 }
-                if (isStopping) break; progress.cityIndex = 0;
+                if (isStopping) break;
+                progress.cityIndex = 0; // 🚀 FIX: Reset city for next category
             }
-            if (isStopping) break; progress.categoryIndex = 0;
+            if (isStopping) break;
+            progress.categoryIndex = 0; // 🚀 FIX: Reset category for next state
         }
     } catch (fatal) {
         console.error(`Worker ${WORKER_ID} | FATAL | Loop Error: ${fatal.message}`);
