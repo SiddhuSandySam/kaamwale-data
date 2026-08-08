@@ -58,7 +58,7 @@ if (fs.existsSync(PROGRESS_FILE)) {
 let sheetBuffer = [];
 let firestoreBuffer = [];
 let isFlushing = false;
-const BATCH_LIMIT = 100; // 🚀 INCREASED: Faster sync by grouping more leads
+const BATCH_LIMIT = 10; // 🚀 SMALL BATCH: For GitHub Actions testing
 
 async function saveProgress() {
     fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
