@@ -76,7 +76,7 @@ async function loadProgress() {
 let sheetBuffer = [];
 let firestoreBuffer = [];
 let isFlushing = false;
-const BATCH_LIMIT = 10; // 🚀 SMALL BATCH: For GitHub Actions testing
+const BATCH_LIMIT = 100; // 🚀 BACK TO PRODUCTION: 100 leads per batch
 
 async function saveProgress() {
     fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
@@ -567,8 +567,11 @@ bhai                     }
             }
             if (isStopping) break; progress.categoryIndex = 0;
         }
-    } catch (fatal) {}
+    } catch (fatal) {
+        console.error(`Worker ${WORKER_ID} | FATAL | Loop Error: ${fatal.message}`);
+    }
 
+    console.log(`Worker ${WORKER_ID} | INFO | Job Finished or Terminated.`);
     await gracefulShutdown();
 }
 
