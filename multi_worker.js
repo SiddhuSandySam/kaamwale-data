@@ -197,17 +197,27 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
         await page.mouse.wheel(0, 3000);
         await page.waitForTimeout(2000);
 
-        const listings = await page.$$('a.hfpxzc');
         let streak = 0;
         let foundCount = 0;
 
-        for (let i = 0; i < Math.min(listings.length, 30); i++) {
+        for (let i = 0; i < 30; i++) {
             if (isStopping) break;
-            const listing = listings[i];
-            const nameRaw = await listing.getAttribute('aria-label');
 
-            await listing.scrollIntoViewIfNeeded();
-            await listing.click();
+            // 🚀 FRESH FETCH: Re-grab listings in each iteration to avoid 'Detached from DOM' error
+            const listings = await page.$$('a.hfpxzc');
+            if (i >= listings.length) break;
+
+            const listing = listings[i];
+            const nameRaw = await listing.getAttribute('aria-label').catch(() => null);
+            if (!nameRaw) continue;
+
+            try {
+                await listing.scrollIntoViewIfNeeded({ timeout: 10000 }).catch(() => {});
+                await listing.click({ timeout: 10000 });
+            } catch (clickErr) {
+                console.log(`Worker ${WORKER_ID} | WARN | Click failed (Element moved). Retrying next...`);
+                continue;
+            }
 
             let updated = false;
             for (let r = 0; r < 10; r++) {
