@@ -156,25 +156,36 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
         const phoneStr = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
         const cleanPhone = phoneStr.replace(/[^0-9]/g, '').slice(-10);
 
-        if (!cleanPhone || cleanPhone.length < 10 || registry.has(cleanPhone)) return 0;
+        if (!cleanPhone || cleanPhone.length < 10) return 0;
 
+        // 🚀 LOG IMMEDIATELY
+        console.log(`Worker ${WORKER_ID} | INFO | Detected: ${businessName} | Phone: ${cleanPhone}`);
+
+        if (registry.has(cleanPhone)) return "DUPLICATE";
+
+        // Wait for address/content to load properly
+        await page.waitForTimeout(1000);
         const fullAddress = await page.$eval('button[data-item-id="address"]', el => el.innerText).catch(() => "N/A");
         const cleanFullAddress = fullAddress.replace('\n', '').replace('', '').trim();
 
-        // 🛡️ CROSS-CITY PROTECTION (India suffix friendly)
+        // 🛡️ CROSS-CITY PROTECTION
         const addrLower = cleanFullAddress.toLowerCase();
-        if (!addrLower.includes(state.toLowerCase())) {
+        if (cleanFullAddress !== "N/A" && !addrLower.includes(state.toLowerCase())) {
             console.log(`Worker ${WORKER_ID} | [🛑] | Skip: Wrong location (${cleanFullAddress})`);
-            return 0;
+            return "WRONG_LOCATION";
         }
 
-        // 🚀 FETCH PORTFOLIO IMAGES
+        // 🚀 FETCH PORTFOLIO IMAGES (Restore Original Skip Logic)
         let portfolio = await extractPortfolio(page);
         if (portfolio.length === 0) { await page.waitForTimeout(2000); portfolio = await extractPortfolio(page); }
 
+        if (portfolio.length === 0) {
+            console.log(`Worker ${WORKER_ID} | [!] | No Images found. Skipping to maintain quality.`);
+            return 0;
+        }
+
         const urlCoords = page.url().match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || page.url().match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
 
-        // 💎 THE 31 COLUMN GOLD OBJECT
         const provider = {
             id: `shadow_${cleanPhone}`,
             businessName: businessName,
@@ -283,13 +294,16 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             if (!updated) continue;
 
             const res = await scrapeIndividualProfile(page, nameRaw, city, state, categoryId, subcategory);
-            if (res === 1) { foundCount++; streak = 0; }
-            else {
+            if (res === 1) {
+                foundCount++; streak = 0;
+            } else if (res === "DUPLICATE") {
                 streak++;
                 if (streak >= 4) {
                     console.log(`Worker ${WORKER_ID} | [🛑] | Streak hit. Next category...`);
                     return foundCount;
                 }
+            } else {
+                // For WRONG_LOCATION or N/A phone, don't increment streak, just continue
             }
         }
         return foundCount;
