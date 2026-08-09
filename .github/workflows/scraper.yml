@@ -81,14 +81,16 @@ jobs:
       - name: Commit and Push Progress
         if: always() 
         run: |
-          set +e # 🚀 DON'T EXIT ON CONFLICT: Keep retrying!
+          set +e
           git config --global user.name "RapidHelp-Bot"
           git config --global user.email "bot@rapidhelp.in"
           
-          for i in {1..25}; do
-            sleep $(( (RANDOM % 20) + 10 ))
+          # 🚀 ATOMIC GIT SYNC: COMMIT FIRST, THEN PULL & PUSH
+          git add progress_W*.json
+          git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || echo "No local changes to commit"
+          
+          for i in {1..20}; do
+            echo "Attempt $i: Pulling latest changes and pushing..."
             git pull --rebase origin main
-            git add progress_W*.json
-            git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]"
-            git push origin main && break || echo "Retry push $i..."
+            git push origin main && echo "✅ Progress pushed successfully!" && break || (echo "❌ Conflict/Error, retrying in 20s..." && sleep 20)
           done
