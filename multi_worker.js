@@ -293,9 +293,9 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
         } catch (e) {}
 
         if (sheetBuffer.length >= BATCH_LIMIT || firestoreBuffer.length >= BATCH_LIMIT) await flushBuffers();
-        console.log(`Worker ${WORKER_ID} | [+] | Saved: ${businessName} | Phone: ${cleanPhone} (Total: ${newLeadsCount})`);
+        const finalPhone = cleanPhone.replace(/[^0-9]/g, '').slice(-10);
+        console.log(`Worker ${WORKER_ID} | [+] | Saved: ${businessName} | Phone: ${finalPhone} (Total: ${++newLeadsCount})`);
         registry.add(cleanPhone);
-        newLeadsCount++;
         return 1;
     } catch (err) { return 0; }
 }
@@ -351,8 +351,8 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             else if (res === "DUPLICATE") {
                 streak++;
                 const phone = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
-                const clean = phone.replace(/[^0-9]/g, '').slice(-10);
-                console.log(`Worker ${WORKER_ID} | [-] | Skip: Duplicate Number: ${clean} (Streak: ${streak}/4)`);
+                const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
+                console.log(`Worker ${WORKER_ID} | [-] | Skip: Duplicate Number: ${cleanPhone} (Streak: ${streak}/4)`);
                 if (streak >= 4) {
                     console.log(`Worker ${WORKER_ID} | [🛑] | Streak hit. Next city...`);
                     return foundCount;
@@ -408,14 +408,14 @@ async function runOrchestrator() {
 
                     for (let subIdx = progress.subcategoryIndex; subIdx < category.sub.length; subIdx++) {
                         if (isStopping) break;
-                        const subcat = category.sub[subIdx]; progress.subcategoryIndex = subIdx;
+                        const subcategory = category.sub[subIdx]; progress.subcategoryIndex = subIdx;
 
                         const wait = Math.floor(Math.random() * 10000) + 10000;
                         console.log(`\nWorker ${WORKER_ID} | WAIT | Resting for ${wait/1000}s...`);
                         await page.waitForTimeout(wait);
 
                         console.log(`Worker ${WORKER_ID} | SCAN | ${subcategory} in ${city}`);
-                        const res = await scrapeCombination(page, city, state.name, category.id, subcat);
+                        const res = await scrapeCombination(page, city, state.name, category.id, subcategory);
                         if (res === -1) { await gracefulShutdown(true); return; }
                         await saveProgress();
                     }
