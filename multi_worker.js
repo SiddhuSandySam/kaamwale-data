@@ -570,9 +570,14 @@ async function runOrchestrator() {
                         await saveProgress();
                         if (!isStopping) await page.waitForTimeout(COOL_DOWN_MS);
                     }
-                    if (isStopping) break; progress.subcategoryIndex = 0;
+                    if (isStopping) break;
+
+                    console.log(`\nWorker ${WORKER_ID} | ✅ DONE | All sub-categories for ${category.name} in ${city} finished. Moving to next city...`);
+                    progress.subcategoryIndex = 0;
                 }
                 if (isStopping) break;
+
+                console.log(`\nWorker ${WORKER_ID} | 🏁 CATEGORY COMPLETE | ${category.name} finished for all cities in ${state.name}. Switching to next assigned category...`);
                 progress.cityIndex = 0; // 🚀 FIX: Reset city for next category
             }
             if (isStopping) break;
