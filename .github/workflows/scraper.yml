@@ -81,16 +81,29 @@ jobs:
       - name: Commit and Push Progress
         if: always() 
         run: |
-          set +e
           git config --global user.name "RapidHelp-Bot"
           git config --global user.email "bot@rapidhelp.in"
           
-          # 🚀 ATOMIC GIT SYNC: COMMIT FIRST, THEN PULL & PUSH
-          git add progress_W*.json
-          git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || echo "No local changes to commit"
-          
-          for i in {1..20}; do
-            echo "Attempt $i: Pulling latest changes and pushing..."
-            git pull --rebase origin main
-            git push origin main && echo "✅ Progress pushed successfully!" && break || (echo "❌ Conflict/Error, retrying in 20s..." && sleep 20)
+          # 🚀 ATOMIC GIT SYNC: ULTIMATE VERSION
+          for i in {1..30}; do
+            echo "Attempt $i: Syncing progress..."
+            
+            # 1. Force add all progress files
+            git add progress_W*.json
+            
+            # 2. Commit (if anything new)
+            git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || echo "Nothing to commit"
+            
+            # 3. Pull with Rebase (The safe way)
+            if git pull --rebase origin main; then
+              # 4. Push if pull was successful
+              if git push origin main; then
+                echo "✅ Progress pushed successfully!"
+                break
+              fi
+            fi
+            
+            echo "❌ Conflict/Error, cleaning up and retrying in 20s..."
+            git rebase --abort || echo "No rebase to abort"
+            sleep 20
           done
