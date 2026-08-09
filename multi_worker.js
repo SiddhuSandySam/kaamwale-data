@@ -29,7 +29,7 @@ const SERVICE_ACCOUNT_FILE = path.join(__dirname, 'serviceAccountKey.json');
 
 // --- STARTUP HEADER ---
 console.log("\n===============================================");
-console.log(`   RAPIDHELP WORKER ${WORKER_ID} | VERSION: V55 | FULL-RECOVERY`);
+console.log(`   RAPIDHELP WORKER ${WORKER_ID} | VERSION: V60 | DATA-ULTRA-SAFE`);
 console.log("===============================================\n");
 
 // INITIALIZE FIREBASE
@@ -68,7 +68,7 @@ let sheetBuffer = [];
 let firestoreBuffer = [];
 let isFlushing = false;
 let newLeadsCount = 0;
-const BATCH_LIMIT = 50;
+const BATCH_LIMIT = 10; // 🚀 ULTRA SAFE: Save every 10 leads to avoid loss
 
 async function saveProgress() {
     fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
@@ -87,12 +87,12 @@ async function flushBuffers() {
                 batch.set(db.collection('providers').doc(p.id), p, { merge: true });
             });
             await batch.commit();
+            console.log(`Worker ${WORKER_ID} | SYNC | Firestore: ${firestoreBuffer.length} leads saved.`);
             firestoreBuffer = [];
-            console.log(`Worker ${WORKER_ID} | SYNC | Firestore: Success.`);
         }
         if (sheetBuffer.length > 0) {
             const resp = await axios.post(currentTargetUrl, { type: "BATCH_PROVIDER_SYNC", providers: sheetBuffer }, { timeout: 60000 });
-            console.log(`Worker ${WORKER_ID} | SYNC | Sheet: Success 🚀`);
+            console.log(`Worker ${WORKER_ID} | SYNC | Sheet: ${resp.data} 🚀`);
             sheetBuffer = [];
         }
     } catch (e) {
@@ -118,7 +118,7 @@ let isStopping = false;
 async function gracefulShutdown(isError = false) {
     if (isStopping) return;
     isStopping = true;
-    console.log(`\nWorker ${WORKER_ID} | [EXIT] | Shutting down...`);
+    console.log(`\nWorker ${WORKER_ID} | [EXIT] | Emergency saving data...`);
     await flushBuffers();
     process.exit(isError ? 1 : 0);
 }
@@ -158,29 +158,27 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
 
         if (!cleanPhone || cleanPhone.length < 10) return 0;
 
-        // 🚀 LOG IMMEDIATELY
-        console.log(`Worker ${WORKER_ID} | INFO | Detected: ${businessName} | Phone: ${cleanPhone}`);
+        // 🚀 RESTORED LOGS: Show the number immediately!
+        console.log(`Worker ${WORKER_ID} | DETECT | ${businessName} | Phone: ${cleanPhone}`);
 
         if (registry.has(cleanPhone)) return "DUPLICATE";
 
-        // Wait for address/content to load properly
-        await page.waitForTimeout(1000);
         const fullAddress = await page.$eval('button[data-item-id="address"]', el => el.innerText).catch(() => "N/A");
         const cleanFullAddress = fullAddress.replace('\n', '').replace('', '').trim();
 
         // 🛡️ CROSS-CITY PROTECTION
         const addrLower = cleanFullAddress.toLowerCase();
-        if (cleanFullAddress !== "N/A" && !addrLower.includes(state.toLowerCase())) {
-            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: Wrong location (${cleanFullAddress})`);
+        if (!addrLower.includes(state.toLowerCase()) && cleanFullAddress !== "N/A") {
+            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: Wrong state (${cleanFullAddress})`);
             return "WRONG_LOCATION";
         }
 
-        // 🚀 FETCH PORTFOLIO IMAGES (Restore Original Skip Logic)
+        // 🚀 FETCH PORTFOLIO
         let portfolio = await extractPortfolio(page);
         if (portfolio.length === 0) { await page.waitForTimeout(2000); portfolio = await extractPortfolio(page); }
 
         if (portfolio.length === 0) {
-            console.log(`Worker ${WORKER_ID} | [!] | No Images found. Skipping to maintain quality.`);
+            console.log(`Worker ${WORKER_ID} | [!] | Skip: No Images (Quality Gate)`);
             return 0;
         }
 
@@ -193,41 +191,37 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
             subcategory: subcategory,
             experienceYears: Math.floor(Math.random() * 5) + 1,
             serviceMode: "Local",
-            city: city,
-            locality: city,
-            state: state,
-            startingPrice: 0,
-            priceUnit: "Discuss on Call",
+            city: city, state: state,
+            fullAddress: cleanFullAddress,
             whatsappNumber: cleanPhone,
             callNumber: cleanPhone,
-            aboutDescription: `Professional ${subcategory} services available in ${city}. High-quality work guaranteed by local experts.`,
+            startingPrice: 0,
+            priceUnit: "Discuss on Call",
+            aboutDescription: `Professional ${subcategory} services available in ${city}. High-quality work guaranteed.`,
             isApproved: true,
             isVerified: false,
             rating: 0.0,
             profilePhotoUrl: portfolio[0] ? portfolio[0].split('=')[0] + '=w500-h500-k-no' : "",
-            recommendationCount: 0,
             portfolioUrls: portfolio,
             searchKeywords: [businessName, city, subcategory, state],
             lastSeen: Date.now(),
             callCount: 0,
-            fullAddress: cleanFullAddress,
-            isNumberHidden: false,
             referredBy: "SYSTEM_SCRAPER",
             referralBonusPaid: false,
             fcmToken: "",
             notificationsEnabled: true,
+            isNumberHidden: false,
             latitude: urlCoords ? parseFloat(urlCoords[1]) : 0,
             longitude: urlCoords ? parseFloat(urlCoords[2]) : 0
         };
 
-        if (SYNC_FIRESTORE_ENABLED && db) firestoreBuffer.push(provider);
-        if (SYNC_SHEET_ENABLED) sheetBuffer.push(provider);
-
+        sheetBuffer.push(provider);
+        firestoreBuffer.push(provider);
         registry.add(cleanPhone);
         newLeadsCount++;
-        console.log(`Worker ${WORKER_ID} | [+] | Found: ${businessName} (Total New: ${newLeadsCount})`);
+        console.log(`Worker ${WORKER_ID} | [+] | Saved: ${businessName} (Total New: ${newLeadsCount})`);
 
-        if (sheetBuffer.length >= BATCH_LIMIT || firestoreBuffer.length >= BATCH_LIMIT) await flushBuffers();
+        if (sheetBuffer.length >= BATCH_LIMIT) await flushBuffers();
         return 1;
     } catch (err) { return 0; }
 }
@@ -237,30 +231,30 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
     try {
         await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(subcategory + " in " + city + ", " + state)}`);
 
-        // Handle Google Consent Dialog
+        // Handle Consent
         const consentBtn = await page.$('button[aria-label="Accept all"]').catch(() => null);
         if (consentBtn) await consentBtn.click();
 
-        // 🚀 SMART DETECTION: Race between List, Single Profile, or Empty
+        // 🚀 SMART DETECTION
         const status = await Promise.race([
-            page.waitForSelector('a.hfpxzc', { timeout: 90000 }).then(() => "LIST"),
+            page.waitForSelector('a.hfpxzc', { timeout: 60000 }).then(() => "LIST"),
             page.waitForSelector('h1.DUwDvf', { timeout: 25000 }).then(() => "SINGLE"),
             page.waitForSelector('div.fvP2If, div.H6v83d', { timeout: 15000 }).then(() => "EMPTY"),
             page.waitForTimeout(85000).then(() => "TIMEOUT")
         ]);
 
         if (status === "EMPTY" || status === "TIMEOUT") {
-            console.log(`Worker ${WORKER_ID} | [-] | No data found or Timeout for ${subcategory} in ${city}.`);
+            console.log(`Worker ${WORKER_ID} | [-] | No data found in ${city}.`);
             return 0;
         }
 
         if (status === "SINGLE") {
-            console.log(`Worker ${WORKER_ID} | [!] | Direct Profile Page detected in ${city}. Processing...`);
+            console.log(`Worker ${WORKER_ID} | [!] | Direct Profile detected.`);
             const name = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "Unknown");
             return await scrapeIndividualProfile(page, name, city, state, categoryId, subcategory);
         }
 
-        // --- List Scraping Logic ---
+        // --- List Logic ---
         await page.mouse.wheel(0, 3000);
         await page.waitForTimeout(2000);
 
@@ -269,8 +263,6 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
 
         for (let i = 0; i < 30; i++) {
             if (isStopping) break;
-
-            // 🚀 FRESH FETCH: Re-grab listings in each iteration to avoid 'Detached from DOM' error
             const listings = await page.$$('a.hfpxzc');
             if (i >= listings.length) break;
 
@@ -279,9 +271,9 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             if (!nameRaw) continue;
 
             try {
-                await listing.scrollIntoViewIfNeeded({ timeout: 10000 }).catch(() => {});
-                await listing.click({ timeout: 10000 });
-            } catch (clickErr) { continue; }
+                await listing.scrollIntoViewIfNeeded({ timeout: 10000 });
+                await listing.click();
+            } catch (e) { continue; }
 
             let updated = false;
             for (let r = 0; r < 10; r++) {
@@ -294,16 +286,13 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             if (!updated) continue;
 
             const res = await scrapeIndividualProfile(page, nameRaw, city, state, categoryId, subcategory);
-            if (res === 1) {
-                foundCount++; streak = 0;
-            } else if (res === "DUPLICATE") {
+            if (res === 1) { foundCount++; streak = 0; }
+            else if (res === "DUPLICATE") {
                 streak++;
                 if (streak >= 4) {
                     console.log(`Worker ${WORKER_ID} | [🛑] | Streak hit. Next category...`);
                     return foundCount;
                 }
-            } else {
-                // For WRONG_LOCATION or N/A phone, don't increment streak, just continue
             }
         }
         return foundCount;
@@ -320,12 +309,9 @@ async function runOrchestrator() {
     const page = await context.newPage();
 
     try {
-        console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table from Hub...`);
         const hubResp = await axios.get(`${MAIN_HUB_URL}?type=config`, { timeout: 30000 });
-        if (hubResp.data && hubResp.data.stateUrls) {
-            stateUrls = hubResp.data.stateUrls;
-            console.log(`Worker ${WORKER_ID} | INFO | Hub Loaded.`);
-        }
+        stateUrls = hubResp.data.stateUrls;
+
         for (let sIdx = progress.stateIndex; sIdx < config.states.length; sIdx++) {
             const state = config.states[sIdx]; progress.stateIndex = sIdx;
             currentTargetUrl = stateUrls[state.name];
@@ -343,21 +329,19 @@ async function runOrchestrator() {
 
                     for (let subIdx = progress.subcategoryIndex; subIdx < category.sub.length; subIdx++) {
                         if (isStopping) break;
-                        const subcategory = category.sub[subIdx]; progress.subcategoryIndex = subIdx;
+                        const subcat = category.sub[subIdx]; progress.subcategoryIndex = subIdx;
 
-                        // 🚀 HUMAN-LIKE DELAY
                         const wait = Math.floor(Math.random() * 10000) + 10000;
                         console.log(`\nWorker ${WORKER_ID} | WAIT | Resting for ${wait/1000}s...`);
                         await page.waitForTimeout(wait);
 
-                        console.log(`Worker ${WORKER_ID} | SCAN | ${subcategory} in ${city}`);
-                        const res = await scrapeCombination(page, city, state.name, category.id, subcategory);
+                        console.log(`Worker ${WORKER_ID} | SCAN | ${subcat} in ${city}`);
+                        const res = await scrapeCombination(page, city, state.name, category.id, subcat);
 
                         if (res === -1) { await gracefulShutdown(true); return; }
                         await saveProgress();
                     }
                     if (isStopping) break;
-                    console.log(`Worker ${WORKER_ID} | ✅ DONE | ${city} finished.`);
                     progress.subcategoryIndex = 0;
                 }
                 if (isStopping) break;
@@ -366,10 +350,8 @@ async function runOrchestrator() {
             if (isStopping) break;
             progress.categoryIndex = 0;
         }
-    } catch (fatal) {
-        console.error(`Worker ${WORKER_ID} | FATAL | Loop Error: ${fatal.message}`);
-    }
-    await gracefulShutdown();
+    } catch (fatal) {}
+    await gracefulShutdown(false);
 }
 
 runOrchestrator();
