@@ -558,7 +558,13 @@ async function runOrchestrator() {
                     for (let subIdx = progress.subcategoryIndex; subIdx < category.sub.length; subIdx++) {
                         if (isStopping) break;
                         const subcategory = category.sub[subIdx]; progress.subcategoryIndex = subIdx;
-                        console.log(`\nWorker ${WORKER_ID} | SCAN | ${category.name} > ${subcategory} in ${city} (${state.name})`);
+
+                        // 🚀 HUMAN-LIKE DELAY: Wait 10-20s before each search to avoid Google block
+                        const randomWait = Math.floor(Math.random() * 10000) + 10000;
+                        console.log(`\nWorker ${WORKER_ID} | WAIT | Resting for ${randomWait/1000}s to stay safe...`);
+                        await page.waitForTimeout(randomWait);
+
+                        console.log(`Worker ${WORKER_ID} | SCAN | ${category.name} > ${subcategory} in ${city} (${state.name})`);
                         const result = await scrapeCombination(page, city, state.name, category.id, subcategory);
 
                         if (result === -1) {

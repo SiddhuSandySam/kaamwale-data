@@ -54,16 +54,14 @@ jobs:
           DISPLAY: :99
           HEADLESS: "false"
         run: |
-          # 🚀 THE UNSTOPPABLE LOOP: Restart worker immediately on failure/block
-          # Runs until 5.5 hours are up or work is truly finished
+          set +e # 🚀 DON'T EXIT ON ERROR: Keep the loop running!
           START_TIME=$(date +%s)
           while true; do
             CURRENT_TIME=$(date +%s)
             ELAPSED=$((CURRENT_TIME - START_TIME))
             
-            # Stop if we have less than 15 mins left (timeout safety)
             if [ $ELAPSED -gt 19800 ]; then
-              echo "🏁 5.5 hour shift complete. Shutting down."
+              echo "🏁 Shift complete."
               break
             fi
 
@@ -72,27 +70,25 @@ jobs:
             
             EXIT_CODE=$?
             if [ $EXIT_CODE -eq 0 ]; then
-              echo "✅ Work truly finished for this worker. Exiting loop."
+              echo "✅ Work finished."
               break
             else
-              echo "⚠️ Worker stopped with code $EXIT_CODE (possibly blocked). Retrying in 60s..."
-              sleep 60
+              echo "⚠️ Blocked/Error (Code $EXIT_CODE). Retrying in 90s..."
+              sleep 90
             fi
           done
 
       - name: Commit and Push Progress
         if: always() 
         run: |
+          set +e # 🚀 DON'T EXIT ON CONFLICT: Keep retrying!
           git config --global user.name "RapidHelp-Bot"
           git config --global user.email "bot@rapidhelp.in"
           
-          # 🚀 ATOMIC GIT SYNC: Stronger handling for 15 parallel pushes
-          for i in {1..20}; do
-            # Add random jitter to avoid concurrent push collisions
-            sleep $(( (RANDOM % 15) + 5 ))
-            
+          for i in {1..25}; do
+            sleep $(( (RANDOM % 20) + 10 ))
             git pull --rebase origin main
             git add progress_W*.json
-            git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || { echo "Nothing to commit"; break; }
-            git push origin main && break || echo "Conflict, retrying cycle $i..."
+            git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]"
+            git push origin main && break || echo "Retry push $i..."
           done
