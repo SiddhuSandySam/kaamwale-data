@@ -29,7 +29,7 @@ const SERVICE_ACCOUNT_FILE = path.join(__dirname, 'serviceAccountKey.json');
 
 // --- STARTUP HEADER ---
 console.log("\n===============================================");
-console.log(`   RAPIDHELP WORKER ${WORKER_ID} | VERSION: V52 | SMART-DETECT`);
+console.log(`   RAPIDHELP WORKER ${WORKER_ID} | VERSION: V55 | FULL-RECOVERY`);
 console.log("===============================================\n");
 
 // INITIALIZE FIREBASE
@@ -125,6 +125,32 @@ async function gracefulShutdown(isError = false) {
 
 process.on('SIGINT', () => gracefulShutdown(false));
 
+async function extractPortfolio(page) {
+    try {
+        if (page.isClosed()) return [];
+        await page.evaluate(async () => {
+            const h1 = document.querySelector('h1.DUwDvf');
+            const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.querySelector('div[role="main"]');
+            if (panel) { for (let i = 0; i < 3; i++) { panel.scrollBy(0, 800); await new Promise(r => setTimeout(r, 500)); } }
+        });
+        await page.waitForTimeout(1500);
+        return await page.evaluate(() => {
+            const links = new Set();
+            const h1 = document.querySelector('h1.DUwDvf');
+            const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.body;
+            if (!panel) return [];
+            panel.querySelectorAll('img').forEach(img => {
+                const src = img.src || '';
+                if (src.includes('googleusercontent.com') && !src.includes('base64')) {
+                    if (src.includes('/a/') || src.includes('/a-/') || src.includes('shared-v1')) return;
+                    links.add(src.split('=')[0].split('/s')[0] + '=w1000-h1000');
+                }
+            });
+            return Array.from(links).slice(0, 15);
+        });
+    } catch (e) { return []; }
+}
+
 async function scrapeIndividualProfile(page, businessName, city, state, categoryId, subcategory) {
     try {
         const phoneStr = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
@@ -133,34 +159,64 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
         if (!cleanPhone || cleanPhone.length < 10 || registry.has(cleanPhone)) return 0;
 
         const fullAddress = await page.$eval('button[data-item-id="address"]', el => el.innerText).catch(() => "N/A");
+        const cleanFullAddress = fullAddress.replace('\n', '').replace('', '').trim();
+
+        // 🛡️ CROSS-CITY PROTECTION (India suffix friendly)
+        const addrLower = cleanFullAddress.toLowerCase();
+        if (!addrLower.includes(state.toLowerCase())) {
+            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: Wrong location (${cleanFullAddress})`);
+            return 0;
+        }
+
+        // 🚀 FETCH PORTFOLIO IMAGES
+        let portfolio = await extractPortfolio(page);
+        if (portfolio.length === 0) { await page.waitForTimeout(2000); portfolio = await extractPortfolio(page); }
+
         const urlCoords = page.url().match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || page.url().match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
 
+        // 💎 THE 31 COLUMN GOLD OBJECT
         const provider = {
             id: `shadow_${cleanPhone}`,
             businessName: businessName,
             primaryCategoryId: categoryId,
             subcategory: subcategory,
             experienceYears: Math.floor(Math.random() * 5) + 1,
-            city: city, state: state,
-            fullAddress: fullAddress.replace('', '').trim(),
+            serviceMode: "Local",
+            city: city,
+            locality: city,
+            state: state,
+            startingPrice: 0,
+            priceUnit: "Discuss on Call",
             whatsappNumber: cleanPhone,
             callNumber: cleanPhone,
-            lastSeen: Date.now(),
-            latitude: urlCoords ? parseFloat(urlCoords[1]) : 0,
-            longitude: urlCoords ? parseFloat(urlCoords[2]) : 0,
+            aboutDescription: `Professional ${subcategory} services available in ${city}. High-quality work guaranteed by local experts.`,
             isApproved: true,
             isVerified: false,
             rating: 0.0,
-            referredBy: "SYSTEM_SCRAPER"
+            profilePhotoUrl: portfolio[0] ? portfolio[0].split('=')[0] + '=w500-h500-k-no' : "",
+            recommendationCount: 0,
+            portfolioUrls: portfolio,
+            searchKeywords: [businessName, city, subcategory, state],
+            lastSeen: Date.now(),
+            callCount: 0,
+            fullAddress: cleanFullAddress,
+            isNumberHidden: false,
+            referredBy: "SYSTEM_SCRAPER",
+            referralBonusPaid: false,
+            fcmToken: "",
+            notificationsEnabled: true,
+            latitude: urlCoords ? parseFloat(urlCoords[1]) : 0,
+            longitude: urlCoords ? parseFloat(urlCoords[2]) : 0
         };
 
-        sheetBuffer.push(provider);
-        firestoreBuffer.push(provider);
+        if (SYNC_FIRESTORE_ENABLED && db) firestoreBuffer.push(provider);
+        if (SYNC_SHEET_ENABLED) sheetBuffer.push(provider);
+
         registry.add(cleanPhone);
         newLeadsCount++;
         console.log(`Worker ${WORKER_ID} | [+] | Found: ${businessName} (Total New: ${newLeadsCount})`);
 
-        if (sheetBuffer.length >= BATCH_LIMIT) await flushBuffers();
+        if (sheetBuffer.length >= BATCH_LIMIT || firestoreBuffer.length >= BATCH_LIMIT) await flushBuffers();
         return 1;
     } catch (err) { return 0; }
 }
@@ -174,21 +230,21 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
         const consentBtn = await page.$('button[aria-label="Accept all"]').catch(() => null);
         if (consentBtn) await consentBtn.click();
 
-        // 🚀 SMART RACE: Detect List, Single Profile, or Empty results
+        // 🚀 SMART DETECTION: Race between List, Single Profile, or Empty
         const status = await Promise.race([
-            page.waitForSelector('a.hfpxzc', { timeout: 60000 }).then(() => "LIST"),
-            page.waitForSelector('h1.DUwDvf', { timeout: 20000 }).then(() => "SINGLE"),
+            page.waitForSelector('a.hfpxzc', { timeout: 90000 }).then(() => "LIST"),
+            page.waitForSelector('h1.DUwDvf', { timeout: 25000 }).then(() => "SINGLE"),
             page.waitForSelector('div.fvP2If, div.H6v83d', { timeout: 15000 }).then(() => "EMPTY"),
-            page.waitForTimeout(55000).then(() => "TIMEOUT")
+            page.waitForTimeout(85000).then(() => "TIMEOUT")
         ]);
 
         if (status === "EMPTY" || status === "TIMEOUT") {
-            console.log(`Worker ${WORKER_ID} | [-] | No data found for ${subcategory} in ${city}.`);
+            console.log(`Worker ${WORKER_ID} | [-] | No data found or Timeout for ${subcategory} in ${city}.`);
             return 0;
         }
 
         if (status === "SINGLE") {
-            console.log(`Worker ${WORKER_ID} | [!] | Direct Profile Page detected in ${city}.`);
+            console.log(`Worker ${WORKER_ID} | [!] | Direct Profile Page detected in ${city}. Processing...`);
             const name = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "Unknown");
             return await scrapeIndividualProfile(page, name, city, state, categoryId, subcategory);
         }
@@ -214,10 +270,7 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             try {
                 await listing.scrollIntoViewIfNeeded({ timeout: 10000 }).catch(() => {});
                 await listing.click({ timeout: 10000 });
-            } catch (clickErr) {
-                console.log(`Worker ${WORKER_ID} | WARN | Click failed (Element moved). Retrying next...`);
-                continue;
-            }
+            } catch (clickErr) { continue; }
 
             let updated = false;
             for (let r = 0; r < 10; r++) {
@@ -253,80 +306,55 @@ async function runOrchestrator() {
     const page = await context.newPage();
 
     try {
-        // 🚀 FETCH HUB CONFIG (Crucial for routing)
         console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table from Hub...`);
         const hubResp = await axios.get(`${MAIN_HUB_URL}?type=config`, { timeout: 30000 });
         if (hubResp.data && hubResp.data.stateUrls) {
             stateUrls = hubResp.data.stateUrls;
-            console.log(`Worker ${WORKER_ID} | INFO | Hub Loaded. Active States: ${Object.keys(stateUrls).join(', ')}`);
+            console.log(`Worker ${WORKER_ID} | INFO | Hub Loaded.`);
         }
         for (let sIdx = progress.stateIndex; sIdx < config.states.length; sIdx++) {
             const state = config.states[sIdx]; progress.stateIndex = sIdx;
             currentTargetUrl = stateUrls[state.name];
             if (!currentTargetUrl) continue;
 
-            if (sheetBuffer.length > 0 || firestoreBuffer.length > 0) {
-                console.log(`Worker ${WORKER_ID} | INFO | Flushing leads before switching to ${state.name}...`);
-                await flushBuffers();
-            }
-
             await syncFromSatellite(currentTargetUrl);
-
-            let cities = [...state.cities]; if (WORKER_ID % 2 === 0) cities.reverse();
+            const cities = WORKER_ID % 2 === 0 ? [...state.cities].reverse() : [...state.cities];
 
             for (let catIdx = progress.categoryIndex; catIdx < config.categories.length; catIdx++) {
-                if (catIdx % TOTAL_WORKERS !== WORKER_ID) {
-                    progress.cityIndex = 0; // 🚀 FIX: Ensure city reset for next worker category
-                    continue;
-                }
+                if (catIdx % TOTAL_WORKERS !== WORKER_ID) { progress.cityIndex = 0; continue; }
 
                 const category = config.categories[catIdx]; progress.categoryIndex = catIdx;
                 for (let cIdx = progress.cityIndex; cIdx < cities.length; cIdx++) {
                     const city = cities[cIdx]; progress.cityIndex = cIdx;
 
-                    if (Date.now() - lastFullSyncTime > 180000) {
-                         await syncFromSatellite(currentTargetUrl);
-                    }
-
                     for (let subIdx = progress.subcategoryIndex; subIdx < category.sub.length; subIdx++) {
                         if (isStopping) break;
                         const subcategory = category.sub[subIdx]; progress.subcategoryIndex = subIdx;
 
-                        // 🚀 HUMAN-LIKE DELAY: Prevent Google from detecting the bot speed
+                        // 🚀 HUMAN-LIKE DELAY
                         const wait = Math.floor(Math.random() * 10000) + 10000;
                         console.log(`\nWorker ${WORKER_ID} | WAIT | Resting for ${wait/1000}s...`);
                         await page.waitForTimeout(wait);
 
-                        console.log(`Worker ${WORKER_ID} | SCAN | ${category.name} > ${subcategory} in ${city} (${state.name})`);
-                        const result = await scrapeCombination(page, city, state.name, category.id, subcategory);
+                        console.log(`Worker ${WORKER_ID} | SCAN | ${subcategory} in ${city}`);
+                        const res = await scrapeCombination(page, city, state.name, category.id, subcategory);
 
-                        if (result === -1) {
-                            console.log(`Worker ${WORKER_ID} | [STOP] | Shutting down to avoid skipping data...`);
-                            await gracefulShutdown(true); // 🚀 EXIT WITH CODE 1 TO TRIGGER GITHUB RETRY
-                            return;
-                        }
-
+                        if (res === -1) { await gracefulShutdown(true); return; }
                         await saveProgress();
-                        if (!isStopping) await page.waitForTimeout(COOL_DOWN_MS);
                     }
                     if (isStopping) break;
-
-                    console.log(`\nWorker ${WORKER_ID} | ✅ DONE | All sub-categories for ${category.name} in ${city} finished. Moving to next city...`);
+                    console.log(`Worker ${WORKER_ID} | ✅ DONE | ${city} finished.`);
                     progress.subcategoryIndex = 0;
                 }
                 if (isStopping) break;
-
-                console.log(`\nWorker ${WORKER_ID} | 🏁 CATEGORY COMPLETE | ${category.name} finished for all cities in ${state.name}. Switching to next assigned category...`);
-                progress.cityIndex = 0; // 🚀 FIX: Reset city for next category
+                progress.cityIndex = 0;
             }
             if (isStopping) break;
-            progress.categoryIndex = 0; // 🚀 FIX: Reset category for next state
+            progress.categoryIndex = 0;
         }
     } catch (fatal) {
         console.error(`Worker ${WORKER_ID} | FATAL | Loop Error: ${fatal.message}`);
     }
-
-    console.log(`Worker ${WORKER_ID} | INFO | Job Finished or Terminated.`);
     await gracefulShutdown();
 }
 
