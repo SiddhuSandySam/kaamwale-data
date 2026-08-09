@@ -169,17 +169,31 @@ async function gracefulShutdown(isError = false) {
     isStopping = true;
     console.log(`\nWorker ${WORKER_ID} | [EXIT] | 🛑 Shutdown initiated. Securing data...`);
 
-    if (sheetBuffer.length > 0) {
+    // 1. Create emergency backup of currently buffered leads
+    if (sheetBuffer.length > 0 || firestoreBuffer.length > 0) {
         try {
-            fs.writeFileSync(FAILED_SYNC_FILE, JSON.stringify(sheetBuffer, null, 2));
-            console.log(`Worker ${WORKER_ID} | [EXIT] | 📦 Local backup created.`);
-        } catch (e) {}
+            const combinedLeads = [...new Set([...sheetBuffer, ...firestoreBuffer])];
+            fs.writeFileSync(FAILED_SYNC_FILE, JSON.stringify(combinedLeads, null, 2));
+            console.log(`Worker ${WORKER_ID} | [EXIT] | 📦 Emergency backup created (${combinedLeads.length} leads).`);
+        } catch (e) {
+            console.error(`Worker ${WORKER_ID} | [EXIT] | Backup Failed: ${e.message}`);
+        }
     }
 
+    // 2. Try one final sync attempt
     try {
         await flushBuffers(true);
-        console.log(`Worker ${WORKER_ID} | [EXIT] | 🏁 ALL DATA PROCESSED SUCCESSFULLY.`);
-    } finally { process.exit(isError ? 1 : 0); }
+        console.log(`Worker ${WORKER_ID} | [EXIT] | 🏁 FINAL SYNC COMPLETED.`);
+
+        // If sync succeeded, remove the emergency backup
+        if (fs.existsSync(FAILED_SYNC_FILE)) fs.unlinkSync(FAILED_SYNC_FILE);
+        if (fs.existsSync(BACKUP_LEADS_FILE)) fs.unlinkSync(BACKUP_LEADS_FILE);
+    } catch (e) {
+        console.error(`Worker ${WORKER_ID} | [EXIT] | Final sync failed, keeping local backup.`);
+    } finally {
+        await saveProgress();
+        process.exit(isError ? 1 : 0);
+    }
 }
 
 process.on('SIGINT', () => gracefulShutdown(false));
@@ -213,6 +227,8 @@ async function extractPortfolio(page) {
 
 async function scrapeIndividualProfile(page, businessName, city, state, categoryId, subcategory) {
     try {
+        // 🚀 RELIABLE EXTRACTION
+        await page.waitForSelector('button[data-item-id^="phone"]', { timeout: 15000 }).catch(() => {});
         const phoneStr = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
         const cleanPhone = phoneStr.replace(/[^0-9]/g, '').slice(-10);
 
@@ -223,7 +239,7 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
 
         if (registry.has(cleanPhone)) return "DUPLICATE";
 
-        await page.waitForSelector('button[data-item-id="address"]', { timeout: 10000 }).catch(() => {});
+        await page.waitForSelector('button[data-item-id="address"]', { timeout: 15000 }).catch(() => {});
         const fullAddress = await page.$eval('button[data-item-id="address"]', el => el.innerText).catch(() => "N/A");
         const cleanFullAddress = fullAddress.replace('\n', '').replace('', '').trim();
 
@@ -256,9 +272,11 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
         }
 
         let portfolio = await extractPortfolio(page);
-        if (portfolio.length === 0) { await page.waitForTimeout(2000); portfolio = await extractPortfolio(page); }
-        if (portfolio.length === 0) {
-            console.log(`Worker ${WORKER_ID} | [!] | Skip: No Images found for ${businessName}`);
+        if (portfolio.length === 0) { await page.waitForTimeout(3000); portfolio = await extractPortfolio(page); }
+
+        // 🛡️ STRICT QUALITY CHECK: MUST HAVE IMAGES
+        if (!portfolio || portfolio.length === 0) {
+            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: No Images for ${businessName}`);
             return 0;
         }
 
@@ -324,12 +342,18 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             return await scrapeIndividualProfile(page, name, city, state, categoryId, subcategory);
         }
 
-        await page.mouse.wheel(0, 3000); await page.waitForTimeout(2000);
+        // 🚀 DEEP SCROLL: Load more listings
+        for (let i = 0; i < 8; i++) {
+            if (isStopping || page.isClosed()) break;
+            await page.mouse.wheel(0, 4000);
+            await page.waitForTimeout(1500);
+        }
 
         let streak = 0;
         let foundCount = 0;
+        const MAX_LISTINGS = 100; // 🚀 Increased depth
 
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < MAX_LISTINGS; i++) {
             if (isStopping || page.isClosed()) break;
             const listings = await page.$$('a.hfpxzc');
             if (i >= listings.length) break;
@@ -368,6 +392,30 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
 
 async function runOrchestrator() {
     await loadProgress();
+
+    // 🚀 STARTUP RECOVERY: Sync any failed data from previous runs
+    const recoveryFiles = [BACKUP_LEADS_FILE, FAILED_SYNC_FILE];
+    for (const file of recoveryFiles) {
+        if (fs.existsSync(file)) {
+            try {
+                const failedLeads = JSON.parse(fs.readFileSync(file));
+                if (failedLeads.length > 0) {
+                    console.log(`Worker ${WORKER_ID} | RECOVERY | Syncing ${failedLeads.length} leads from ${path.basename(file)}...`);
+                    // Try to sync to Main Hub first as it's the central router
+                    const response = await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: failedLeads }, { timeout: 60000 });
+                    if (String(response.data).includes("Success") || String(response.data).includes("Complete")) {
+                        console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ Successfully restored data from ${path.basename(file)}.`);
+                        fs.unlinkSync(file);
+                    }
+                } else {
+                    fs.unlinkSync(file);
+                }
+            } catch (e) {
+                console.error(`Worker ${WORKER_ID} | RECOVERY | Failed to restore ${path.basename(file)}: ${e.message}`);
+            }
+        }
+    }
+
     const browser = await chromium.launch({ headless: HEADLESS });
     const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' });
     const page = await context.newPage();
@@ -378,16 +426,6 @@ async function runOrchestrator() {
         console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table...`);
         const hubResp = await axios.get(`${MAIN_HUB_URL}?type=config`);
         stateUrls = hubResp.data.stateUrls;
-
-        // 🚀 SMART RECOVERY
-        if (fs.existsSync(BACKUP_LEADS_FILE)) {
-            const failedLeads = JSON.parse(fs.readFileSync(BACKUP_LEADS_FILE));
-            if (failedLeads.length > 0) {
-                console.log(`Worker ${WORKER_ID} | RECOVERY | Routing ${failedLeads.length} leads via Main Hub...`);
-                await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: failedLeads }).catch(() => {});
-                fs.unlinkSync(BACKUP_LEADS_FILE);
-            }
-        }
 
         for (let sIdx = progress.stateIndex; sIdx < config.states.length; sIdx++) {
             const state = config.states[sIdx]; progress.stateIndex = sIdx;

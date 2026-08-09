@@ -88,8 +88,8 @@ jobs:
           for i in {1..30}; do
             echo "Attempt $i: Syncing progress..."
             
-            # 1. Force add all progress files
-            git add progress_W*.json
+            # 1. Force add all progress files and registry
+            git add progress_W*.json registry.txt
             
             # 2. Commit (if anything new)
             git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || echo "Nothing to commit"
