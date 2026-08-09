@@ -29,7 +29,7 @@ const SERVICE_ACCOUNT_FILE = path.join(__dirname, 'serviceAccountKey.json');
 
 // --- STARTUP HEADER ---
 console.log("\n===============================================");
-console.log(`   RAPIDHELP WORKER ${WORKER_ID} | VERSION: V60 | DATA-ULTRA-SAFE`);
+console.log(`   RAPIDHELP WORKER ${WORKER_ID} | VERSION: V65 | ORIGINAL-LOGIC-RESTORED`);
 console.log("===============================================\n");
 
 // INITIALIZE FIREBASE
@@ -68,7 +68,7 @@ let sheetBuffer = [];
 let firestoreBuffer = [];
 let isFlushing = false;
 let newLeadsCount = 0;
-const BATCH_LIMIT = 10; // 🚀 ULTRA SAFE: Save every 10 leads to avoid loss
+const BATCH_LIMIT = 50;
 
 async function saveProgress() {
     fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
@@ -92,7 +92,7 @@ async function flushBuffers() {
         }
         if (sheetBuffer.length > 0) {
             const resp = await axios.post(currentTargetUrl, { type: "BATCH_PROVIDER_SYNC", providers: sheetBuffer }, { timeout: 60000 });
-            console.log(`Worker ${WORKER_ID} | SYNC | Sheet: ${resp.data} 🚀`);
+            console.log(`Worker ${WORKER_ID} | SYNC | Sheet: Success 🚀`);
             sheetBuffer = [];
         }
     } catch (e) {
@@ -118,7 +118,7 @@ let isStopping = false;
 async function gracefulShutdown(isError = false) {
     if (isStopping) return;
     isStopping = true;
-    console.log(`\nWorker ${WORKER_ID} | [EXIT] | Emergency saving data...`);
+    console.log(`\nWorker ${WORKER_ID} | [EXIT] | Shutting down...`);
     await flushBuffers();
     process.exit(isError ? 1 : 0);
 }
@@ -156,29 +156,52 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
         const phoneStr = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
         const cleanPhone = phoneStr.replace(/[^0-9]/g, '').slice(-10);
 
-        if (!cleanPhone || cleanPhone.length < 10) return 0;
-
-        // 🚀 RESTORED LOGS: Show the number immediately!
-        console.log(`Worker ${WORKER_ID} | DETECT | ${businessName} | Phone: ${cleanPhone}`);
+        if (!cleanPhone || cleanPhone.length < 10) {
+            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: No valid phone for ${businessName}`);
+            return 0;
+        }
 
         if (registry.has(cleanPhone)) return "DUPLICATE";
 
+        // 🚀 RESTORED ADDRESS PARSING LOGIC FROM V48
+        await page.waitForSelector('button[data-item-id="address"]', { timeout: 10000 }).catch(() => {});
         const fullAddress = await page.$eval('button[data-item-id="address"]', el => el.innerText).catch(() => "N/A");
         const cleanFullAddress = fullAddress.replace('\n', '').replace('', '').trim();
 
-        // 🛡️ CROSS-CITY PROTECTION
-        const addrLower = cleanFullAddress.toLowerCase();
-        if (!addrLower.includes(state.toLowerCase()) && cleanFullAddress !== "N/A") {
-            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: Wrong state (${cleanFullAddress})`);
-            return "WRONG_LOCATION";
+        if (cleanFullAddress === "N/A" || cleanFullAddress.length < 5) {
+            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: No Address for ${businessName}`);
+            return 0;
         }
 
-        // 🚀 FETCH PORTFOLIO
+        const addressParts = cleanFullAddress.split(',').map(p => p.trim());
+        let detectedCity = city;
+        let detectedLocality = city;
+
+        if (addressParts.length >= 3) {
+            const statePartIndex = addressParts.length - 1;
+            const statePart = addressParts[statePartIndex];
+
+            // 🛡️ STATE PROTECTION: Restored V48 logic
+            if (!statePart.toLowerCase().includes(state.toLowerCase())) {
+                console.log(`Worker ${WORKER_ID} | [🛑] | Skip: Wrong State (${statePart}) for ${businessName}`);
+                return "WRONG_LOCATION";
+            }
+
+            detectedCity = addressParts[addressParts.length - 2];
+            detectedLocality = addressParts[addressParts.length - 3];
+
+            // Clean plot/shop numbers from locality
+            if (/^\d+/.test(detectedLocality) || detectedLocality.toLowerCase().includes('plot') || detectedLocality.toLowerCase().includes('shop')) {
+                if (addressParts.length >= 5) detectedLocality = addressParts[addressParts.length - 4];
+            }
+        }
+
+        // 🚀 FETCH PORTFOLIO IMAGES (STRICT V48 LOGIC)
         let portfolio = await extractPortfolio(page);
         if (portfolio.length === 0) { await page.waitForTimeout(2000); portfolio = await extractPortfolio(page); }
 
         if (portfolio.length === 0) {
-            console.log(`Worker ${WORKER_ID} | [!] | Skip: No Images (Quality Gate)`);
+            console.log(`Worker ${WORKER_ID} | [!] | Skip: No Images (Quality Gate) for ${businessName}`);
             return 0;
         }
 
@@ -191,37 +214,41 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
             subcategory: subcategory,
             experienceYears: Math.floor(Math.random() * 5) + 1,
             serviceMode: "Local",
-            city: city, state: state,
-            fullAddress: cleanFullAddress,
-            whatsappNumber: cleanPhone,
-            callNumber: cleanPhone,
+            city: detectedCity,
+            locality: detectedLocality,
+            state: state,
             startingPrice: 0,
             priceUnit: "Discuss on Call",
-            aboutDescription: `Professional ${subcategory} services available in ${city}. High-quality work guaranteed.`,
+            whatsappNumber: cleanPhone,
+            callNumber: cleanPhone,
+            aboutDescription: `Professional ${subcategory} services available in ${detectedCity}. High-quality work guaranteed.`,
             isApproved: true,
             isVerified: false,
             rating: 0.0,
             profilePhotoUrl: portfolio[0] ? portfolio[0].split('=')[0] + '=w500-h500-k-no' : "",
+            recommendationCount: 0,
             portfolioUrls: portfolio,
-            searchKeywords: [businessName, city, subcategory, state],
+            searchKeywords: [businessName, detectedCity, subcategory, state],
             lastSeen: Date.now(),
             callCount: 0,
+            fullAddress: cleanFullAddress,
+            isNumberHidden: false,
             referredBy: "SYSTEM_SCRAPER",
             referralBonusPaid: false,
             fcmToken: "",
             notificationsEnabled: true,
-            isNumberHidden: false,
             latitude: urlCoords ? parseFloat(urlCoords[1]) : 0,
             longitude: urlCoords ? parseFloat(urlCoords[2]) : 0
         };
 
-        sheetBuffer.push(provider);
-        firestoreBuffer.push(provider);
+        if (SYNC_FIRESTORE_ENABLED && db) firestoreBuffer.push(provider);
+        if (SYNC_SHEET_ENABLED) sheetBuffer.push(provider);
+
         registry.add(cleanPhone);
         newLeadsCount++;
-        console.log(`Worker ${WORKER_ID} | [+] | Saved: ${businessName} (Total New: ${newLeadsCount})`);
+        console.log(`Worker ${WORKER_ID} | [+] | Saved: ${businessName} | Phone: ${cleanPhone} (Total: ${newLeadsCount})`);
 
-        if (sheetBuffer.length >= BATCH_LIMIT) await flushBuffers();
+        if (sheetBuffer.length >= BATCH_LIMIT || firestoreBuffer.length >= BATCH_LIMIT) await flushBuffers();
         return 1;
     } catch (err) { return 0; }
 }
@@ -235,7 +262,7 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
         const consentBtn = await page.$('button[aria-label="Accept all"]').catch(() => null);
         if (consentBtn) await consentBtn.click();
 
-        // 🚀 SMART DETECTION
+        // 🚀 SMART DETECTION (List vs Single vs Empty)
         const status = await Promise.race([
             page.waitForSelector('a.hfpxzc', { timeout: 60000 }).then(() => "LIST"),
             page.waitForSelector('h1.DUwDvf', { timeout: 25000 }).then(() => "SINGLE"),
@@ -244,17 +271,17 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
         ]);
 
         if (status === "EMPTY" || status === "TIMEOUT") {
-            console.log(`Worker ${WORKER_ID} | [-] | No data found in ${city}.`);
+            console.log(`Worker ${WORKER_ID} | [-] | No data found for ${subcategory} in ${city}.`);
             return 0;
         }
 
         if (status === "SINGLE") {
-            console.log(`Worker ${WORKER_ID} | [!] | Direct Profile detected.`);
+            console.log(`Worker ${WORKER_ID} | [!] | Direct Profile Page detected in ${city}.`);
             const name = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "Unknown");
             return await scrapeIndividualProfile(page, name, city, state, categoryId, subcategory);
         }
 
-        // --- List Logic ---
+        // --- Original List Scraping Logic ---
         await page.mouse.wheel(0, 3000);
         await page.waitForTimeout(2000);
 
@@ -263,6 +290,7 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
 
         for (let i = 0; i < 30; i++) {
             if (isStopping) break;
+
             const listings = await page.$$('a.hfpxzc');
             if (i >= listings.length) break;
 
@@ -271,12 +299,12 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             if (!nameRaw) continue;
 
             try {
-                await listing.scrollIntoViewIfNeeded({ timeout: 10000 });
-                await listing.click();
-            } catch (e) { continue; }
+                await listing.scrollIntoViewIfNeeded({ timeout: 10000 }).catch(() => {});
+                await listing.click({ timeout: 10000 });
+            } catch (clickErr) { continue; }
 
             let updated = false;
-            for (let r = 0; r < 10; r++) {
+            for (let r = 0; r < 12; r++) {
                 const title = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "");
                 if (title.toLowerCase().includes(nameRaw.toLowerCase().substring(0, 4))) {
                     updated = true; break;
@@ -286,18 +314,20 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             if (!updated) continue;
 
             const res = await scrapeIndividualProfile(page, nameRaw, city, state, categoryId, subcategory);
-            if (res === 1) { foundCount++; streak = 0; }
-            else if (res === "DUPLICATE") {
+            if (res === 1) {
+                foundCount++; streak = 0;
+            } else if (res === "DUPLICATE") {
                 streak++;
+                console.log(`Worker ${WORKER_ID} | [-] | Skip: Duplicate (Streak: ${streak}/4)`);
                 if (streak >= 4) {
-                    console.log(`Worker ${WORKER_ID} | [🛑] | Streak hit. Next category...`);
+                    console.log(`Worker ${WORKER_ID} | [🛑] | Streak Limit reached. Next category...`);
                     return foundCount;
                 }
             }
         }
         return foundCount;
     } catch (e) {
-        console.error(`Worker ${WORKER_ID} | [FATAL] | Scrape Error: ${e.message}`);
+        console.error(`Worker ${WORKER_ID} | [FATAL] | Scrape Error in ${city}: ${e.message}`);
         return -1;
     }
 }
@@ -309,9 +339,12 @@ async function runOrchestrator() {
     const page = await context.newPage();
 
     try {
+        console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table from Hub...`);
         const hubResp = await axios.get(`${MAIN_HUB_URL}?type=config`, { timeout: 30000 });
-        stateUrls = hubResp.data.stateUrls;
-
+        if (hubResp.data && hubResp.data.stateUrls) {
+            stateUrls = hubResp.data.stateUrls;
+            console.log(`Worker ${WORKER_ID} | INFO | Hub Loaded.`);
+        }
         for (let sIdx = progress.stateIndex; sIdx < config.states.length; sIdx++) {
             const state = config.states[sIdx]; progress.stateIndex = sIdx;
             currentTargetUrl = stateUrls[state.name];
@@ -329,19 +362,20 @@ async function runOrchestrator() {
 
                     for (let subIdx = progress.subcategoryIndex; subIdx < category.sub.length; subIdx++) {
                         if (isStopping) break;
-                        const subcat = category.sub[subIdx]; progress.subcategoryIndex = subIdx;
+                        const subcategory = category.sub[subIdx]; progress.subcategoryIndex = subIdx;
 
                         const wait = Math.floor(Math.random() * 10000) + 10000;
                         console.log(`\nWorker ${WORKER_ID} | WAIT | Resting for ${wait/1000}s...`);
                         await page.waitForTimeout(wait);
 
-                        console.log(`Worker ${WORKER_ID} | SCAN | ${subcat} in ${city}`);
-                        const res = await scrapeCombination(page, city, state.name, category.id, subcat);
+                        console.log(`Worker ${WORKER_ID} | SCAN | ${subcategory} in ${city}`);
+                        const res = await scrapeCombination(page, city, state.name, category.id, subcategory);
 
                         if (res === -1) { await gracefulShutdown(true); return; }
                         await saveProgress();
                     }
                     if (isStopping) break;
+                    console.log(`\nWorker ${WORKER_ID} | ✅ DONE | ${city} finished.`);
                     progress.subcategoryIndex = 0;
                 }
                 if (isStopping) break;
@@ -350,7 +384,9 @@ async function runOrchestrator() {
             if (isStopping) break;
             progress.categoryIndex = 0;
         }
-    } catch (fatal) {}
+    } catch (fatal) {
+        console.error(`Worker ${WORKER_ID} | FATAL | Loop Error: ${fatal.message}`);
+    }
     await gracefulShutdown(false);
 }
 
