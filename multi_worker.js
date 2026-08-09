@@ -105,9 +105,11 @@ async function flushBuffers(isExiting = false) {
                     });
                     await batch.commit();
                 }
-                console.log(`Worker ${WORKER_ID} | [${mode}] | Firestore: Success.`);
+                console.log(`Worker ${WORKER_ID} | [SYNC] | ✅ Firestore: Success. Saved ${leads.length} leads.`);
                 firestoreBuffer = firestoreBuffer.filter(p => !leads.includes(p));
-            } catch (e) { console.error(`Worker ${WORKER_ID} | [${mode}] | Firestore Failed: ${e.message}`); }
+            } catch (e) {
+                console.error(`Worker ${WORKER_ID} | [SYNC] | ❌ Firestore Failed: ${e.message}. Retrying in next cycle...`);
+            }
         }
 
         // 2. Google Sheets Sync
@@ -233,15 +235,23 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
         const cleanPhone = phoneStr.replace(/[^0-9]/g, '').slice(-10);
 
         if (!cleanPhone || cleanPhone.length < 10) {
-            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: No valid phone for ${businessName}`);
+            console.log(`Worker ${WORKER_ID} | [🛑] | SKIP | Business: ${businessName} | Reason: Invalid/No Phone Found`);
             return 0;
         }
 
-        if (registry.has(cleanPhone)) return "DUPLICATE";
+        if (registry.has(cleanPhone)) {
+            console.log(`Worker ${WORKER_ID} | [-] | SKIP | Business: ${businessName} | Phone: ${cleanPhone} | Reason: Duplicate (Registry)`);
+            return "DUPLICATE";
+        }
 
         await page.waitForSelector('button[data-item-id="address"]', { timeout: 15000 }).catch(() => {});
         const fullAddress = await page.$eval('button[data-item-id="address"]', el => el.innerText).catch(() => "N/A");
         const cleanFullAddress = fullAddress.replace('\n', '').replace('', '').trim();
+
+        if (cleanFullAddress === "N/A" || !cleanFullAddress) {
+            console.log(`Worker ${WORKER_ID} | [🛑] | SKIP | Business: ${businessName} | Reason: No Address Found`);
+            return 0;
+        }
 
         const urlCoords = page.url().match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || page.url().match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
         let latitude = urlCoords ? parseFloat(urlCoords[1]) : 0;
@@ -257,7 +267,7 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
             if (addressParts[stateIdx].toLowerCase() === "india" && addressParts.length >= 4) stateIdx--;
             const statePart = addressParts[stateIdx];
             if (!statePart.toLowerCase().includes(state.toLowerCase())) {
-                console.log(`Worker ${WORKER_ID} | [🛑] | Skip: Wrong state (${statePart}) for ${businessName}`);
+                console.log(`Worker ${WORKER_ID} | [🛑] | SKIP | Business: ${businessName} | Reason: State Mismatch (Detected: ${statePart}, Expected: ${state})`);
                 return 0;
             }
             detectedCity = addressParts[stateIdx - 1];
@@ -266,8 +276,8 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
 
         const isLatValid = latitude > 6.0 && latitude < 38.5;
         const isLonValid = longitude > 68.0 && longitude < 98.5;
-        if (!isLatValid || !isLonValid || cleanFullAddress === "N/A") {
-            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: Ocean Coordinates or No Address`);
+        if (!isLatValid || !isLonValid) {
+            console.log(`Worker ${WORKER_ID} | [🛑] | SKIP | Business: ${businessName} | Reason: Ocean Coordinates (Lat:${latitude}, Lon:${longitude})`);
             return 0;
         }
 
@@ -276,7 +286,7 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
 
         // 🛡️ STRICT QUALITY CHECK: MUST HAVE IMAGES
         if (!portfolio || portfolio.length === 0) {
-            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: No Images for ${businessName}`);
+            console.log(`Worker ${WORKER_ID} | [🛑] | SKIP | Business: ${businessName} | Reason: No Portfolio Images Found`);
             return 0;
         }
 
