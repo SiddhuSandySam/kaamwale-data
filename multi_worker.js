@@ -76,7 +76,7 @@ async function loadProgress() {
 let sheetBuffer = [];
 let firestoreBuffer = [];
 let isFlushing = false;
-const BATCH_LIMIT = 100; // 🚀 BACK TO PRODUCTION: 100 leads per batch
+const BATCH_LIMIT = 50; // 🚀 OPTIMIZED BATCH: 50 leads per batch
 
 async function saveProgress() {
     fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
@@ -456,10 +456,10 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             } catch (backupErr) {}
 
             if (sheetBuffer.length >= BATCH_LIMIT || firestoreBuffer.length >= BATCH_LIMIT) { await flushBuffers(); }
-            console.log(`Worker ${WORKER_ID} | [+] | Found: ${businessName} | Phone: ${cleanPhone}`);
+            newLeadsCount++;
+            console.log(`Worker ${WORKER_ID} | [+] | Found: ${businessName} | Phone: ${cleanPhone} (Total New: ${newLeadsCount})`);
             lastSyncedName = businessName;
             registry.add(cleanPhone);
-            newLeadsCount++;
         } catch (err) {}
     }
     return newLeadsCount;
