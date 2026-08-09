@@ -87,9 +87,12 @@ jobs:
           git config --global user.email "bot@rapidhelp.in"
           
           # 🚀 ATOMIC GIT SYNC: Stronger handling for 15 parallel pushes
-          for i in {1..15}; do
+          for i in {1..20}; do
+            # Add random jitter to avoid concurrent push collisions
+            sleep $(( (RANDOM % 15) + 5 ))
+            
             git pull --rebase origin main
             git add progress_W*.json
-            git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || echo "Nothing to commit"
-            git push origin main && break || (echo "Conflict, retrying in 30s..." && sleep 30)
+            git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || { echo "Nothing to commit"; break; }
+            git push origin main && break || echo "Conflict, retrying cycle $i..."
           done
