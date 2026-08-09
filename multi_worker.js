@@ -1,4 +1,4 @@
-const { chromium } = require('playwright');
+bhai he baghconst { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -299,12 +299,12 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
     if (isStopping || page.isClosed()) return 0;
     try {
         await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(subcategory + " in " + city + ", " + state)}`);
-        // 🚀 INCREASED TIMEOUT: Wait up to 60s for slow internet/Chrome response
-        await page.waitForSelector('a.hfpxzc', { timeout: 60000 });
+        // 🚀 INCREASED TIMEOUT: Wait up to 5 minutes (300,000ms) for very slow responses
+        await page.waitForSelector('a.hfpxzc', { timeout: 300000 });
     } catch (e) {
-        // 🛡️ BLOCK/TIMEOUT PROTECTION: If map doesn't load, STOP EVERYTHING to prevent data skipping.
-        console.error(`Worker ${WORKER_ID} | [FATAL] | Google Maps not responding or Blocked in ${city}. Stopping current run.`);
-        return -1; // 🛑 SIGNAL: Fatal stop
+        // 🛡️ BLOCK/TIMEOUT PROTECTION: If map doesn't load even after 5 mins, STOP to prevent skipping.
+        console.error(`Worker ${WORKER_ID} | [FATAL] | Google Maps not responding after 5 mins in ${city}. Stopping current run.`);
+        return -1;
     }
     for (let i = 0; i < 2; i++) { if (isStopping || page.isClosed()) return 0; await page.mouse.wheel(0, 3000); await page.waitForTimeout(1000); }
 

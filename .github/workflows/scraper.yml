@@ -59,6 +59,11 @@ jobs:
         run: |
           git config --global user.name "RapidHelp-Bot"
           git config --global user.email "bot@rapidhelp.in"
-          git add progress_W${{ matrix.worker_id }}.json
-          git commit -m "Worker ${{ matrix.worker_id }} progress update [skip ci]" || echo "No changes"
-          git push origin main
+          
+          # 🚀 ATOMIC UPDATE: Use rebase and retry loop to handle parallel pushes
+          for i in {1..5}; do
+            git add progress_W*.json
+            git commit -m "Worker ${{ matrix.worker_id }} progress update [skip ci]" || break
+            git pull --rebase origin main
+            git push origin main && break || sleep 15
+          done
