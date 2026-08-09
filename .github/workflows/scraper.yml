@@ -54,9 +54,30 @@ jobs:
           DISPLAY: :99
           HEADLESS: "false"
         run: |
-          # 🚀 PERSISTENT RETRY: Internal loop to try up to 10 times if node fails
-          for i in {1..10}; do
-            timeout 20000s node multi_worker.js ${{ matrix.worker_id }} 15 && break || (echo "Retry $i..." && sleep 60)
+          # 🚀 THE UNSTOPPABLE LOOP: Restart worker immediately on failure/block
+          # Runs until 5.5 hours are up or work is truly finished
+          START_TIME=$(date +%s)
+          while true; do
+            CURRENT_TIME=$(date +%s)
+            ELAPSED=$((CURRENT_TIME - START_TIME))
+            
+            # Stop if we have less than 15 mins left (timeout safety)
+            if [ $ELAPSED -gt 19800 ]; then
+              echo "🏁 5.5 hour shift complete. Shutting down."
+              break
+            fi
+
+            echo "🚀 Starting Worker ${{ matrix.worker_id }} (Elapsed: ${ELAPSED}s)..."
+            node multi_worker.js ${{ matrix.worker_id }} 15
+            
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -eq 0 ]; then
+              echo "✅ Work truly finished for this worker. Exiting loop."
+              break
+            else
+              echo "⚠️ Worker stopped with code $EXIT_CODE (possibly blocked). Retrying in 60s..."
+              sleep 60
+            fi
           done
 
       - name: Commit and Push Progress

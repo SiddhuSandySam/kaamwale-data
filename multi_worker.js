@@ -242,7 +242,7 @@ async function syncFromSatellite(targetUrl) {
 }
 
 let isStopping = false;
-async function gracefulShutdown() {
+async function gracefulShutdown(isError = false) {
     if (isStopping) return;
     isStopping = true;
     console.log(`\nWorker ${WORKER_ID} | [EXIT] | 🛑 Shutdown initiated. Securing data...`);
@@ -260,7 +260,7 @@ async function gracefulShutdown() {
         console.log(`Worker ${WORKER_ID} | [EXIT] | 🏁 ALL DATA PROCESSED SUCCESSFULLY.`);
     } finally {
         clearInterval(keepAlive);
-        process.exit(0);
+        process.exit(isError ? 1 : 0);
     }
 }
 
@@ -563,7 +563,7 @@ async function runOrchestrator() {
 
                         if (result === -1) {
                             console.log(`Worker ${WORKER_ID} | [STOP] | Shutting down to avoid skipping data...`);
-                            await gracefulShutdown();
+                            await gracefulShutdown(true); // 🚀 EXIT WITH CODE 1 TO TRIGGER GITHUB RETRY
                             return;
                         }
 
