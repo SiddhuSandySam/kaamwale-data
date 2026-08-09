@@ -24,12 +24,12 @@ const CONFIG_FILE = path.join(__dirname, 'config.json');
 const REGISTRY_FILE = path.join(__dirname, 'master_registry.json');
 const PROGRESS_FILE = path.join(__dirname, `progress_W${WORKER_ID}.json`);
 const FAILED_SYNC_FILE = path.join(__dirname, `failed_sync_W${WORKER_ID}.json`);
-const BACKUP_LEADS_FILE = path.join(__dirname, `backup_leads_W${WORKER_ID}.json`);
+const BACKUP_LEADS_FILE = path.join(__dirname, `backup_leads_W${WORKER_ID}.json`); // 🚀 NEW: Immediate disk backup
 const SERVICE_ACCOUNT_FILE = path.join(__dirname, 'serviceAccountKey.json');
 
 // --- STARTUP HEADER ---
 console.log("\n===============================================");
-console.log(`   RAPIDHELP WORKER ${WORKER_ID} | VERSION: V75 | LOGS-RESTORED`);
+console.log(`   RAPIDHELP WORKER ${WORKER_ID} | VERSION: V76 | DATA-ARMOR-RESTORED`);
 console.log("===============================================\n");
 
 // INITIALIZE FIREBASE
@@ -47,27 +47,17 @@ let stateUrls = {};
 let currentTargetUrl = MAIN_HUB_URL;
 let lastFullSyncTime = 0;
 
-// Initialize SQLite registry
+// Initialize SQLite registry from JSON if it's the first time
 registry.migrateFromJson();
 
 let progress = { stateIndex: 0, cityIndex: 0, categoryIndex: 0, subcategoryIndex: 0, lastRegistrySync: 0 };
-
-async function loadProgress() {
-    if (fs.existsSync(PROGRESS_FILE)) {
-        progress = JSON.parse(fs.readFileSync(PROGRESS_FILE));
-    }
-    if (db) {
-        try {
-            const doc = await db.collection('metadata').doc(`progress_W${WORKER_ID}`).get();
-            if (doc.exists) progress = doc.data();
-        } catch (e) {}
-    }
+if (fs.existsSync(PROGRESS_FILE)) {
+    progress = JSON.parse(fs.readFileSync(PROGRESS_FILE));
 }
 
 let sheetBuffer = [];
 let firestoreBuffer = [];
 let isFlushing = false;
-let newLeadsCount = 0;
 const BATCH_LIMIT = 50;
 
 async function saveProgress() {
@@ -77,26 +67,97 @@ async function saveProgress() {
     }
 }
 
-async function flushBuffers() {
-    if (isFlushing) return;
+async function flushBuffers(isExiting = false) {
+    if (isFlushing && !isExiting) return;
+
+    if (isFlushing && isExiting) {
+        console.log(`Worker ${WORKER_ID} | WAIT | Waiting for current sync to finish...`);
+        while (isFlushing) { await new Promise(r => setTimeout(r, 500)); }
+    }
+
+    if (sheetBuffer.length === 0 && firestoreBuffer.length === 0) {
+        if (isExiting) console.log(`Worker ${WORKER_ID} | INFO | Buffer is empty.`);
+        return;
+    }
+
     isFlushing = true;
+    const mode = isExiting ? "EXIT" : "SYNC";
+
     try {
-        if (firestoreBuffer.length > 0 && db) {
-            const batch = db.batch();
-            firestoreBuffer.forEach(p => {
-                batch.set(db.collection('providers').doc(p.id), p, { merge: true });
-            });
-            await batch.commit();
-            console.log(`Worker ${WORKER_ID} | SYNC | Firestore: Success.`);
-            firestoreBuffer = [];
+        // 1. Firestore Sync
+        if (firestoreBuffer.length > 0 && db && SYNC_FIRESTORE_ENABLED) {
+            const leads = [...firestoreBuffer];
+            console.log(`Worker ${WORKER_ID} | [${mode}] | Firestore: Saving ${leads.length} leads...`);
+            try {
+                for (let i = 0; i < leads.length; i += 50) {
+                    const chunk = leads.slice(i, i + 50);
+                    const batch = db.batch();
+                    chunk.forEach(p => {
+                        const phone = p.id.replace('shadow_', '');
+                        batch.set(db.collection('providers').doc(p.id), p, { merge: true });
+                        batch.set(db.collection('scraped_phones').doc(phone), { timestamp: Date.now() });
+                    });
+                    await batch.commit();
+                }
+                console.log(`Worker ${WORKER_ID} | [${mode}] | Firestore: Success.`);
+                firestoreBuffer = firestoreBuffer.filter(p => !leads.includes(p));
+            } catch (e) {
+                console.error(`Worker ${WORKER_ID} | [${mode}] | Firestore: Failed - ${e.message}`);
+            }
         }
-        if (sheetBuffer.length > 0) {
-            const resp = await axios.post(currentTargetUrl, { type: "BATCH_PROVIDER_SYNC", providers: sheetBuffer }, { timeout: 60000 });
-            console.log(`Worker ${WORKER_ID} | SYNC | Sheet: Success 🚀`);
-            sheetBuffer = [];
+
+        // 2. Google Sheets Sync
+        if (sheetBuffer.length > 0 && SYNC_SHEET_ENABLED) {
+            let leadsToSync = [...sheetBuffer];
+            let retryAttempt = 0;
+            const MAX_RETRIES = 5;
+            let success = false;
+
+            while (retryAttempt < MAX_RETRIES && !success) {
+                if (retryAttempt > 0) {
+                    await syncFromSatellite(currentTargetUrl);
+                    const originalCount = leadsToSync.length;
+                    leadsToSync = leadsToSync.filter(p => !registry.has(p.callNumber));
+
+                    if (leadsToSync.length === 0) {
+                        console.log(`Worker ${WORKER_ID} | [SUCCESS] | All leads already saved in sheet.`);
+                        sheetBuffer = sheetBuffer.filter(p => !registry.has(p.callNumber));
+                        if (fs.existsSync(BACKUP_LEADS_FILE)) fs.unlinkSync(BACKUP_LEADS_FILE);
+                        if (fs.existsSync(FAILED_SYNC_FILE)) fs.unlinkSync(FAILED_SYNC_FILE);
+                        success = true;
+                        break;
+                    }
+                }
+
+                if (retryAttempt > 0 || !isExiting) {
+                    const baseWait = retryAttempt === 0 ? 10000 : 30000 * Math.pow(2, retryAttempt);
+                    await new Promise(r => setTimeout(r, baseWait));
+                }
+
+                console.log(`Worker ${WORKER_ID} | [${mode}] | Sheet: Syncing ${leadsToSync.length} leads... (Attempt ${retryAttempt + 1})`);
+                try {
+                    const response = await axios.post(currentTargetUrl, {
+                        type: "BATCH_PROVIDER_SYNC",
+                        providers: leadsToSync
+                    }, { timeout: 150000 });
+
+                    const resData = String(response.data);
+                    console.log(`Worker ${WORKER_ID} | [${mode}] | 📊 Sheet Response: ${resData} 🚀`);
+
+                    if (resData.includes("Success") || resData.includes("Complete")) {
+                        const syncedPhones = leadsToSync.map(p => p.callNumber);
+                        sheetBuffer = sheetBuffer.filter(p => !syncedPhones.includes(p.callNumber));
+                        if (fs.existsSync(BACKUP_LEADS_FILE)) fs.unlinkSync(BACKUP_LEADS_FILE);
+                        if (fs.existsSync(FAILED_SYNC_FILE)) fs.unlinkSync(FAILED_SYNC_FILE);
+                        success = true;
+                    } else {
+                        retryAttempt++;
+                    }
+                } catch (e) {
+                    retryAttempt++;
+                }
+            }
         }
-    } catch (e) {
-        console.error(`Worker ${WORKER_ID} | SYNC | Error: ${e.message}`);
     } finally {
         isFlushing = false;
     }
@@ -109,6 +170,7 @@ async function syncFromSatellite(targetUrl) {
         const response = await axios.get(`${cleanUrl}?type=get_ids`, { timeout: 90000 });
         if (Array.isArray(response.data)) {
             registry.addBatch(response.data);
+            console.log(`Worker ${WORKER_ID} | [SYNC] | ✅ Registry Updated.`);
             lastFullSyncTime = Date.now();
         }
     } catch (e) {}
@@ -118,16 +180,27 @@ let isStopping = false;
 async function gracefulShutdown(isError = false) {
     if (isStopping) return;
     isStopping = true;
-    console.log(`\nWorker ${WORKER_ID} | [EXIT] | Shutting down...`);
-    await flushBuffers();
-    process.exit(isError ? 1 : 0);
+    console.log(`\nWorker ${WORKER_ID} | [EXIT] | 🛑 Shutdown initiated. Securing data...`);
+
+    if (sheetBuffer.length > 0) {
+        try {
+            fs.writeFileSync(FAILED_SYNC_FILE, JSON.stringify(sheetBuffer, null, 2));
+            console.log(`Worker ${WORKER_ID} | [EXIT] | 📦 Local backup created.`);
+        } catch (e) {}
+    }
+
+    try {
+        await flushBuffers(true);
+        console.log(`Worker ${WORKER_ID} | [EXIT] | 🏁 ALL DATA PROCESSED SUCCESSFULLY.`);
+    } finally {
+        process.exit(isError ? 1 : 0);
+    }
 }
 
 process.on('SIGINT', () => gracefulShutdown(false));
 
 async function extractPortfolio(page) {
     try {
-        if (page.isClosed()) return [];
         await page.evaluate(async () => {
             const h1 = document.querySelector('h1.DUwDvf');
             const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.querySelector('div[role="main"]');
@@ -136,10 +209,7 @@ async function extractPortfolio(page) {
         await page.waitForTimeout(1500);
         return await page.evaluate(() => {
             const links = new Set();
-            const h1 = document.querySelector('h1.DUwDvf');
-            const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.body;
-            if (!panel) return [];
-            panel.querySelectorAll('img').forEach(img => {
+            document.querySelectorAll('img').forEach(img => {
                 const src = img.src || '';
                 if (src.includes('googleusercontent.com') && !src.includes('base64')) {
                     if (src.includes('/a/') || src.includes('/a-/') || src.includes('shared-v1')) return;
@@ -157,25 +227,21 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
         const cleanPhone = phoneStr.replace(/[^0-9]/g, '').slice(-10);
 
         if (!cleanPhone || cleanPhone.length < 10) {
-            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: No valid phone for ${businessName}`);
+            console.log(`Worker ${WORKER_ID} | [-] | Skip: No Phone for ${businessName}`);
             return 0;
         }
 
-        // 🚀 LOG DETECTED PHONE IMMEDIATELY
-        console.log(`Worker ${WORKER_ID} | DETECT | ${businessName} | Phone: ${cleanPhone}`);
-
         if (registry.has(cleanPhone)) return "DUPLICATE";
 
-        // 🚀 SMART WAIT FOR ADDRESS
         await page.waitForSelector('button[data-item-id="address"]', { timeout: 10000 }).catch(() => {});
         const fullAddress = await page.$eval('button[data-item-id="address"]', el => el.innerText).catch(() => "N/A");
         const cleanFullAddress = fullAddress.replace('\n', '').replace('', '').trim();
 
-        if (cleanFullAddress === "N/A" || cleanFullAddress.length < 5) {
-            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: No Address for ${businessName}`);
-            return 0;
-        }
+        const urlCoords = page.url().match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || page.url().match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        let latitude = urlCoords ? parseFloat(urlCoords[1]) : 0;
+        let longitude = urlCoords ? parseFloat(urlCoords[2]) : 0;
 
+        // 🛡️ INDIA GUARD & ADDRESS VALIDATION
         const addressParts = cleanFullAddress.split(',').map(p => p.trim());
         let detectedCity = city;
         let detectedLocality = city;
@@ -186,30 +252,27 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
 
             const statePart = addressParts[stateIdx];
             if (!statePart.toLowerCase().includes(state.toLowerCase())) {
-                console.log(`Worker ${WORKER_ID} | [🛑] | Skip: Wrong State (${statePart}) for ${businessName}`);
+                console.log(`Worker ${WORKER_ID} | [🛑] | Skip: Wrong state (${statePart})`);
                 return 0;
             }
-
-            detectedCity = addressParts[stateIdx - 1] || city;
-            detectedLocality = addressParts[stateIdx - 2] || detectedCity;
-
-            if (/^\d+/.test(detectedLocality) || detectedLocality.toLowerCase().includes('plot') || detectedLocality.toLowerCase().includes('shop')) {
-                if (addressParts.length >= 5) detectedLocality = addressParts[stateIdx - 3];
-            }
+            detectedCity = addressParts[stateIdx - 1];
+            detectedLocality = addressParts[stateIdx - 2];
         }
 
-        // 🚀 PORTFOLIO
-        let portfolio = await extractPortfolio(page);
-        if (portfolio.length === 0) { await page.waitForTimeout(2000); portfolio = await extractPortfolio(page); }
-
-        if (portfolio.length === 0) {
-            console.log(`Worker ${WORKER_ID} | [!] | Skip: No Images found for ${businessName}`);
+        const isLatValid = latitude > 6.0 && latitude < 38.5;
+        const isLonValid = longitude > 68.0 && longitude < 98.5;
+        if (!isLatValid || !isLonValid || cleanFullAddress === "N/A") {
+            console.log(`Worker ${WORKER_ID} | [🛑] | Skip: Ocean Coordinates or No Address`);
             return 0;
         }
 
-        const urlCoords = page.url().match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || page.url().match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        let portfolio = await extractPortfolio(page);
+        if (portfolio.length === 0) { await page.waitForTimeout(2000); portfolio = await extractPortfolio(page); }
+        if (portfolio.length === 0) {
+            console.log(`Worker ${WORKER_ID} | [!] | Skip: No Images for ${businessName}`);
+            return 0;
+        }
 
-        // 💎 THE 31 COLUMN GOLD OBJECT
         const provider = {
             id: `shadow_${cleanPhone}`,
             businessName: businessName,
@@ -220,38 +283,44 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
             city: detectedCity,
             locality: detectedLocality,
             state: state,
-            startingPrice: 0,
-            priceUnit: "Discuss on Call",
+            fullAddress: cleanFullAddress,
             whatsappNumber: cleanPhone,
             callNumber: cleanPhone,
-            aboutDescription: `Professional ${subcategory} services available in ${detectedCity}. High-quality work guaranteed by local experts.`,
+            profilePhotoUrl: portfolio[0].split('=')[0] + '=w500-h500-k-no',
+            portfolioUrls: portfolio,
+            rating: 0.0,
             isApproved: true,
             isVerified: false,
-            rating: 0.0,
-            profilePhotoUrl: portfolio[0] ? portfolio[0].split('=')[0] + '=w500-h500-k-no' : "",
             recommendationCount: 0,
-            portfolioUrls: portfolio,
-            searchKeywords: [businessName, detectedCity, subcategory, state],
             lastSeen: Date.now(),
             callCount: 0,
-            fullAddress: cleanFullAddress,
-            isNumberHidden: false,
+            latitude: latitude,
+            longitude: longitude,
             referredBy: "SYSTEM_SCRAPER",
             referralBonusPaid: false,
             fcmToken: "",
             notificationsEnabled: true,
-            latitude: urlCoords ? parseFloat(urlCoords[1]) : 0,
-            longitude: urlCoords ? parseFloat(urlCoords[2]) : 0
+            isNumberHidden: false,
+            searchKeywords: [businessName, detectedCity, subcategory, detectedLocality],
+            priceUnit: "Discuss on Call",
+            startingPrice: 0,
+            aboutDescription: `Professional ${subcategory} services available in ${detectedCity}. High-quality work guaranteed.`
         };
 
-        if (SYNC_FIRESTORE_ENABLED && db) firestoreBuffer.push(provider);
-        if (SYNC_SHEET_ENABLED) sheetBuffer.push(provider);
+        firestoreBuffer.push(provider);
+        sheetBuffer.push(provider);
 
+        // 🚀 IMMEDIATE DISK BACKUP
+        try {
+            let currentBackup = [];
+            if (fs.existsSync(BACKUP_LEADS_FILE)) currentBackup = JSON.parse(fs.readFileSync(BACKUP_LEADS_FILE));
+            currentBackup.push(provider);
+            fs.writeFileSync(BACKUP_LEADS_FILE, JSON.stringify(currentBackup, null, 2));
+        } catch (e) {}
+
+        if (sheetBuffer.length >= BATCH_LIMIT) await flushBuffers();
+        console.log(`Worker ${WORKER_ID} | [+] | Saved: ${businessName} | Phone: ${cleanPhone}`);
         registry.add(cleanPhone);
-        newLeadsCount++;
-        console.log(`Worker ${WORKER_ID} | [+] | Saved: ${businessName} | Phone: ${cleanPhone} (Total: ${newLeadsCount})`);
-
-        if (sheetBuffer.length >= BATCH_LIMIT || firestoreBuffer.length >= BATCH_LIMIT) await flushBuffers();
         return 1;
     } catch (err) { return 0; }
 }
@@ -261,15 +330,11 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
     try {
         await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(subcategory + " in " + city + ", " + state)}`);
 
-        // Handle Consent
-        const consentBtn = await page.$('button[aria-label="Accept all"]').catch(() => null);
-        if (consentBtn) await consentBtn.click();
-
-        // 🚀 SMART DETECTION
+        // Handle Direct Profile Page or List
         const status = await Promise.race([
             page.waitForSelector('a.hfpxzc', { timeout: 60000 }).then(() => "LIST"),
             page.waitForSelector('h1.DUwDvf', { timeout: 25000 }).then(() => "SINGLE"),
-            page.waitForSelector('div.fvP2If, div.H6v83d', { timeout: 15000 }).then(() => "EMPTY"),
+            page.waitForSelector('div.fvP2If', { timeout: 15000 }).then(() => "EMPTY"),
             page.waitForTimeout(85000).then(() => "TIMEOUT")
         ]);
 
@@ -279,7 +344,7 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
         }
 
         if (status === "SINGLE") {
-            console.log(`Worker ${WORKER_ID} | [!] | Direct Profile detected.`);
+            console.log(`Worker ${WORKER_ID} | [!] | Direct Profile Page detected.`);
             const name = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "Unknown");
             return await scrapeIndividualProfile(page, name, city, state, categoryId, subcategory);
         }
@@ -287,50 +352,43 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
         await page.mouse.wheel(0, 3000);
         await page.waitForTimeout(2000);
 
+        let newLeadsCount = 0;
         let streak = 0;
-        let foundCount = 0;
+        const STREAK_LIMIT = 4;
 
         for (let i = 0; i < 30; i++) {
             if (isStopping) break;
-
             const listings = await page.$$('a.hfpxzc');
             if (i >= listings.length) break;
-
             const listing = listings[i];
-            const nameRaw = await listing.getAttribute('aria-label').catch(() => null);
-            if (!nameRaw) continue;
+            const nameRaw = await listing.getAttribute('aria-label').catch(() => "Unknown");
 
-            try {
-                await listing.scrollIntoViewIfNeeded({ timeout: 10000 });
-                await listing.click();
-            } catch (clickErr) { continue; }
+            await listing.scrollIntoViewIfNeeded();
+            await listing.click();
 
             let updated = false;
-            for (let r = 0; r < 12; r++) {
+            for (let r = 0; r < 10; r++) {
                 const title = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "");
-                if (title.toLowerCase().includes(nameRaw.toLowerCase().substring(0, 4))) {
-                    updated = true; break;
-                }
+                if (title.toLowerCase().includes(nameRaw.toLowerCase().substring(0, 4))) { updated = true; break; }
                 await page.waitForTimeout(1000);
             }
             if (!updated) continue;
 
             const res = await scrapeIndividualProfile(page, nameRaw, city, state, categoryId, subcategory);
-            if (res === 1) { foundCount++; streak = 0; }
+            if (res === 1) { newLeadsCount++; streak = 0; }
             else if (res === "DUPLICATE") {
                 streak++;
-                const phoneStr = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "Unknown");
-                const cleanPhone = phoneStr.replace(/[^0-9]/g, '').slice(-10);
-                console.log(`Worker ${WORKER_ID} | [-] | Skip: Duplicate ${cleanPhone} (Streak: ${streak}/4)`);
-                if (streak >= 4) {
-                    console.log(`Worker ${WORKER_ID} | [🛑] | Streak hit. Next category...`);
-                    return foundCount;
+                const phone = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "Unknown");
+                console.log(`Worker ${WORKER_ID} | [-] | Skip: Duplicate Number: ${phone.replace(/[^0-9]/g, '').slice(-10)} (Streak: ${streak}/${STREAK_LIMIT})`);
+                if (streak >= STREAK_LIMIT) {
+                    console.log(`Worker ${WORKER_ID} | [🛑] | Streak hit. Next city...`);
+                    return newLeadsCount;
                 }
             }
         }
-        return foundCount;
+        return newLeadsCount;
     } catch (e) {
-        console.error(`Worker ${WORKER_ID} | [FATAL] | Scrape Error in ${city}: ${e.message}`);
+        console.error(`Worker ${WORKER_ID} | [FATAL] | Scrape Error: ${e.message}`);
         return -1;
     }
 }
@@ -341,21 +399,34 @@ async function runOrchestrator() {
     const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' });
     const page = await context.newPage();
 
+    if (WORKER_ID > 0) { await new Promise(r => setTimeout(r, WORKER_ID * 10000)); }
+
     try {
-        console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table from Hub...`);
-        const hubResp = await axios.get(`${MAIN_HUB_URL}?type=config`, { timeout: 30000 });
-        if (hubResp.data && hubResp.data.stateUrls) {
-            stateUrls = hubResp.data.stateUrls;
-            console.log(`Worker ${WORKER_ID} | INFO | Hub Loaded.`);
+        console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table...`);
+        const hubResp = await axios.get(`${MAIN_HUB_URL}?type=config`);
+        stateUrls = hubResp.data.stateUrls;
+
+        // 🚀 SMART RECOVERY
+        if (fs.existsSync(BACKUP_LEADS_FILE)) {
+            const failedLeads = JSON.parse(fs.readFileSync(BACKUP_LEADS_FILE));
+            if (failedLeads.length > 0) {
+                console.log(`Worker ${WORKER_ID} | RECOVERY | Routing ${failedLeads.length} leads via Main Hub...`);
+                await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: failedLeads });
+                fs.unlinkSync(BACKUP_LEADS_FILE);
+            }
         }
+
         for (let sIdx = progress.stateIndex; sIdx < config.states.length; sIdx++) {
             const state = config.states[sIdx]; progress.stateIndex = sIdx;
             currentTargetUrl = stateUrls[state.name];
             if (!currentTargetUrl) continue;
 
-            await syncFromSatellite(currentTargetUrl);
-            const cities = WORKER_ID % 2 === 0 ? [...state.cities].reverse() : [...state.cities];
+            // 🚀 SMART FIX: Flush buffers before switching to a new state
+            if (sheetBuffer.length > 0 || firestoreBuffer.length > 0) await flushBuffers();
 
+            await syncFromSatellite(currentTargetUrl);
+
+            let cities = WORKER_ID % 2 === 0 ? [...state.cities].reverse() : [...state.cities];
             for (let catIdx = progress.categoryIndex; catIdx < config.categories.length; catIdx++) {
                 if (catIdx % TOTAL_WORKERS !== WORKER_ID) { progress.cityIndex = 0; continue; }
 
@@ -365,19 +436,18 @@ async function runOrchestrator() {
 
                     for (let subIdx = progress.subcategoryIndex; subIdx < category.sub.length; subIdx++) {
                         if (isStopping) break;
-                        const subcategory = category.sub[subIdx]; progress.subcategoryIndex = subIdx;
+                        const subcat = category.sub[subIdx]; progress.subcategoryIndex = subIdx;
 
                         const wait = Math.floor(Math.random() * 10000) + 10000;
                         console.log(`\nWorker ${WORKER_ID} | WAIT | Resting for ${wait/1000}s...`);
                         await page.waitForTimeout(wait);
 
                         console.log(`Worker ${WORKER_ID} | SCAN | ${subcategory} in ${city}`);
-                        const res = await scrapeCombination(page, city, state.name, category.id, subcategory);
+                        const res = await scrapeCombination(page, city, state.name, category.id, subcat);
                         if (res === -1) { await gracefulShutdown(true); return; }
                         await saveProgress();
                     }
                     if (isStopping) break;
-                    console.log(`\nWorker ${WORKER_ID} | ✅ DONE | ${city} finished.`);
                     progress.subcategoryIndex = 0;
                 }
                 if (isStopping) break;
@@ -386,9 +456,7 @@ async function runOrchestrator() {
             if (isStopping) break;
             progress.categoryIndex = 0;
         }
-    } catch (fatal) {
-        console.error(`Worker ${WORKER_ID} | FATAL | Loop Error: ${fatal.message}`);
-    }
+    } catch (fatal) {}
     await gracefulShutdown(false);
 }
 
