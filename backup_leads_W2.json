@@ -352,5 +352,49 @@
     "notificationsEnabled": true,
     "latitude": 19.2769427,
     "longitude": 72.8576977
+  },
+  {
+    "id": "shadow_8850602382",
+    "businessName": "Mitrah Technology",
+    "primaryCategoryId": "cat_tech",
+    "subcategory": "Technical Support",
+    "experienceYears": 4,
+    "serviceMode": "Local",
+    "city": "Mira Bhayandar",
+    "locality": "Bhayandar East",
+    "state": "Maharashtra",
+    "startingPrice": 0,
+    "priceUnit": "Discuss on Call",
+    "whatsappNumber": "8850602382",
+    "callNumber": "8850602382",
+    "aboutDescription": "Professional Technical Support services available in Mira Bhayandar. High-quality work guaranteed by local experts.",
+    "isApproved": true,
+    "isVerified": false,
+    "rating": 0,
+    "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlDHdxXk8tsVw79rRfwhD50EH9HR1LBelNlc25jlstqR0S3IPyRYEGDskB4pa2jEpnqJyBiIyiTOPAxK8OEmad9wImQWhvIWuCCzO2QgudKHtJuw4EyVJHSFLvPno5Q7Zsvi-Nb=w500-h500-k-no",
+    "recommendationCount": 0,
+    "portfolioUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlDHdxXk8tsVw79rRfwhD50EH9HR1LBelNlc25jlstqR0S3IPyRYEGDskB4pa2jEpnqJyBiIyiTOPAxK8OEmad9wImQWhvIWuCCzO2QgudKHtJuw4EyVJHSFLvPno5Q7Zsvi-Nb=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnQYmkdg1lm-r1S-X32mU1VK3h85sa0f3lssB-xrYxltVXHqUnsOn2D25SVn1KpH-WZ04xcXubPo21ZEoemv2a1Gbv6NDYh9s9FJteOpYgSk5PdwLlNjs2aju10kMQ9kJVyqnIH=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWkAzUAQ6p9JKTICFVM2qbiNaTLxGQ_twBfi6-oNrpyg3GmyK678QoiXqDux4U6VFcxl0fOM0KbObx9FiJIx_ny5FkonJu0C9TgI8jDqp5me456gaxemBryqcqetq0ua9UfGw71tcw=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWkt2V9_07REqGkT21eIIvI8vlCtGMcFWcKxfE4-1tvs5GIjbsKSc1jWdJ4MCiGlD1cD3whJ5Jg6Bqn85fBUdd2Ya7Yp4kNDdi53EObzZrTX3AoKZlPHD3u7v_7MkohCCEJJzOv5zDueNn-4=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlRZfGg2ZCSQq1oCRE0LqTfF4omLsImgOM4nq1s3dCWrx4htmINz9uKsL6ajk9OG6-c7amfB--koSiGD5tNAGDEitgh1-1irHhr3olBHzfewVyLcMOgSIL0TeZl1OuAoR2yVI4gsA=w1000-h1000"
+    ],
+    "searchKeywords": [
+      "Mitrah Technology",
+      "Mira Bhayandar",
+      "Technical Support",
+      "Maharashtra"
+    ],
+    "lastSeen": 1786329621495,
+    "callCount": 0,
+    "fullAddress": "Office No 2, Shree Anand, near Radha Krishna Mandir, Indralok Phase 3, Bhayandar East, Mira Bhayandar, Maharashtra 401105, India",
+    "isNumberHidden": false,
+    "referredBy": "SYSTEM_SCRAPER",
+    "referralBonusPaid": false,
+    "fcmToken": "",
+    "notificationsEnabled": true,
+    "latitude": 19.3028449,
+    "longitude": 72.8684805
   }
 ]
