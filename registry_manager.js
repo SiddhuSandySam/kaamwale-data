@@ -1,9 +1,12 @@
 const fs = require('fs');
 const path = require('path');
-const readline = require('readline');
 
-const REGISTRY_TXT = path.join(__dirname, 'registry.txt');
+// 🚀 Get Worker ID from process arguments to avoid Git conflicts
+const args = process.argv.slice(2);
+const WORKER_ID = args[0] !== undefined ? parseInt(args[0]) : "MASTER";
+
 const REGISTRY_JSON = path.join(__dirname, 'master_registry.json');
+const WORKER_REGISTRY_TXT = path.join(__dirname, `registry_W${WORKER_ID}.txt`);
 
 class RegistryManager {
     constructor() {
@@ -12,42 +15,50 @@ class RegistryManager {
     }
 
     init() {
-        console.log("RegistryManager | Initializing Hyper-Speed Registry...");
+        console.log(`RegistryManager | Initializing Worker ${WORKER_ID} Registry...`);
 
-        // 1. Load existing IDs from Text File (Line by Line) - DO THIS FIRST
-        if (fs.existsSync(REGISTRY_TXT)) {
-            const data = fs.readFileSync(REGISTRY_TXT, 'utf8');
-            const lines = data.split('\n');
-            lines.forEach(line => {
+        // 1. Load ALL worker registries to build a shared brain
+        const files = fs.readdirSync(__dirname);
+        let totalLoaded = 0;
+        files.forEach(file => {
+            if (file.startsWith('registry_W') && file.endsWith('.txt')) {
+                const data = fs.readFileSync(path.join(__dirname, file), 'utf8');
+                data.split('\n').forEach(line => {
+                    const clean = line.trim();
+                    if (clean) {
+                        this.registrySet.add(clean);
+                        totalLoaded++;
+                    }
+                });
+            }
+        });
+
+        // Also load the legacy registry.txt if it exists (for transition)
+        const legacyPath = path.join(__dirname, 'registry.txt');
+        if (fs.existsSync(legacyPath)) {
+            const data = fs.readFileSync(legacyPath, 'utf8');
+            data.split('\n').forEach(line => {
                 const clean = line.trim();
                 if (clean) this.registrySet.add(clean);
             });
-            console.log(`RegistryManager | Loaded ${this.registrySet.size} IDs into memory.`);
         }
 
-        // 2. Migrate from JSON if exists AND Text file is empty/not exist
+        console.log(`RegistryManager | Shared Brain: Loaded ${this.registrySet.size} unique IDs.`);
+
+        // 2. Migrate from JSON if needed
         if (fs.existsSync(REGISTRY_JSON) && this.registrySet.size === 0) {
             try {
                 const data = JSON.parse(fs.readFileSync(REGISTRY_JSON));
-                console.log(`RegistryManager | Migrating ${data.length} IDs from JSON to Text...`);
-
-                // Use a Set to ensure unique migration even if JSON has dupes
-                const tempSet = new Set();
-                const stream = fs.createWriteStream(REGISTRY_TXT, { flags: 'a' });
-
+                const stream = fs.createWriteStream(WORKER_REGISTRY_TXT, { flags: 'a' });
                 data.forEach(id => {
                     const clean = String(id).replace('shadow_', '');
-                    if (!this.registrySet.has(clean) && !tempSet.has(clean)) {
+                    if (!this.registrySet.has(clean)) {
                         this.registrySet.add(clean);
-                        tempSet.add(clean);
                         stream.write(clean + '\n');
                     }
                 });
                 stream.end();
-                console.log(`RegistryManager | ✅ Migration successful. Added ${tempSet.size} IDs.`);
-            } catch (e) {
-                console.error("RegistryManager | Migration error:", e.message);
-            }
+            } catch (e) {}
         }
     }
 
@@ -60,32 +71,24 @@ class RegistryManager {
         const cleanPhone = String(phone).replace('shadow_', '');
         if (!this.registrySet.has(cleanPhone)) {
             this.registrySet.add(cleanPhone);
-            // Append only: Very fast, doesn't rewrite whole file
-            fs.appendFileSync(REGISTRY_TXT, cleanPhone + '\n');
+            // 🚀 Write ONLY to this worker's specific file to avoid Git conflicts
+            fs.appendFileSync(WORKER_REGISTRY_TXT, cleanPhone + '\n');
         }
     }
 
     addBatch(phones) {
-        let addedCount = 0;
-        const stream = fs.createWriteStream(REGISTRY_TXT, { flags: 'a' });
+        const stream = fs.createWriteStream(WORKER_REGISTRY_TXT, { flags: 'a' });
         phones.forEach(p => {
             const clean = String(p).replace('shadow_', '');
             if (!this.registrySet.has(clean)) {
                 this.registrySet.add(clean);
                 stream.write(clean + '\n');
-                addedCount++;
             }
         });
         stream.end();
-        if (addedCount > 0) {
-            console.log(`RegistryManager | Batch added ${addedCount} new IDs.`);
-        }
     }
 
-    // Keep migrateFromJson for compatibility with multi_worker.js call
-    migrateFromJson() {
-        // Migration logic is already in init()
-    }
+    migrateFromJson() {}
 }
 
 module.exports = new RegistryManager();

@@ -84,26 +84,25 @@ jobs:
           git config --global user.name "RapidHelp-Bot"
           git config --global user.email "bot@rapidhelp.in"
           
-          # 🚀 ATOMIC GIT SYNC: ULTIMATE VERSION
-          for i in {1..30}; do
+          # 🚀 ATOMIC GIT SYNC: ULTIMATE NO-CONFLICT VERSION
+          for i in {1..50}; do
             echo "Attempt $i: Syncing progress..."
             
-            # 1. Force add all progress files and registry
-            git add progress_W*.json registry.txt
+            # 1. Add ALL files including backups and worker-specific registries
+            git add progress_W*.json registry_W*.txt backup_leads_W*.json failed_sync_W*.json
             
-            # 2. Commit (if anything new)
+            # 2. Commit
             git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || echo "Nothing to commit"
             
-            # 3. Pull with Rebase (The safe way)
+            # 3. Pull with rebase - No conflicts possible on registry_W*.txt files!
             if git pull --rebase origin main; then
-              # 4. Push if pull was successful
               if git push origin main; then
                 echo "✅ Progress pushed successfully!"
                 break
               fi
             fi
             
-            echo "❌ Conflict/Error, cleaning up and retrying in 20s..."
-            git rebase --abort || echo "No rebase to abort"
+            echo "❌ Rebase failed, retrying in 20s..."
+            git rebase --abort || true
             sleep 20
           done
