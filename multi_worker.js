@@ -416,8 +416,8 @@ async function runOrchestrator() {
                 const failedLeads = JSON.parse(fs.readFileSync(file));
                 if (failedLeads.length > 0) {
                     console.log(`Worker ${WORKER_ID} | RECOVERY | Syncing ${failedLeads.length} leads from ${path.basename(file)}...`);
-                    // Try to sync to Main Hub first as it's the central router
-                    const response = await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: failedLeads }, { timeout: 60000 });
+                    // Try to sync to Main Hub first as it's the central router (Increased timeout to 120s)
+                    const response = await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: failedLeads }, { timeout: 120000 });
                     if (String(response.data).includes("Success") || String(response.data).includes("Complete")) {
                         console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ Successfully restored data from ${path.basename(file)}.`);
                         fs.unlinkSync(file);
