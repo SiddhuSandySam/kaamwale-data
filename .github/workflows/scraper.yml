@@ -88,8 +88,11 @@ jobs:
           for i in {1..50}; do
             echo "Attempt $i: Syncing progress..."
             
-            # 1. Add ALL files including backups and worker-specific registries
-            git add progress_W*.json registry_W*.txt backup_leads_W*.json failed_sync_W*.json
+            # 1. Safely add files ONLY if they exist to avoid 'pathspec' errors
+            git add progress_W*.json 2>/dev/null || echo "No progress files to add"
+            git add registry_W*.txt 2>/dev/null || echo "No registry files to add"
+            git add backup_leads_W*.json 2>/dev/null || echo "No backup leads to add"
+            git add failed_sync_W*.json 2>/dev/null || echo "No failed sync files to add"
             
             # 2. Commit
             git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || echo "Nothing to commit"
