@@ -176,5 +176,48 @@
     "notificationsEnabled": true,
     "latitude": 20.9443372,
     "longitude": 77.7706124
+  },
+  {
+    "id": "shadow_7212530214",
+    "businessName": "Government Pre IAS Training Center Amravati",
+    "primaryCategoryId": "cat_edu",
+    "subcategory": "Government Exam Coach",
+    "experienceYears": 4,
+    "serviceMode": "Local",
+    "city": "Amravati",
+    "locality": "Siddhivinayak Nagar",
+    "state": "Maharashtra",
+    "startingPrice": 0,
+    "priceUnit": "Discuss on Call",
+    "whatsappNumber": "7212530214",
+    "callNumber": "7212530214",
+    "aboutDescription": "Professional Government Exam Coach services available in Amravati. High-quality work guaranteed by local experts.",
+    "isApproved": true,
+    "isVerified": false,
+    "rating": 0,
+    "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWkqSMdYPBIa0a2Srct9rKIjREqLRhfhGaFX_7OrIG_i-bLVuvmCwBVQOQI2Q61AIXczkdiFcGZp3XPw27-a5rELBeXGgjK5Lio04mPEYYuSSB6g5t0FGlADSZll2h26vaMdqKGKlosjitc=w500-h500-k-no",
+    "recommendationCount": 0,
+    "portfolioUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWkqSMdYPBIa0a2Srct9rKIjREqLRhfhGaFX_7OrIG_i-bLVuvmCwBVQOQI2Q61AIXczkdiFcGZp3XPw27-a5rELBeXGgjK5Lio04mPEYYuSSB6g5t0FGlADSZll2h26vaMdqKGKlosjitc=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWmAu70b7NupCisgYDCAtESdH74ialQ3xT2WxdzPB6hbIVDLYmJdqFdaR9LXiwoIW272nhIaj27UNH2G3C1z0za08VvhuDmudxKOSOMbycyNgv_tnaT-PFtPkZRB-u8EcFMuCFNCypwouxsd=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnqTNBVoJxuHc67ZGwUbii_34k6Y1kOtQcX9-iRpOPnOA0haoKVw34GFhxpyt79BuDAQlIxg3YoA_D3oJKt_TpBXALFVJJArfz6OLsleBTqq20rk48FnYEAzw1xYQHdMcpmb1Y=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlBl60b81GodUOA03pygZg-qo_4jW1EdylWGiLnHMX1vKRImxSj56YOlbs-CxkmlrWQJIGVek19AP734GdLSgDgBl_UtzTVh2ljCxKx831pXgYuhJO0iM-bPwh_LxCvUZHukqse-g=w1000-h1000"
+    ],
+    "searchKeywords": [
+      "Government Pre IAS Training Center Amravati",
+      "Amravati",
+      "Government Exam Coach",
+      "Maharashtra"
+    ],
+    "lastSeen": 1786329590530,
+    "callCount": 0,
+    "fullAddress": "Old Biology Department Building, G.V.I.S.H. Campus, VMV Road, Siddhivinayak Nagar, Amravati, Maharashtra 444604, India",
+    "isNumberHidden": false,
+    "referredBy": "SYSTEM_SCRAPER",
+    "referralBonusPaid": false,
+    "fcmToken": "",
+    "notificationsEnabled": true,
+    "latitude": 20.953547,
+    "longitude": 77.75338
   }
 ]
