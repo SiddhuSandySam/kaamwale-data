@@ -331,18 +331,23 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
 async function scrapeCombination(page, city, state, categoryId, subcategory) {
     if (isStopping || page.isClosed()) return 0;
     try {
-        await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(subcategory + " in " + city + ", " + state)}`);
+        await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(subcategory + " in " + city + ", " + state)}`, { timeout: 60000, waitUntil: 'domcontentloaded' }).catch(() => {});
 
-        // Handle Direct Profile Page or List
+        // 🚀 RESILIENT STATE DETECTION
         const status = await Promise.race([
-            page.waitForSelector('a.hfpxzc', { timeout: 60000 }).then(() => "LIST"),
-            page.waitForSelector('h1.DUwDvf', { timeout: 25000 }).then(() => "SINGLE"),
-            page.waitForSelector('div.fvP2If', { timeout: 15000 }).then(() => "EMPTY"),
-            page.waitForTimeout(85000).then(() => "TIMEOUT")
+            page.waitForSelector('a.hfpxzc', { timeout: 45000 }).then(() => "LIST").catch(() => new Promise(() => {})),
+            page.waitForSelector('h1.DUwDvf', { timeout: 30000 }).then(() => "SINGLE").catch(() => new Promise(() => {})),
+            page.waitForSelector('div.fvP2If', { timeout: 20000 }).then(() => "EMPTY").catch(() => new Promise(() => {})),
+            page.waitForTimeout(65000).then(() => "TIMEOUT")
         ]);
 
-        if (status === "EMPTY" || status === "TIMEOUT") {
-            console.log(`Worker ${WORKER_ID} | [-] | No data found in ${city}.`);
+        if (status === "EMPTY") {
+            console.log(`Worker ${WORKER_ID} | [-] | No results for ${subcategory} in ${city}.`);
+            return 0;
+        }
+
+        if (status === "TIMEOUT") {
+            console.log(`Worker ${WORKER_ID} | [!] | Page Load Timeout for ${subcategory}. Skipping...`);
             return 0;
         }
 
