@@ -1968,5 +1968,46 @@
     "notificationsEnabled": true,
     "latitude": 18.485056,
     "longitude": 73.8251754
+  },
+  {
+    "id": "shadow_9309792587",
+    "businessName": "Happy Dogs Care",
+    "primaryCategoryId": "cat_pet",
+    "subcategory": "Dog Day Care",
+    "experienceYears": 3,
+    "serviceMode": "Local",
+    "city": "Salumbre",
+    "locality": "Sai Colony",
+    "state": "Maharashtra",
+    "startingPrice": 0,
+    "priceUnit": "Discuss on Call",
+    "whatsappNumber": "9309792587",
+    "callNumber": "9309792587",
+    "aboutDescription": "Professional Dog Day Care services available in Salumbre. High-quality work guaranteed by local experts.",
+    "isApproved": true,
+    "isVerified": false,
+    "rating": 0,
+    "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlGnnqRXfzUt4q9B5K2yGmsZQuAHPZXdqd88QL5aI77UHw7WPyfWIF-xgrdXdraaS85KXwXBKt4cQ0s1wVwr24Kp5TGFzswksAxaViHIWOkZlfN8957BK_e7ZLaTALGUSfxVRxRvsUXsfdJ=w500-h500-k-no",
+    "recommendationCount": 0,
+    "portfolioUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlGnnqRXfzUt4q9B5K2yGmsZQuAHPZXdqd88QL5aI77UHw7WPyfWIF-xgrdXdraaS85KXwXBKt4cQ0s1wVwr24Kp5TGFzswksAxaViHIWOkZlfN8957BK_e7ZLaTALGUSfxVRxRvsUXsfdJ=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnF-2OItvCNIwSweKaXZiRPLomVE9nxHxgwCkPLE-Vf1ZgZPMVVIeW9_G0AFD8ncSMo163W2m2D-N-ucbFwW0kOjrazRcsIdH-SeF_TcrjlwIEgv_V76v9AW85dq5LQtQYplmDvjhkzif1M=w1000-h1000"
+    ],
+    "searchKeywords": [
+      "Happy Dogs Care",
+      "Salumbre",
+      "Dog Day Care",
+      "Maharashtra"
+    ],
+    "lastSeen": 1786352017305,
+    "callCount": 0,
+    "fullAddress": "near DY Patil Cricket Stadium, Sai Colony, Salumbre, Maharashtra 412101, India",
+    "isNumberHidden": false,
+    "referredBy": "SYSTEM_SCRAPER",
+    "referralBonusPaid": false,
+    "fcmToken": "",
+    "notificationsEnabled": true,
+    "latitude": 18.6604522,
+    "longitude": 73.6885026
   }
 ]
