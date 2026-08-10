@@ -395,5 +395,49 @@
     "notificationsEnabled": true,
     "latitude": 18.908061,
     "longitude": 73.3187536
+  },
+  {
+    "id": "shadow_8805610788",
+    "businessName": "Sai Tour & Traveller's karjat",
+    "primaryCategoryId": "cat_local",
+    "subcategory": "Personal Driver",
+    "experienceYears": 1,
+    "serviceMode": "Local",
+    "city": "Karjat",
+    "locality": "Mudre",
+    "state": "Maharashtra",
+    "startingPrice": 0,
+    "priceUnit": "Discuss on Call",
+    "whatsappNumber": "8805610788",
+    "callNumber": "8805610788",
+    "aboutDescription": "Professional Personal Driver services available in Karjat. High-quality work guaranteed by local experts.",
+    "isApproved": true,
+    "isVerified": false,
+    "rating": 0,
+    "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWmx7pUdouG1yQJPZsI2CXMyTLg4-rp593hgTu15UxHvIU05V5SwQ9AW9nlUwGb0k5Ftoy_HpdtQRAmIr-VlCn76SxySFF8llrkfnCuoTeZZ_hNjYCvgsYKoY5Yu5O2-Zlzb5Kp-zjYhSTS5=w500-h500-k-no",
+    "recommendationCount": 0,
+    "portfolioUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWmx7pUdouG1yQJPZsI2CXMyTLg4-rp593hgTu15UxHvIU05V5SwQ9AW9nlUwGb0k5Ftoy_HpdtQRAmIr-VlCn76SxySFF8llrkfnCuoTeZZ_hNjYCvgsYKoY5Yu5O2-Zlzb5Kp-zjYhSTS5=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWkgrhYi4aAz8gb_JFuukpc0OzuQ6g4i74E25f_-q02cVBntC5jfSGOrOJuLy_b3NtWpdEJwDkBj5y13G6qHFvU2-vUbYcuh_eJ93I_5DC8z7a3M-XC-fMI81o-aZIJEKQ-riq6DFtLzAI72=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnRqNmcYv3D974LJufpQ1zt0maubocVJpkqQ4AchNzedvtAxuz654_NY9JmXoF3bZVpgmRHCUB7nMJxPpZnyRKGjtDiwdaQ16aHfDuZhcfLVqDZba_gyJIq5niMSh8w8vfxh8yIjAbKIgb2=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlJRQyLDvsMFIaNGXVYJrs141pHTp-JzgnIee30K0WZHCRZMZ0KxDNAtHePyxne8jd10N5UNiB02OxLqJRnfYk2QuwzvQpUHi-QGkBuY26Aabe2ubFKLTTWXwmY0NncQPeiX9gc=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWmppxQvKdXrSW0HtweyH-_Z2ih40J_rq5Kifu5E8sZeTVtApRUOUQqhcYtkUqb8A8aJijpGYQnkEJkfrmimAZ11VlH1Z_lF9Ws04uCT2FNNn226KBFSFKxNADZzCkbj9rcvLV4k=w1000-h1000"
+    ],
+    "searchKeywords": [
+      "Sai Tour & Traveller's karjat",
+      "Karjat",
+      "Personal Driver",
+      "Maharashtra"
+    ],
+    "lastSeen": 1786351981091,
+    "callCount": 0,
+    "fullAddress": "kamani, palika, Mudre, Karjat, Maharashtra 410201, India",
+    "isNumberHidden": false,
+    "referredBy": "SYSTEM_SCRAPER",
+    "referralBonusPaid": false,
+    "fcmToken": "",
+    "notificationsEnabled": true,
+    "latitude": 18.9177513,
+    "longitude": 73.3250537
   }
 ]
