@@ -441,5 +441,52 @@
     "notificationsEnabled": true,
     "latitude": 19.2820893,
     "longitude": 72.8608675
+  },
+  {
+    "id": "shadow_7208853678",
+    "businessName": "Super Sahara Cargo Packers & Movers",
+    "primaryCategoryId": "cat_local",
+    "subcategory": "Delivery Partner",
+    "experienceYears": 2,
+    "serviceMode": "Local",
+    "city": "Mira Bhayandar",
+    "locality": "Mira Road East",
+    "state": "Maharashtra",
+    "startingPrice": 0,
+    "priceUnit": "Discuss on Call",
+    "whatsappNumber": "7208853678",
+    "callNumber": "7208853678",
+    "aboutDescription": "Professional Delivery Partner services available in Mira Bhayandar. High-quality work guaranteed by local experts.",
+    "isApproved": true,
+    "isVerified": false,
+    "rating": 0,
+    "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnKmK7ZMgAu-10Q-L8Wnyj1bvtXQYl6jUQPXyPeJfftphMVTKAOwlGVW9OEMvCj6f3Ny01oaz0Giw3LhLE3Wuh8jFCOwuhWvwRIJ7P38_Nd_XSFbLP_wPT5RXeEgDtpuizJ2PqY=w500-h500-k-no",
+    "recommendationCount": 0,
+    "portfolioUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnKmK7ZMgAu-10Q-L8Wnyj1bvtXQYl6jUQPXyPeJfftphMVTKAOwlGVW9OEMvCj6f3Ny01oaz0Giw3LhLE3Wuh8jFCOwuhWvwRIJ7P38_Nd_XSFbLP_wPT5RXeEgDtpuizJ2PqY=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWneCDFgUFiO_9FwK1Uzc3Vn_5z1lcYhd7exUkpuGIEH6V7O_6GkxYSkq73qTkQbZLfYSLp4qnMloPLOUKooRUzgLZLDIZaqPSzLiNGHMEnj7kC2TXvE40r6Z0gjL271aokBtCOt2Q=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWmdPvBdYP8wuSLzLilPtfVtg4bbHZsNZImatm_deIECOCs-H-fsTfILgeWFbDctwon84uutTxZFKmWeyrK_DHt-F88MED6D7EH9ONxSZme08Dg-0Lh4i-rfab4E-XOAGtW0bH4=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnCTI__OHqmyrE_qxM8fx65aSYhngOOiRQB67qW4UssZkhvqwam3L5D6UUAxNbLcC2PN_XUAjM9dHWiqoB7kQ78SRE_sNTLdZ2-zXd1uvcTCaaZN3G0ujRrwjtrawenTAjrGQ3TJHuXGWdQ=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWkYfuvWirvGsUmYsvjw9I1s3RHryr6oCr0yOZChNO_ednyRFbYKaw8yzCHrUaMlokKHZgMe1EnFVF8JUUN929TvQjGZ0fgeQ9Xu6EFnfr-a_n4uPuLtYAfgUSyxbVPgvaDQEhJhb4Ok5T4=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnhDKW8y_TLM_b7gPuZq9aMv4VSGjyZOz2zfZ2fi6_H2Mrn_ybSH4Uoz23PXx23FormJF6GW3_YqTRdfeDq6N2KvInYgoZafzfHE9UghcRXby9W-76SqDH6g2GcM-35JzWhPx8m=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnMxUDQt8OfDcchJv-UgR9qyDGl1N9uvPRF6M0GI2GIhf011EBUwaRWuEhrdTCCSaFoavFNTDNQ8sMU-IN74sM24tdcWbuh5Pzf819KZ2nRp7M7Hf3zfRjYYMMYGzwyhhnj0ab9cA=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWm1TjyqdHXFmGKDIt07CMYuuUMrOBzyr2ivsiRHZ8sq9eSBi3N6XE7XYZal7lQXq8SVZP76VtOT-nNJBIaIHfo4jtQMCc3mjz5PAuPtmzfL0R6_lD9ZMO6qWaVX0A5TCjNNukIYSQ=w1000-h1000"
+    ],
+    "searchKeywords": [
+      "Super Sahara Cargo Packers & Movers",
+      "Mira Bhayandar",
+      "Delivery Partner",
+      "Maharashtra"
+    ],
+    "lastSeen": 1786329705327,
+    "callCount": 0,
+    "fullAddress": "Office No:5, Rohini Enclave, 8, opposite Samriddhi Tower, Indralok Phase, Sai Baba Nagar, Mira Road East, Mira Bhayandar, Maharashtra 401105, India",
+    "isNumberHidden": false,
+    "referredBy": "SYSTEM_SCRAPER",
+    "referralBonusPaid": false,
+    "fcmToken": "",
+    "notificationsEnabled": true,
+    "latitude": 19.2838863,
+    "longitude": 72.8662374
   }
 ]
