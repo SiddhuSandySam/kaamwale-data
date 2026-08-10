@@ -211,5 +211,50 @@
     "notificationsEnabled": true,
     "latitude": 20.182389,
     "longitude": 80.0059976
+  },
+  {
+    "id": "shadow_8308979689",
+    "businessName": "Majisa Sweet Shop",
+    "primaryCategoryId": "cat_food",
+    "subcategory": "Sweet Maker",
+    "experienceYears": 1,
+    "serviceMode": "Local",
+    "city": "Gadchiroli",
+    "locality": "Ashirwad Nagar",
+    "state": "Maharashtra",
+    "startingPrice": 0,
+    "priceUnit": "Discuss on Call",
+    "whatsappNumber": "8308979689",
+    "callNumber": "8308979689",
+    "aboutDescription": "Professional Sweet Maker services available in Gadchiroli. High-quality work guaranteed by local experts.",
+    "isApproved": true,
+    "isVerified": false,
+    "rating": 0,
+    "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnkgBS9W6hqorIx1Q4ufPSvpBymhoqStYhvzh2_jUR3nKbq9_zya884z3pqyh89KhOtTFKSSfAN8Enf_TH2D5h4frCz79DFkRG-hW-oldUHG0ErHRxekrtuJFYTYgfpa0Qi-gx0BKq8zClw=w500-h500-k-no",
+    "recommendationCount": 0,
+    "portfolioUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnkgBS9W6hqorIx1Q4ufPSvpBymhoqStYhvzh2_jUR3nKbq9_zya884z3pqyh89KhOtTFKSSfAN8Enf_TH2D5h4frCz79DFkRG-hW-oldUHG0ErHRxekrtuJFYTYgfpa0Qi-gx0BKq8zClw=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnhzJmFCk_UN1n4Sa31GMe3zyZsP6eEffHy6Kw6qdt0ZgNlOyU0XUsLp8PAC43jU-mHkshtsh4IymgaEYlEtkkYAnz3-lRx6F-3hvT-e4cTtDwWzml7y7wffd3D4Pm5ozPgnbtF3Izz6e-f=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWmwRl-bWcnm1mcOgTur_FpE3uUzRQ3VzjR4cWsw1JrAWCOqTOlOXVNyeiIt9H60YITWWWBEsVUUtTukLWlmcXhF1QAr8ziAHReLqct3MqPETppW6Rz2SBtkVEFaf6y1kyUijOtkx2I54mCP=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWk4i5K6b06HJULCovLXy_dvq2AFhP3fjlbii8reSjwbYl4U7VUVok_yPGfOfSHnjxFaXfHDmpr7fXxGxKiZkEQhCsg1dm0A-OwfWz-NkMvlBARNF_bmgAvFUGG0SjfrRVX8N5SrH_81NDoO=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWkMDRH6kL6dTcZJjeb7eyt4dNxzYT5bothF2El5Xd7iElJNRJINYAli2IdIJSGAFgrGslZ9YAUf1KoDPJ3I4H1ZlSeiXgyKLOLNOay1W-i3dbQHgVKEXwsLPrfU-Erf6IUG8b2f=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlu1zEWx3MVrYU2x4A-vRlXhO1DSO8mtLmJ3a2sSuzv_bWnO5nWkCScvUrSPxfq_mgG2oAUMaip0XZyB2qdY-5ZUrWDkHznMFqrTWLeBArc5f2kJ2PGeqSKWY5rOoZJj0ypeo7AyQ=w1000-h1000"
+    ],
+    "searchKeywords": [
+      "Majisa Sweet Shop",
+      "Gadchiroli",
+      "Sweet Maker",
+      "Maharashtra"
+    ],
+    "lastSeen": 1786352050256,
+    "callCount": 0,
+    "fullAddress": "Chandrapur Road, Armori - Gadchiroli - Chandrapur Rd, Ashirwad Nagar, Armori - Gadchiroli - Chandrapur Rd, ZP Colony, Ashirwad Nagar, Gadchiroli, Maharashtra 442605, India",
+    "isNumberHidden": false,
+    "referredBy": "SYSTEM_SCRAPER",
+    "referralBonusPaid": false,
+    "fcmToken": "",
+    "notificationsEnabled": true,
+    "latitude": 20.1869842,
+    "longitude": 80.0027883
   }
 ]
