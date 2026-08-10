@@ -116,7 +116,7 @@ async function flushBuffers(isExiting = false) {
         if (sheetBuffer.length > 0 && SYNC_SHEET_ENABLED) {
             let leadsToSync = [...sheetBuffer];
             let retryAttempt = 0;
-            const MAX_RETRIES = 5;
+            const MAX_RETRIES = 10; // 🚀 Increased retries
             let success = false;
 
             while (retryAttempt < MAX_RETRIES && !success) {
@@ -408,25 +408,43 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
 async function runOrchestrator() {
     await loadProgress();
 
-    // 🚀 STARTUP RECOVERY: Sync any failed data from previous runs
+    // 🚀 STARTUP RECOVERY: Loop until all failed data is successfully synced
     const recoveryFiles = [BACKUP_LEADS_FILE, FAILED_SYNC_FILE];
     for (const file of recoveryFiles) {
-        if (fs.existsSync(file)) {
+        if (!fs.existsSync(file)) continue;
+
+        let syncSuccess = false;
+        let attempt = 0;
+
+        while (!syncSuccess) {
+            attempt++;
             try {
                 const failedLeads = JSON.parse(fs.readFileSync(file));
-                if (failedLeads.length > 0) {
-                    console.log(`Worker ${WORKER_ID} | RECOVERY | Syncing ${failedLeads.length} leads from ${path.basename(file)}...`);
-                    // Try to sync to Main Hub first as it's the central router (Increased timeout to 120s)
-                    const response = await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: failedLeads }, { timeout: 120000 });
-                    if (String(response.data).includes("Success") || String(response.data).includes("Complete")) {
-                        console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ Successfully restored data from ${path.basename(file)}.`);
-                        fs.unlinkSync(file);
-                    }
-                } else {
+                if (failedLeads.length === 0) { fs.unlinkSync(file); break; }
+
+                console.log(`Worker ${WORKER_ID} | RECOVERY | Attempt ${attempt}: Syncing ${failedLeads.length} leads from ${path.basename(file)}...`);
+
+                const response = await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: failedLeads }, { timeout: 150000 });
+                const resData = String(response.data);
+
+                if (resData.includes("Success") || resData.includes("Complete")) {
+                    console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ Successfully restored data from ${path.basename(file)}.`);
                     fs.unlinkSync(file);
+                    syncSuccess = true;
+                } else {
+                    console.log(`Worker ${WORKER_ID} | RECOVERY | ⚠️ Server Busy: ${resData}. Retrying in 30s...`);
+                    await new Promise(r => setTimeout(r, 30000));
                 }
             } catch (e) {
-                console.error(`Worker ${WORKER_ID} | RECOVERY | Failed to restore ${path.basename(file)}: ${e.message}`);
+                console.error(`Worker ${WORKER_ID} | RECOVERY | ❌ Connection Error: ${e.message}. Retrying in 60s...`);
+                await new Promise(r => setTimeout(r, 60000));
+            }
+
+            // Safety check: If we've tried too many times without even a connection,
+            // maybe there's a fatal config issue. But we keep trying as requested.
+            if (attempt > 100) {
+                console.log(`Worker ${WORKER_ID} | RECOVERY | 🚩 Critical Load detected. Still retrying...`);
+                await new Promise(r => setTimeout(r, 120000));
             }
         }
     }
