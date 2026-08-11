@@ -493,10 +493,10 @@ async function runOrchestrator() {
                 if (catIdx % TOTAL_WORKERS !== WORKER_ID) { progress.cityIndex = 0; continue; }
 
                 const category = config.categories[catIdx]; progress.categoryIndex = catIdx;
-                console.log(`\nWorker ${WORKER_ID} | [CAT START] | 📂 Starting Category: ${category.name} (${catIdx + 1}/${config.categories.length})\n`);
+                console.log(`\nWorker ${WORKER_ID} | [CAT START] | 📂 Starting Category ${catIdx + 1}/${config.categories.length}: ${category.name}\n`);
                 for (let cIdx = progress.cityIndex; cIdx < cities.length; cIdx++) {
                     const city = cities[cIdx]; progress.cityIndex = cIdx;
-                    console.log(`Worker ${WORKER_ID} | [CITY START] | 🏙️ Entering City: ${city} (${cIdx + 1}/${cities.length})`);
+                    console.log(`Worker ${WORKER_ID} | [CITY START] | 🏙️ Entering City: ${city} (City ${cIdx + 1}/${cities.length})`);
 
                     for (let subIdx = progress.subcategoryIndex; subIdx < category.sub.length; subIdx++) {
                         if (isStopping) break;
@@ -513,19 +513,19 @@ async function runOrchestrator() {
                         console.log(`\nWorker ${WORKER_ID} | WAIT | Resting for ${wait/1000}s...`);
                         await page.waitForTimeout(wait);
 
-                        console.log(`Worker ${WORKER_ID} | SCAN | [${subIdx + 1}/${category.sub.length}] ${subcategory} in ${city}`);
+                        console.log(`Worker ${WORKER_ID} | SCAN | Sub-cat ${subIdx + 1}/${category.sub.length} | ${subcategory} in ${city}`);
                         const res = await scrapeCombination(page, city, state.name, category.id, subcategory);
                         if (res === -1) { await gracefulShutdown(true); return; }
 
-                        console.log(`Worker ${WORKER_ID} | [FINISH] | Done with ${subcategory} [${subIdx + 1}/${category.sub.length}].`);
+                        console.log(`Worker ${WORKER_ID} | [FINISH] | Done with Sub-cat ${subIdx + 1}/${category.sub.length} (${subcategory}).`);
                         await saveProgress();
                     }
                     if (isStopping) break;
-                    console.log(`\nWorker ${WORKER_ID} | [CITY COMPLETED] | 🏙️ Done with ${city} [${cIdx + 1}/${cities.length}]. Moving to next city...\n`);
+                    console.log(`\nWorker ${WORKER_ID} | [CITY COMPLETED] | 🏙️ Done with City ${cIdx + 1}/${cities.length} (${city}). Moving next...\n`);
                     progress.subcategoryIndex = 0; // Reset sub-index for next city
                 }
                 if (isStopping) break;
-                console.log(`\nWorker ${WORKER_ID} | [CAT COMPLETED] | 📂 Finished category: ${category.name} [${catIdx + 1}/${config.categories.length}]. Switching next...\n`);
+                console.log(`\nWorker ${WORKER_ID} | [CAT COMPLETED] | 📂 Finished Category ${catIdx + 1}/${config.categories.length} (${category.name}). Switching next...\n`);
                 progress.cityIndex = 0;
             }
             if (isStopping) break;
