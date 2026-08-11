@@ -18,7 +18,7 @@ const SYNC_FIRESTORE_ENABLED = true;
 const SYNC_SHEET_ENABLED = true;
 const HEADLESS = false; 
 const COOL_DOWN_MS = 1000;
-const MAX_SESSION_TIME_MS = 25 * 60 * 1000; // 🚀 25 Minutes Auto-Exit for frequent Git Sync
+const MAX_SESSION_TIME_MS = 330 * 60 * 1000; // 🚀 5.5 Hours Marathon Run!
 const START_TIMESTAMP = Date.now();
 
 // FILE PATHS
