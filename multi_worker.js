@@ -275,7 +275,21 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
                 return 0;
             }
             detectedCity = addressParts[stateIdx - 1];
-            detectedLocality = addressParts[stateIdx - 2];
+
+            // 🛡️ SMART LOCALITY EXTRACTION: Avoid numbers and junk building terms
+            const JUNK_KEYWORDS = ['building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block', 'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'station', 'bus stop'];
+            let foundLocality = "";
+            for (let i = stateIdx - 2; i >= 0; i--) {
+                const part = addressParts[i].trim();
+                const isOnlyNumbers = /^[0-9\-\/ ]+$/.test(part);
+                const hasJunkWords = JUNK_KEYWORDS.some(k => part.toLowerCase().includes(k));
+
+                if (!isOnlyNumbers && !hasJunkWords) {
+                    foundLocality = part;
+                    break;
+                }
+            }
+            detectedLocality = foundLocality || addressParts[stateIdx - 2] || detectedCity;
         }
 
         const isLatValid = latitude > 6.0 && latitude < 38.5;
