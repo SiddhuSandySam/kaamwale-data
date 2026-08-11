@@ -74,7 +74,7 @@ let sheetBuffer = [];
 let firestoreBuffer = [];
 let isFlushing = false;
 let newLeadsCount = 0;
-const BATCH_LIMIT = 50;
+const BATCH_LIMIT = 150;
 
 async function saveProgress() {
     fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
