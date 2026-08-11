@@ -797,5 +797,48 @@
     "notificationsEnabled": true,
     "latitude": 19.8549159,
     "longitude": 75.2099695
+  },
+  {
+    "id": "shadow_8037528613",
+    "businessName": "Krishna Agro Solutions",
+    "primaryCategoryId": "cat_rental",
+    "subcategory": "Agriculture Equipment Rental",
+    "experienceYears": 5,
+    "serviceMode": "Local",
+    "city": "Tisgaon",
+    "locality": "Chhatrapati Sambhajinagar",
+    "state": "Maharashtra",
+    "startingPrice": 0,
+    "priceUnit": "Discuss on Call",
+    "whatsappNumber": "8037528613",
+    "callNumber": "8037528613",
+    "aboutDescription": "Professional Agriculture Equipment Rental services available in Tisgaon. High-quality work guaranteed by local experts.",
+    "isApproved": true,
+    "isVerified": false,
+    "rating": 0,
+    "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlm4QZLEoiRyIlRurJJID8wSZwIEYtVGWF1_O5dIGcYASEOWIkKWU3P_91XqOIomnhHzcGuZu3CWuPspngj1kDpg6Y9d9KeVMlp_qDr7g2LgyK6JNyeyZIq1Gw8QukkngGkF-OZ8Q=w500-h500-k-no",
+    "recommendationCount": 0,
+    "portfolioUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlm4QZLEoiRyIlRurJJID8wSZwIEYtVGWF1_O5dIGcYASEOWIkKWU3P_91XqOIomnhHzcGuZu3CWuPspngj1kDpg6Y9d9KeVMlp_qDr7g2LgyK6JNyeyZIq1Gw8QukkngGkF-OZ8Q=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWml-Z219L8Jh1TTtJeLlXX4x1F5DjM2K5kiQRVG3oC1q474sfjo4qjoLKlp7ZQh3gCyV8sE9SmBmmwNKhrYOMnfKrNFH7Iw0OS6d9-aW-GwkB1dXrFs8VZA5koP7_nSLN6IuyM=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWmUyj7J5HlhFWGuIsBOYGWL4IC3Oee5EL76xSabzC4CQiBQwnEVgFfU-TsfOMiH4Kf5CJvK3eids_WbySxbPf3pIi3aCydtD0AuPBpO7Z4E9rHx9fQh7GZAQet-yuLzrsU_5jI7=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWk5p4I_R-j7THnBhSU72BScreZ_dPKBRtrp4SiPYwuieigpYPp1PYjRryu_WROv4nuowxJ-9V-TxsfBivgcN7VSrKnRRrHZ9g0AGRwKsOxgAkDJyHpkR-_KaWxafQLiF70-xWI=w1000-h1000"
+    ],
+    "searchKeywords": [
+      "Krishna Agro Solutions",
+      "Tisgaon",
+      "Agriculture Equipment Rental",
+      "Maharashtra"
+    ],
+    "lastSeen": 1786417374970,
+    "callCount": 0,
+    "fullAddress": "26, Snehwatika Road, behind A. S. Club, Dharmapur, Waluj, Chhatrapati Sambhajinagar, Tisgaon, Maharashtra 431136, India",
+    "isNumberHidden": false,
+    "referredBy": "SYSTEM_SCRAPER",
+    "referralBonusPaid": false,
+    "fcmToken": "",
+    "notificationsEnabled": true,
+    "latitude": 19.8522248,
+    "longitude": 75.2667846
   }
 ]
