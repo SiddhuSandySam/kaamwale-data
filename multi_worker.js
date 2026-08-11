@@ -236,8 +236,10 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
         const phoneStr = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
         const cleanPhone = phoneStr.replace(/[^0-9]/g, '').slice(-10);
 
-        if (!cleanPhone || cleanPhone.length < 10) {
-            console.log(`Worker ${WORKER_ID} | [🛑] | SKIP | Business: ${businessName} | Reason: Invalid/No Phone Found`);
+        // 🛡️ JUNK PHONE FILTER: India numbers start with 6-9
+        const firstDigit = cleanPhone[0];
+        if (!cleanPhone || cleanPhone.length < 10 || !['6', '7', '8', '9'].includes(firstDigit)) {
+            console.log(`Worker ${WORKER_ID} | [🛑] | SKIP | Business: ${businessName} | Reason: Invalid/Junk Phone (${cleanPhone})`);
             return 0;
         }
 
