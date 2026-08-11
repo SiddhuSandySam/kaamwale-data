@@ -460,22 +460,40 @@ async function runOrchestrator() {
     if (WORKER_ID > 0) { await new Promise(r => setTimeout(r, WORKER_ID * 10000)); }
 
     try {
-        let hubSuccess = false;
-        for (let retry = 1; retry <= 5; retry++) {
+        // 🚀 SMART HUB LOADING: Use local hub_data.json first, fallback to API
+        const HUB_DATA_FILE = path.join(__dirname, 'hub_data.json');
+        let hubLoaded = false;
+
+        if (fs.existsSync(HUB_DATA_FILE)) {
             try {
-                console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table (Attempt ${retry}/5)...`);
-                const hubResp = await axios.get(`${MAIN_HUB_URL}?type=config`, { timeout: 30000 });
-                stateUrls = hubResp.data.stateUrls;
-                hubSuccess = true;
-                break;
-            } catch (e) {
-                console.error(`Worker ${WORKER_ID} | ⚠️ | Hub Fetch Failed: ${e.message}. Retrying in 10s...`);
-                await new Promise(r => setTimeout(r, 10000));
+                const localHub = JSON.parse(fs.readFileSync(HUB_DATA_FILE));
+                if (localHub && localHub.stateUrls) {
+                    stateUrls = localHub.stateUrls;
+                    console.log(`Worker ${WORKER_ID} | INFO | Hub Data loaded from local hub_data.json.`);
+                    hubLoaded = true;
+                }
+            } catch (e) { console.error(`Worker ${WORKER_ID} | ⚠️ | Local Hub Read Fail: ${e.message}`); }
+        }
+
+        if (!hubLoaded) {
+            for (let retry = 1; retry <= 5; retry++) {
+                try {
+                    console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table (type=app_data) (Attempt ${retry}/5)...`);
+                    const hubResp = await axios.get(`${MAIN_HUB_URL}?type=app_data&nocache=true`, { timeout: 30000 });
+                    if (hubResp.data && hubResp.data.stateUrls) {
+                        stateUrls = hubResp.data.stateUrls;
+                        hubLoaded = true;
+                        break;
+                    }
+                } catch (e) {
+                    console.error(`Worker ${WORKER_ID} | ⚠️ | Hub Fetch Failed: ${e.message}. Retrying in 10s...`);
+                    await new Promise(r => setTimeout(r, 10000));
+                }
             }
         }
 
-        if (!hubSuccess) {
-            console.error(`Worker ${WORKER_ID} | [FATAL] | Could not connect to Hub after 5 attempts.`);
+        if (!hubLoaded) {
+            console.error(`Worker ${WORKER_ID} | [FATAL] | Could not load Hub Data after all attempts.`);
             await gracefulShutdown(true); return;
         }
 
