@@ -478,8 +478,10 @@ async function runOrchestrator() {
                 if (catIdx % TOTAL_WORKERS !== WORKER_ID) { progress.cityIndex = 0; continue; }
 
                 const category = config.categories[catIdx]; progress.categoryIndex = catIdx;
+                console.log(`\nWorker ${WORKER_ID} | [CAT START] | 📂 Starting Category: ${category.name} (${catIdx + 1}/${config.categories.length})\n`);
                 for (let cIdx = progress.cityIndex; cIdx < cities.length; cIdx++) {
                     const city = cities[cIdx]; progress.cityIndex = cIdx;
+                    console.log(`Worker ${WORKER_ID} | [CITY START] | 🏙️ Entering City: ${city} (${cIdx + 1}/${cities.length})`);
 
                     for (let subIdx = progress.subcategoryIndex; subIdx < category.sub.length; subIdx++) {
                         if (isStopping) break;
@@ -500,12 +502,15 @@ async function runOrchestrator() {
                         const res = await scrapeCombination(page, city, state.name, category.id, subcategory);
                         if (res === -1) { await gracefulShutdown(true); return; }
 
+                        console.log(`Worker ${WORKER_ID} | [FINISH] | Done with ${subcategory}.`);
                         await saveProgress();
                     }
                     if (isStopping) break;
+                    console.log(`\nWorker ${WORKER_ID} | [CITY COMPLETED] | 🏙️ Done with ${city}. Moving to next city...\n`);
                     progress.subcategoryIndex = 0; // Reset sub-index for next city
                 }
                 if (isStopping) break;
+                console.log(`\nWorker ${WORKER_ID} | [CAT COMPLETED] | 📂 Finished category: ${category.name}. Switching next...\n`);
                 progress.cityIndex = 0;
             }
             if (isStopping) break;
