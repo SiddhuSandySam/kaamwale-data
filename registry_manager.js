@@ -77,15 +77,19 @@ class RegistryManager {
     }
 
     addBatch(phones) {
-        const stream = fs.createWriteStream(WORKER_REGISTRY_TXT, { flags: 'a' });
+        let addedCount = 0;
         phones.forEach(p => {
             const clean = String(p).replace('shadow_', '');
             if (!this.registrySet.has(clean)) {
                 this.registrySet.add(clean);
-                stream.write(clean + '\n');
+                // 🚀 Sync append is much safer for huge batches in GitHub Actions
+                fs.appendFileSync(WORKER_REGISTRY_TXT, clean + '\n');
+                addedCount++;
             }
         });
-        stream.end();
+        if (addedCount > 0) {
+            console.log(`RegistryManager | Batch added ${addedCount} new IDs.`);
+        }
     }
 
     migrateFromJson() {}

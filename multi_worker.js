@@ -393,8 +393,8 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
                 const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
                 console.log(`Worker ${WORKER_ID} | [-] | Skip: Duplicate Number: ${cleanPhone} (Streak: ${streak}/4)`);
                 if (streak >= 4) {
-                    console.log(`Worker ${WORKER_ID} | [🛑] | Streak hit. Next city...`);
-                    return foundCount;
+                    console.log(`Worker ${WORKER_ID} | [🛑] | Streak hit! This city seems already fully scraped. Skipping city...`);
+                    return "STREAK_LIMIT_REACHED"; // 🚀 Special code to skip the entire city
                 }
             }
         }
@@ -488,7 +488,14 @@ async function runOrchestrator() {
                         console.log(`Worker ${WORKER_ID} | SCAN | ${subcategory} in ${city}`);
                         const res = await scrapeCombination(page, city, state.name, category.id, subcategory);
                         if (res === -1) { await gracefulShutdown(true); return; }
+
                         await saveProgress();
+
+                        // 🚀 CITY SKIP LOGIC: If streak hit, move to next city immediately
+                        if (res === "STREAK_LIMIT_REACHED") {
+                            progress.subcategoryIndex = 0; // Reset sub-index for next city
+                            break; // Break the subcategory loop
+                        }
                     }
                     if (isStopping) break;
                     progress.subcategoryIndex = 0;
