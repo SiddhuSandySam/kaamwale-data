@@ -377,7 +377,7 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             const listing = listings[i];
             const nameRaw = await listing.getAttribute('aria-label').catch(() => "Unknown");
 
-            await listing.scrollIntoViewIfNeeded(); await listing.click();
+            await listing.scrollIntoViewIfNeeded(); await listing.click({ force: true });
 
             let updated = false;
             for (let r = 0; r < 12; r++) {

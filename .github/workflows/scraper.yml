@@ -54,8 +54,29 @@ jobs:
           DISPLAY: :99
           HEADLESS: "false"
         run: |
-          echo "🚀 Starting Worker ${{ matrix.worker_id }}..."
-          node multi_worker.js ${{ matrix.worker_id }} 15
+          set +e 
+          START_TIME=$(date +%s)
+          while true; do
+            CURRENT_TIME=$(date +%s)
+            ELAPSED=$((CURRENT_TIME - START_TIME))
+            
+            if [ $ELAPSED -gt 19800 ]; then
+              echo "🏁 Session complete."
+              break
+            fi
+
+            echo "🚀 Starting Worker ${{ matrix.worker_id }} (Elapsed: ${ELAPSED}s)..."
+            node multi_worker.js ${{ matrix.worker_id }} 15
+            
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -eq 0 ]; then
+              echo "✅ All work for this city/category finished."
+              break
+            else
+              echo "⚠️ Scraper crashed (Code $EXIT_CODE). Restarting in 15s..."
+              sleep 15
+            fi
+          done
 
       - name: Commit and Push Progress
         if: always() 
