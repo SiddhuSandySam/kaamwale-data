@@ -276,15 +276,17 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
             }
             detectedCity = addressParts[stateIdx - 1];
 
-            // 🛡️ SMART LOCALITY EXTRACTION: Avoid numbers and junk building terms
-            const JUNK_KEYWORDS = ['building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block', 'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'station', 'bus stop'];
+            // 🛡️ SMART LOCALITY EXTRACTION: Avoid numbers, alphanumeric house IDs, and junk building terms
+            const JUNK_KEYWORDS = ['building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block', 'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'station', 'bus stop', 'society', 'apt', 'apartment', 'villa', 'tower'];
             let foundLocality = "";
             for (let i = stateIdx - 2; i >= 0; i--) {
                 const part = addressParts[i].trim();
-                const isOnlyNumbers = /^[0-9\-\/ ]+$/.test(part);
+
+                // Check if it looks like a house/plot number (e.g., "7-B", "123", "A/5")
+                const isHouseNumber = /^([A-Z0-9]+[\-\/ ]*[A-Z0-9]*)$/i.test(part) && (part.length <= 6 || /^[0-9]+$/.test(part));
                 const hasJunkWords = JUNK_KEYWORDS.some(k => part.toLowerCase().includes(k));
 
-                if (!isOnlyNumbers && !hasJunkWords) {
+                if (!isHouseNumber && !hasJunkWords && part.length > 2) {
                     foundLocality = part;
                     break;
                 }
