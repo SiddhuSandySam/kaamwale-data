@@ -84,28 +84,32 @@ jobs:
           git config --global user.name "RapidHelp-Bot"
           git config --global user.email "bot@rapidhelp.in"
           
-          # 🚀 ATOMIC GIT SYNC: ULTIMATE NO-CONFLICT VERSION
+          # 🚀 ATOMIC GIT SYNC: ULTIMATE RESILIENT VERSION
           for i in {1..50}; do
             echo "Attempt $i: Syncing progress..."
             
-            # 1. Safely add files ONLY if they exist to avoid 'pathspec' errors
-            git add progress_W*.json 2>/dev/null || echo "No progress files to add"
-            git add registry_W*.txt 2>/dev/null || echo "No registry files to add"
-            git add backup_leads_W*.json 2>/dev/null || echo "No backup leads to add"
-            git add failed_sync_W*.json 2>/dev/null || echo "No failed sync files to add"
+            # 1. Fetch latest to ensure we have the most recent state
+            git fetch origin main
             
-            # 2. Commit
-            git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || echo "Nothing to commit"
+            # 2. Add files
+            git add progress_W*.json 2>/dev/null || true
+            git add registry_W*.txt 2>/dev/null || true
+            git add backup_leads_W*.json 2>/dev/null || true
+            git add failed_sync_W*.json 2>/dev/null || true
             
-            # 3. Pull with rebase - No conflicts possible on registry_W*.txt files!
-            if git pull --rebase origin main; then
+            # 3. Commit
+            git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || { echo "Nothing to commit"; break; }
+            
+            # 4. Pull with Rebase using 'ours' strategy to KILL conflicts forever
+            # This means if there's a conflict in our specific files, our local version WINS.
+            if git pull --rebase -X ours origin main; then
               if git push origin main; then
                 echo "✅ Progress pushed successfully!"
                 break
               fi
             fi
             
-            echo "❌ Rebase failed, retrying in 20s..."
+            echo "❌ Sync failed, cleaning up and retrying in 15s..."
             git rebase --abort || true
-            sleep 20
+            sleep 15
           done

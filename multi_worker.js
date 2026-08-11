@@ -18,6 +18,8 @@ const SYNC_FIRESTORE_ENABLED = true;
 const SYNC_SHEET_ENABLED = true;
 const HEADLESS = false; 
 const COOL_DOWN_MS = 1000;
+const MAX_SESSION_TIME_MS = 25 * 60 * 1000; // 🚀 25 Minutes Auto-Exit for frequent Git Sync
+const START_TIMESTAMP = Date.now();
 
 // FILE PATHS
 const CONFIG_FILE = path.join(__dirname, 'config.json');
@@ -479,6 +481,13 @@ async function runOrchestrator() {
 
                     for (let subIdx = progress.subcategoryIndex; subIdx < category.sub.length; subIdx++) {
                         if (isStopping) break;
+
+                        // 🚀 SESSION TIME CHECK
+                        if (Date.now() - START_TIMESTAMP > MAX_SESSION_TIME_MS) {
+                            console.log(`\nWorker ${WORKER_ID} | [TIMER] | Session limit reached. Syncing and restarting...`);
+                            await gracefulShutdown(false); return;
+                        }
+
                         const subcategory = category.sub[subIdx]; progress.subcategoryIndex = subIdx;
 
                         const wait = Math.floor(Math.random() * 10000) + 10000;
