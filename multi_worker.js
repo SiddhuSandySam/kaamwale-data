@@ -498,19 +498,19 @@ async function runOrchestrator() {
                         console.log(`\nWorker ${WORKER_ID} | WAIT | Resting for ${wait/1000}s...`);
                         await page.waitForTimeout(wait);
 
-                        console.log(`Worker ${WORKER_ID} | SCAN | ${subcategory} in ${city}`);
+                        console.log(`Worker ${WORKER_ID} | SCAN | [${subIdx + 1}/${category.sub.length}] ${subcategory} in ${city}`);
                         const res = await scrapeCombination(page, city, state.name, category.id, subcategory);
                         if (res === -1) { await gracefulShutdown(true); return; }
 
-                        console.log(`Worker ${WORKER_ID} | [FINISH] | Done with ${subcategory}.`);
+                        console.log(`Worker ${WORKER_ID} | [FINISH] | Done with ${subcategory} [${subIdx + 1}/${category.sub.length}].`);
                         await saveProgress();
                     }
                     if (isStopping) break;
-                    console.log(`\nWorker ${WORKER_ID} | [CITY COMPLETED] | 🏙️ Done with ${city}. Moving to next city...\n`);
+                    console.log(`\nWorker ${WORKER_ID} | [CITY COMPLETED] | 🏙️ Done with ${city} [${cIdx + 1}/${cities.length}]. Moving to next city...\n`);
                     progress.subcategoryIndex = 0; // Reset sub-index for next city
                 }
                 if (isStopping) break;
-                console.log(`\nWorker ${WORKER_ID} | [CAT COMPLETED] | 📂 Finished category: ${category.name}. Switching next...\n`);
+                console.log(`\nWorker ${WORKER_ID} | [CAT COMPLETED] | 📂 Finished category: ${category.name} [${catIdx + 1}/${config.categories.length}]. Switching next...\n`);
                 progress.cityIndex = 0;
             }
             if (isStopping) break;
