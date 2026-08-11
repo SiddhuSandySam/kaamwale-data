@@ -71,11 +71,34 @@ jobs:
             EXIT_CODE=$?
             if [ $EXIT_CODE -eq 0 ]; then
               echo "✅ Work finished."
-              break
             else
-              echo "⚠️ Blocked/Error (Code $EXIT_CODE). Retrying in 90s..."
-              sleep 90
+              echo "⚠️ Blocked/Error (Code $EXIT_CODE). Syncing partial progress..."
             fi
+
+            # 🚀 MID-SESSION GIT SYNC: Save progress every 25-30 mins
+            echo "📊 [Worker ${{ matrix.worker_id }}] Periodic sync started..."
+            git config --global user.name "RapidHelp-Bot"
+            git config --global user.email "bot@rapidhelp.in"
+            
+            for i in {1..20}; do
+              git fetch origin main
+              git add progress_W*.json registry_W*.txt backup_leads_W*.json failed_sync_W*.json 2>/dev/null || true
+              git commit -m "Worker ${{ matrix.worker_id }} periodic update [skip ci]" || { echo "Nothing new to sync"; break; }
+              
+              if git pull --rebase -X ours origin main; then
+                if git push origin main; then
+                  echo "✅ Periodic progress pushed successfully!"
+                  break
+                fi
+              fi
+              echo "❌ Sync conflict, retrying..."
+              git rebase --abort || true
+              sleep 10
+            done
+
+            if [ $EXIT_CODE -eq 0 ]; then break; fi
+            echo "🔄 Restarting worker session in 30s..."
+            sleep 30
           done
 
       - name: Commit and Push Progress
