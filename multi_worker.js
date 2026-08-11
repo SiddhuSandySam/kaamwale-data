@@ -460,9 +460,24 @@ async function runOrchestrator() {
     if (WORKER_ID > 0) { await new Promise(r => setTimeout(r, WORKER_ID * 10000)); }
 
     try {
-        console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table...`);
-        const hubResp = await axios.get(`${MAIN_HUB_URL}?type=config`);
-        stateUrls = hubResp.data.stateUrls;
+        let hubSuccess = false;
+        for (let retry = 1; retry <= 5; retry++) {
+            try {
+                console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table (Attempt ${retry}/5)...`);
+                const hubResp = await axios.get(`${MAIN_HUB_URL}?type=config`, { timeout: 30000 });
+                stateUrls = hubResp.data.stateUrls;
+                hubSuccess = true;
+                break;
+            } catch (e) {
+                console.error(`Worker ${WORKER_ID} | ⚠️ | Hub Fetch Failed: ${e.message}. Retrying in 10s...`);
+                await new Promise(r => setTimeout(r, 10000));
+            }
+        }
+
+        if (!hubSuccess) {
+            console.error(`Worker ${WORKER_ID} | [FATAL] | Could not connect to Hub after 5 attempts.`);
+            await gracefulShutdown(true); return;
+        }
 
         for (let sIdx = progress.stateIndex; sIdx < config.states.length; sIdx++) {
             const state = config.states[sIdx]; progress.stateIndex = sIdx;
@@ -516,8 +531,17 @@ async function runOrchestrator() {
             if (isStopping) break;
             progress.categoryIndex = 0;
         }
-    } catch (fatal) { console.error(`Worker ${WORKER_ID} | FATAL | Loop Error: ${fatal.message}`); }
-    await gracefulShutdown(false);
+
+        // IF LOOP FINISHES NATURALLY, ALL STATES ARE DONE!
+        console.log(`\n===============================================`);
+        console.log(`🏁 MISSION ACCOMPLISHED: ALL STATES COMPLETED!`);
+        console.log(`===============================================\n`);
+        await gracefulShutdown(false);
+
+    } catch (fatal) {
+        console.error(`Worker ${WORKER_ID} | [FATAL] | Loop Error: ${fatal.message}`);
+        await gracefulShutdown(true);
+    }
 }
 
 runOrchestrator();
