@@ -393,8 +393,8 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
                 const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
                 console.log(`Worker ${WORKER_ID} | [-] | Skip: Duplicate Number: ${cleanPhone} (Streak: ${streak}/4)`);
                 if (streak >= 4) {
-                    console.log(`Worker ${WORKER_ID} | [🛑] | Streak hit! This city seems already fully scraped. Skipping city...`);
-                    return "STREAK_LIMIT_REACHED"; // 🚀 Special code to skip the entire city
+                    console.log(`Worker ${WORKER_ID} | [!] | Streak hit. Moving to next sub-category...`);
+                    return foundCount;
                 }
             }
         }
@@ -490,15 +490,9 @@ async function runOrchestrator() {
                         if (res === -1) { await gracefulShutdown(true); return; }
 
                         await saveProgress();
-
-                        // 🚀 CITY SKIP LOGIC: If streak hit, move to next city immediately
-                        if (res === "STREAK_LIMIT_REACHED") {
-                            progress.subcategoryIndex = 0; // Reset sub-index for next city
-                            break; // Break the subcategory loop
-                        }
                     }
                     if (isStopping) break;
-                    progress.subcategoryIndex = 0;
+                    progress.subcategoryIndex = 0; // Reset sub-index for next city
                 }
                 if (isStopping) break;
                 progress.cityIndex = 0;
