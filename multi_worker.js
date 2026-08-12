@@ -445,11 +445,11 @@ async function runOrchestrator() {
                 console.log(`Worker ${WORKER_ID} | RECOVERY | Attempt ${attempt}: Syncing ${failedLeads.length} leads from ${path.basename(file)}...`);
 
                 const response = await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: failedLeads }, { timeout: 150000 });
-                const resData = String(response.data);
+                const resData = typeof response.data === 'object' ? JSON.stringify(response.data) : String(response.data);
 
                 if (resData.includes("Success") || resData.includes("Complete")) {
                     console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ Successfully restored data from ${path.basename(file)}.`);
-                    fs.unlinkSync(file);
+                    if (fs.existsSync(file)) fs.unlinkSync(file);
                     syncSuccess = true;
                 } else {
                     console.log(`Worker ${WORKER_ID} | RECOVERY | ⚠️ Server Busy: ${resData}. Retrying in 30s...`);
