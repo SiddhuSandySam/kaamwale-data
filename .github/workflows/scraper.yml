@@ -91,20 +91,18 @@ jobs:
             # 1. Fetch latest
             git fetch origin main
             
-            # 2. Add all changes including deletions (-A is vital here)
-            git add -A progress_W*.json 2>/dev/null || true
-            git add -A registry_W*.txt 2>/dev/null || true
-            git add -A backup_leads_W*.json 2>/dev/null || true
-            git add -A failed_sync_W*.json 2>/dev/null || true
+            # 2. Add EVERYTHING (Deletions, New files, Modifications)
+            # This is the fix for "unstaged changes" error
+            git add .
             
             # 3. Commit
             git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || { 
-              # If nothing to commit, still try to pull/rebase to ensure we are clean
               echo "Nothing new to commit, checking remote..."
             }
             
-            # 4. Ultimate Rebase & Push
-            if git pull --rebase -X ours origin main; then
+            # 4. Ultimate Rebase & Push with Auto-Stash
+            # We use --autostash to handle any residual junk files
+            if git pull --rebase --autostash -X ours origin main; then
               if git push origin main; then
                 echo "✅ Progress, Registry and Backup pushed successfully!"
                 break
@@ -113,6 +111,5 @@ jobs:
             
             echo "❌ Sync failed, cleaning up and retrying in 15s..."
             git rebase --abort || true
-            git stash || true # Stash any weird residual changes
             sleep 15
           done
