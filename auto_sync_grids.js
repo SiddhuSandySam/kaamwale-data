@@ -3,6 +3,10 @@ const fs = require('fs');
 const path = require('path');
 
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
+const LAST_SYNC_FILE = path.join(__dirname, 'last_sync.json');
+
+// 🚀 Mode Check: Full or Incremental
+const isFullSync = process.argv.includes('--full');
 
 function getGridId(lat, lon) {
     if (!lat || !lon || lat === 0 || lon === 0) return null;
@@ -10,12 +14,19 @@ function getGridId(lat, lon) {
 }
 
 async function startRobotSync() {
-    console.log("🤖 MASTER ROBOT: Starting Smart Multi-State Sync...");
+    console.log(`🤖 MASTER ROBOT: Starting ${isFullSync ? 'FULL' : 'INCREMENTAL'} Multi-State Sync...`);
+
+    let lastSyncTime = 0;
+    if (!isFullSync && fs.existsSync(LAST_SYNC_FILE)) {
+        try {
+            const syncData = JSON.parse(fs.readFileSync(LAST_SYNC_FILE));
+            lastSyncTime = syncData.timestamp || 0;
+            console.log(`📡 Syncing leads since: ${new Date(lastSyncTime).toLocaleString()}`);
+        } catch (e) {}
+    }
 
     let appData = null;
     let hubRetries = 0;
-
-    // 🚀 PERSISTENT HUB FETCH: Retry until Master Config is received
     while (!appData) {
         hubRetries++;
         console.log(`📡 Step 1: Fetching Master Config (Attempt ${hubRetries})...`);
@@ -23,22 +34,17 @@ async function startRobotSync() {
             const hubResp = await axios.get(`${HUB_URL}?type=app_data&nocache=true`, { timeout: 90000 });
             if (hubResp.data && hubResp.data.stateUrls) {
                 appData = hubResp.data;
-                console.log("✅ Hub Config Received.");
-            } else {
-                throw new Error("Invalid Hub Data format.");
-            }
+            } else { throw new Error("Invalid Hub Data."); }
         } catch (e) {
             console.error(`  ❌ Hub Fetch Fail: ${e.message}`);
-            console.log(`  ⏳ Waiting 20s before retrying Hub...`);
             await new Promise(r => setTimeout(r, 20000));
         }
     }
 
     try {
         fs.writeFileSync(path.join(__dirname, 'hub_data.json'), JSON.stringify(appData));
-        console.log("✅ Hub Config Saved Locally.");
-
         const states = Object.keys(appData.stateUrls);
+
         for (const stateName of states) {
             const stateUrl = appData.stateUrls[stateName];
             const folderName = `${stateName.toLowerCase().replace(/ /g, '_')}_grids`;
@@ -50,71 +56,63 @@ async function startRobotSync() {
             let offset = 0;
             const limit = 5000;
             let hasMore = true;
-            let errorCount = 0;
 
             while (hasMore) {
-                console.log(`  📡 [${stateName}] Fetching Offset ${offset}...`);
                 try {
-                    const finalUrl = `${stateUrl}?type=providers&offset=${offset}&limit=${limit}&nocache=true&cb=${Date.now()}`;
+                    // 🚀 INCREMENTAL FETCH: Only ask for data since lastSyncTime
+                    let finalUrl = `${stateUrl}?type=providers&offset=${offset}&limit=${limit}&nocache=true&cb=${Date.now()}`;
+                    if (lastSyncTime > 0) finalUrl += `&since=${lastSyncTime}`;
+
                     const resp = await axios.get(finalUrl, { timeout: 120000 });
                     const data = resp.data;
 
                     if (Array.isArray(data)) {
-                        if (data.length > 0) {
-                            allProviders.push(...data);
-                            console.log(`  ✅ Success: ${allProviders.length} records collected.`);
-
-                            if (data.length < limit) {
-                                hasMore = false;
-                            } else {
-                                offset += data.length;
-                            }
-                            errorCount = 0;
-                            await new Promise(r => setTimeout(r, 800));
-                        } else {
-                            console.log("  🏁 End of data reached (Empty Array).");
-                            hasMore = false;
-                        }
-                    } else if (data && data.error) {
-                        console.error(`  ❌ Google Script Logic Error: ${data.error}`);
-                        hasMore = false;
-                    } else {
-                        throw new Error("Received non-array response.");
-                    }
+                        allProviders.push(...data);
+                        console.log(`  ✅ Collected: ${allProviders.length} records.`);
+                        if (data.length < limit) hasMore = false;
+                        else offset += data.length;
+                        await new Promise(r => setTimeout(r, 800));
+                    } else { hasMore = false; }
                 } catch (e) {
-                    errorCount++;
-                    const statusCode = e.response ? e.response.status : "TIMEOUT/NETWORK";
-                    console.error(`  ❌ Batch Fail (Attempt ${errorCount}): ${e.message} [Status: ${statusCode}]`);
-                    console.log(`  ⏳ Persistent Retry: Retrying offset ${offset} in 20s...`);
+                    console.error(`  ❌ Batch Fail: ${e.message}`);
                     await new Promise(r => setTimeout(r, 20000));
                 }
             }
 
-            console.log(`📊 [${stateName}] Total Fetched: ${allProviders.length}`);
-
             if (allProviders.length > 0) {
-                const gridData = {};
-                let validCount = 0;
+                if (!fs.existsSync(gridDir)) fs.mkdirSync(gridDir, { recursive: true });
+
+                const gridMap = {};
                 allProviders.forEach(p => {
-                    if (p.state && p.state.toLowerCase() === stateName.toLowerCase()) {
-                        const gid = getGridId(p.latitude, p.longitude);
-                        if (gid) {
-                            if (!gridData[gid]) gridData[gid] = [];
-                            gridData[gid].push(p);
-                            validCount++;
-                        }
+                    const gid = getGridId(p.latitude, p.longitude);
+                    if (gid) {
+                        if (!gridMap[gid]) gridMap[gid] = [];
+                        gridMap[gid].push(p);
                     }
                 });
 
-                if (validCount > 0) {
-                    if (!fs.existsSync(gridDir)) fs.mkdirSync(gridDir, { recursive: true });
-                    Object.keys(gridData).forEach(gid => {
-                        fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(gridData[gid]));
-                    });
-                    console.log(`✨ [${stateName}] Success: ${validCount} leads saved.`);
-                }
+                Object.keys(gridMap).forEach(gid => {
+                    const filePath = path.join(gridDir, `${gid}.json`);
+                    let existingData = [];
+
+                    // 🚀 MERGE LOGIC: If incremental, load old file and add new data
+                    if (!isFullSync && fs.existsSync(filePath)) {
+                        try {
+                            existingData = JSON.parse(fs.readFileSync(filePath));
+                            const newIds = new Set(gridMap[gid].map(p => p.id));
+                            existingData = existingData.filter(p => !newIds.has(p.id)); // Remove old versions
+                        } catch (e) {}
+                    }
+
+                    const finalData = [...existingData, ...gridMap[gid]];
+                    fs.writeFileSync(filePath, JSON.stringify(finalData));
+                });
+                console.log(`✨ [${stateName}] Success: ${allProviders.length} leads synced.`);
             }
         }
+
+        // 🚀 Update last sync timestamp
+        fs.writeFileSync(LAST_SYNC_FILE, JSON.stringify({ timestamp: Date.now() }));
         console.log(`\n🚀 FULL SYNC CYCLE COMPLETE!\n`);
     } catch (e) { console.error(`❌ FATAL: ${e.message}`); }
 }

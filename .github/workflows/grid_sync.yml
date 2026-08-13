@@ -1,8 +1,18 @@
 name: Dynamic Grid Auto-Sync
 on:
   schedule:
-    - cron: '0 */4 * * *'
+    - cron: '0 */4 * * *' # 🚀 Every 4 hours (Incremental)
+    - cron: '0 0 * * *'    # 🌑 Midnight (Full Sync)
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Sync Mode'
+        required: true
+        default: 'incremental'
+        type: choice
+        options:
+        - incremental
+        - full
 
 jobs:
   build:
@@ -17,8 +27,18 @@ jobs:
           node-version: 20
       - name: Install Axios
         run: npm install axios
-      - name: Run Robot Script
-        run: node auto_sync_grids.js
+      
+      - name: Run Robot Script (Full or Incremental)
+        run: |
+          # Determine mode: Midnight run or manual 'full' input triggers Full Sync
+          if [[ "${{ github.event.schedule }}" == "0 0 * * *" ]] || [[ "${{ github.event.inputs.mode }}" == "full" ]]; then
+            echo "🚀 Running FULL Sync..."
+            node auto_sync_grids.js --full
+          else
+            echo "📡 Running INCREMENTAL Sync..."
+            node auto_sync_grids.js
+          fi
+
       - name: Commit and Push
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -34,11 +54,11 @@ jobs:
             git rm -r --cached node_modules maharashtra.json registry.txt 2>/dev/null || true
             
             # 2. Stage ALL data files dynamically (Matches all states from config)
-            git add -A hub_data.json
+            git add -A hub_data.json last_sync.json
             git add -A *_grids/ 2>/dev/null || true
             
             # 3. Commit
-            git commit -m "Robot: Multi-State Data Sync [Auto-Sync]" || { 
+            git commit -m "Robot: Data Sync [Mode: ${{ github.event.inputs.mode || 'Auto' }}]" || { 
               echo "Nothing to sync, checking remote updates..."
             }
             
