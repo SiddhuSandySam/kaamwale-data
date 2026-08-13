@@ -514,11 +514,16 @@ async function runOrchestrator() {
         }
 
         for (let sIdx = progress.stateIndex; sIdx < config.states.length; sIdx++) {
+            // 🚀 DATA INTEGRITY: Flush any leftover data from the PREVIOUS state sheet
+            // before we change the currentTargetUrl to the new state.
+            if (sheetBuffer.length > 0 || firestoreBuffer.length > 0) {
+                console.log(`Worker ${WORKER_ID} | INFO | Finalizing previous state data before transition...`);
+                await flushBuffers();
+            }
+
             const state = config.states[sIdx]; progress.stateIndex = sIdx;
             currentTargetUrl = stateUrls[state.name];
             if (!currentTargetUrl) continue;
-
-            if (sheetBuffer.length > 0 || firestoreBuffer.length > 0) await flushBuffers();
 
             await syncFromSatellite(currentTargetUrl);
 
@@ -556,6 +561,10 @@ async function runOrchestrator() {
                     }
                     if (isStopping) break;
                     console.log(`\nWorker ${WORKER_ID} | [CITY COMPLETED] | 🏙️ Done with City ${cIdx + 1}/${cities.length} (${city}). Moving next...\n`);
+
+                    // 🚀 FREQUENT SYNC: Flush data after each city is completed
+                    if (sheetBuffer.length > 0 || firestoreBuffer.length > 0) await flushBuffers();
+
                     progress.subcategoryIndex = 0; // Reset sub-index for next city
                 }
                 if (isStopping) break;
