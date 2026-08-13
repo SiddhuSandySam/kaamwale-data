@@ -31,8 +31,8 @@ jobs:
           for i in {1..20}; do
             echo "Attempt $i: Syncing robot updates..."
             
-            # 1. Stage EVERYTHING (Fixes unstaged changes error)
-            git add .
+            # 1. Stage only data files (Fixes unstaged changes error and avoids large files)
+            git add hub_data.json *_grids/*.json
             
             # 2. Commit
             git commit -m "Robot: Multi-State Data Sync [Auto-Sync]" || { echo "Nothing to sync"; exit 0; }

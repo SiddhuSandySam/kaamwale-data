@@ -1,2 +1,4 @@
+node_modules/
 maharashtra.json
 *.json.bak
+serviceAccountKey.json
