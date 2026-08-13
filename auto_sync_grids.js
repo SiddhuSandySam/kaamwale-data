@@ -65,11 +65,11 @@ async function startRobotSync() {
                     attempt++;
                     console.log(`  📡 [${stateName}] Fetching Offset ${offset}... (Attempt ${attempt})`);
                     try {
-                        // 🚀 INCREMENTAL FETCH: Only ask for data since lastSyncTime
                         let finalUrl = `${stateUrl}?type=providers&offset=${offset}&limit=${limit}&nocache=true&cb=${Date.now()}`;
                         if (lastSyncTime > 0) finalUrl += `&since=${lastSyncTime}`;
 
-                        const resp = await axios.get(finalUrl, { timeout: 150000 });
+                        // 🚀 ULTRA TIMEOUT: 5 minutes to allow large 5000 records processing
+                        const resp = await axios.get(finalUrl, { timeout: 300000 });
                         const data = resp.data;
 
                         if (Array.isArray(data)) {
@@ -82,12 +82,12 @@ async function startRobotSync() {
                             batchSuccess = true;
                             await new Promise(r => setTimeout(r, 1000));
                         } else {
-                            throw new Error(`Invalid Response Format (Not an array)`);
+                            throw new Error(`Invalid Response Format`);
                         }
                     } catch (e) {
                         const status = e.response ? e.response.status : "TIMEOUT/NETWORK";
-                        console.error(`  ❌ Batch Fail [Status: ${status}]: ${e.message}`);
-                        console.log(`  ⏳ Persistent Retry: Retrying offset ${offset} in 30s...`);
+                        console.error(`  ❌ Batch Error [Status: ${status}]: ${e.message}`);
+                        console.log(`  ⏳ Persistent Retry: Waiting 30s before retrying offset ${offset}...`);
                         await new Promise(r => setTimeout(r, 30000));
                     }
                 }
