@@ -443,36 +443,39 @@ async function runOrchestrator() {
         let syncSuccess = false;
         let attempt = 0;
 
-        while (!syncSuccess) {
-            attempt++;
-            try {
-                const failedLeads = JSON.parse(fs.readFileSync(file));
-                if (failedLeads.length === 0) { fs.unlinkSync(file); break; }
+        try {
+            const failedLeads = JSON.parse(fs.readFileSync(file));
+            if (failedLeads.length === 0) { fs.unlinkSync(file); continue; }
 
-                console.log(`Worker ${WORKER_ID} | RECOVERY | Attempt ${attempt}: Syncing ${failedLeads.length} leads from ${path.basename(file)}...`);
+            console.log(`Worker ${WORKER_ID} | RECOVERY | Syncing ${failedLeads.length} leads from ${path.basename(file)}...`);
 
-                const response = await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: failedLeads }, { timeout: 150000 });
-                const resData = typeof response.data === 'object' ? JSON.stringify(response.data) : String(response.data);
+            // 🚀 CHUNKED RECOVERY: Send in batches of 50 to avoid Google Script Timeouts
+            for (let i = 0; i < failedLeads.length; i += 50) {
+                const chunk = failedLeads.slice(i, i + 50);
+                let chunkSuccess = false;
+                let chunkAttempt = 0;
 
-                if (resData.includes("Success") || resData.includes("Complete")) {
-                    console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ Successfully restored data from ${path.basename(file)}.`);
-                    if (fs.existsSync(file)) fs.unlinkSync(file);
-                    syncSuccess = true;
-                } else {
-                    console.log(`Worker ${WORKER_ID} | RECOVERY | ⚠️ Server Busy: ${resData}. Retrying in 30s...`);
-                    await new Promise(r => setTimeout(r, 30000));
+                while (!chunkSuccess && chunkAttempt < 5) {
+                    chunkAttempt++;
+                    try {
+                        const response = await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: chunk }, { timeout: 60000 });
+                        const resData = String(response.data);
+                        if (resData.includes("Success") || resData.includes("Complete")) {
+                            chunkSuccess = true;
+                        } else {
+                            await new Promise(r => setTimeout(r, 10000));
+                        }
+                    } catch (e) {
+                        await new Promise(r => setTimeout(r, 15000));
+                    }
                 }
-            } catch (e) {
-                console.error(`Worker ${WORKER_ID} | RECOVERY | ❌ Connection Error: ${e.message}. Retrying in 60s...`);
-                await new Promise(r => setTimeout(r, 60000));
             }
 
-            // Safety check: If we've tried too many times without even a connection,
-            // maybe there's a fatal config issue. But we keep trying as requested.
-            if (attempt > 100) {
-                console.log(`Worker ${WORKER_ID} | RECOVERY | 🚩 Critical Load detected. Still retrying...`);
-                await new Promise(r => setTimeout(r, 120000));
-            }
+            // If we processed chunks, delete the file to stop the loop for next run
+            console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ Restored data from ${path.basename(file)}.`);
+            if (fs.existsSync(file)) fs.unlinkSync(file);
+        } catch (e) {
+            console.error(`Worker ${WORKER_ID} | RECOVERY | ❌ Critical Recovery Fail: ${e.message}`);
         }
     }
 
