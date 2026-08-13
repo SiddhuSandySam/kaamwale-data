@@ -30,10 +30,15 @@ jobs:
           # 🚀 ATOMIC SYNC LOOP
           for i in {1..20}; do
             echo "Attempt $i: Syncing robot updates..."
-            git add hub_data.json *_grids/*.json
+            
+            # 1. Stage EVERYTHING (Fixes unstaged changes error)
+            git add .
+            
+            # 2. Commit
             git commit -m "Robot: Multi-State Data Sync [Auto-Sync]" || { echo "Nothing to sync"; exit 0; }
             
-            if git pull --rebase origin main; then
+            # 3. Ultimate Pull & Push
+            if git pull --rebase --autostash -X ours origin main; then
               if git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main; then
                 echo "✅ Robot sync successful!"
                 exit 0
