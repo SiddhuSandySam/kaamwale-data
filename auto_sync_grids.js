@@ -94,6 +94,12 @@ async function startRobotSync() {
             }
 
             if (allProviders.length > 0) {
+                // 🚀 FULL SYNC FRESH START: Clear directory to remove stale grids
+                if (isFullSync && fs.existsSync(gridDir)) {
+                    console.log(`  🧹 [${stateName}] Cleaning old grids for fresh sync...`);
+                    fs.rmSync(gridDir, { recursive: true, force: true });
+                }
+
                 if (!fs.existsSync(gridDir)) fs.mkdirSync(gridDir, { recursive: true });
 
                 const gridMap = {};
