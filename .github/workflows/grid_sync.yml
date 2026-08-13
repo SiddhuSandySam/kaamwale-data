@@ -46,23 +46,31 @@ jobs:
           git config --global user.name "RapidHelp-Robot"
           git config --global user.email "robot@kaamwale.com"
           
+          # 🚀 TUNE GIT FOR LARGE PUSHES
+          git config --global http.postBuffer 524288000
+          git config --global core.compression 9
+          
           # 🚀 ATOMIC SYNC LOOP
           for i in {1..20}; do
             echo "Attempt $i: Syncing robot updates..."
             
-            # 1. Force untrack any accidental large files or node_modules
-            git rm -r --cached node_modules maharashtra.json registry.txt 2>/dev/null || true
+            # 1. CLEAN UP: Ensure node_modules and other junk are NOT in git
+            # We also remove them from the disk to be 100% sure git add doesn't see them
+            rm -rf node_modules
+            git rm -r --cached node_modules 2>/dev/null || true
             
-            # 2. Stage ALL data files dynamically (Matches all states from config)
-            git add -A hub_data.json last_sync.json
-            git add -A *_grids/ 2>/dev/null || true
+            # 2. Stage ONLY the specific data folders and files
+            # We avoid 'git add .' to prevent any surprises
+            git add hub_data.json last_sync.json
+            git add "*_grids/*.json" 2>/dev/null || true
             
             # 3. Commit
             git commit -m "Robot: Data Sync [Mode: ${{ github.event.inputs.mode || 'Auto' }}]" || { 
-              echo "Nothing to sync, checking remote updates..."
+              echo "Nothing new to commit, checking remote updates..."
             }
             
             # 4. Ultimate Pull & Push
+            # We use --autostash and 'ours' strategy to ensure we don't get stuck
             if git pull --rebase --autostash -X ours origin main; then
               if git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main; then
                 echo "✅ Robot sync successful!"
@@ -70,8 +78,8 @@ jobs:
               fi
             fi
             
-            echo "❌ Conflict or Network Error, retrying..."
+            echo "❌ Conflict or Network Error (Attempt $i), retrying in 30s..."
             git rebase --abort || true
-            sleep 20
+            sleep 30
           done
           exit 1
