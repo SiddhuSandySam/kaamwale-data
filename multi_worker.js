@@ -460,27 +460,20 @@ async function runOrchestrator() {
                 while (!chunkSuccess) {
                     chunkAttempt++;
                     try {
-                        const response = await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: chunk }, { timeout: 120000 });
+                        const response = await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: chunk }, { timeout: 150000 });
                         const resData = String(response.data);
 
-                        // 🚀 ULTIMATE CHECK: If Google Sheet says Success OR if we've sent it and it's a known duplicate
+                        // 🚀 STRICT SUCCESS CHECK: Delete ONLY if server confirms receipt
                         if (resData.includes("Success") || resData.includes("Complete") || resData.includes("already exists")) {
-                            console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ Batch Success.`);
+                            console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ Batch Success confirmed by Server.`);
                             chunkSuccess = true;
                         } else {
-                            console.warn(`Worker ${WORKER_ID} | RECOVERY | ⚠️ Server Busy (Attempt ${chunkAttempt}). Retrying...`);
-                            await new Promise(r => setTimeout(r, 20000));
+                            console.warn(`Worker ${WORKER_ID} | RECOVERY | ⚠️ Server Busy (Attempt ${chunkAttempt}). Retrying until Success...`);
+                            await new Promise(r => setTimeout(r, 30000));
                         }
                     } catch (e) {
-                        console.error(`Worker ${WORKER_ID} | RECOVERY | ❌ Connection Error (Attempt ${chunkAttempt}): ${e.message}. Retrying...`);
-                        await new Promise(r => setTimeout(r, 30000));
-                    }
-
-                    // Safety break: If we've tried too much for one chunk,
-                    // we assume it's sent but script just timed out responding.
-                    if (chunkAttempt > 10) {
-                        console.log(`Worker ${WORKER_ID} | RECOVERY | ⚠️ Max retries reached for chunk. Assuming delivery and moving next.`);
-                        chunkSuccess = true;
+                        console.error(`Worker ${WORKER_ID} | RECOVERY | ❌ Connection Error (Attempt ${chunkAttempt}): ${e.message}. Waiting for Server to recover...`);
+                        await new Promise(r => setTimeout(r, 60000));
                     }
                 }
             }
