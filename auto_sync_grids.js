@@ -58,24 +58,38 @@ async function startRobotSync() {
             let hasMore = true;
 
             while (hasMore) {
-                try {
-                    // 🚀 INCREMENTAL FETCH: Only ask for data since lastSyncTime
-                    let finalUrl = `${stateUrl}?type=providers&offset=${offset}&limit=${limit}&nocache=true&cb=${Date.now()}`;
-                    if (lastSyncTime > 0) finalUrl += `&since=${lastSyncTime}`;
+                let batchSuccess = false;
+                let attempt = 0;
 
-                    const resp = await axios.get(finalUrl, { timeout: 120000 });
-                    const data = resp.data;
+                while (!batchSuccess) {
+                    attempt++;
+                    console.log(`  📡 [${stateName}] Fetching Offset ${offset}... (Attempt ${attempt})`);
+                    try {
+                        // 🚀 INCREMENTAL FETCH: Only ask for data since lastSyncTime
+                        let finalUrl = `${stateUrl}?type=providers&offset=${offset}&limit=${limit}&nocache=true&cb=${Date.now()}`;
+                        if (lastSyncTime > 0) finalUrl += `&since=${lastSyncTime}`;
 
-                    if (Array.isArray(data)) {
-                        allProviders.push(...data);
-                        console.log(`  ✅ Collected: ${allProviders.length} records.`);
-                        if (data.length < limit) hasMore = false;
-                        else offset += data.length;
-                        await new Promise(r => setTimeout(r, 800));
-                    } else { hasMore = false; }
-                } catch (e) {
-                    console.error(`  ❌ Batch Fail: ${e.message}`);
-                    await new Promise(r => setTimeout(r, 20000));
+                        const resp = await axios.get(finalUrl, { timeout: 150000 });
+                        const data = resp.data;
+
+                        if (Array.isArray(data)) {
+                            allProviders.push(...data);
+                            console.log(`  ✅ Success: ${data.length} records (Total: ${allProviders.length})`);
+
+                            if (data.length < limit) hasMore = false;
+                            else offset += data.length;
+
+                            batchSuccess = true;
+                            await new Promise(r => setTimeout(r, 1000));
+                        } else {
+                            throw new Error(`Invalid Response Format (Not an array)`);
+                        }
+                    } catch (e) {
+                        const status = e.response ? e.response.status : "TIMEOUT/NETWORK";
+                        console.error(`  ❌ Batch Fail [Status: ${status}]: ${e.message}`);
+                        console.log(`  ⏳ Persistent Retry: Retrying offset ${offset} in 30s...`);
+                        await new Promise(r => setTimeout(r, 30000));
+                    }
                 }
             }
 
