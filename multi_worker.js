@@ -426,6 +426,13 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
 }
 
 async function runOrchestrator() {
+    // 🚀 INITIAL STAGGER: Wait before doing ANYTHING (including recovery/firebase)
+    if (WORKER_ID > 0) {
+        const startupDelay = WORKER_ID * 60 * 1000;
+        console.log(`Worker ${WORKER_ID} | STAGGER | Waiting ${WORKER_ID} minute(s) before initialization...`);
+        await new Promise(r => setTimeout(r, startupDelay));
+    }
+
     await loadProgress();
 
     // 🚀 STARTUP RECOVERY: Loop until all failed data is successfully synced
@@ -473,17 +480,14 @@ async function runOrchestrator() {
     const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' });
     const page = await context.newPage();
 
-    if (WORKER_ID > 0) {
-        const startupDelay = WORKER_ID * 60 * 1000;
-        console.log(`Worker ${WORKER_ID} | STAGGER | Waiting ${WORKER_ID} minute(s) before start...`);
-        await new Promise(r => setTimeout(r, startupDelay));
-    }
 
     try {
-        // 🚀 SMART HUB LOADING: Use local hub_data.json first, fallback to API
+        // 🚀 SMART HUB LOADING: Use local hub_data.json first, fallback to CDN, then API
         const HUB_DATA_FILE = path.join(__dirname, 'hub_data.json');
+        const CDN_HUB_URL = "https://cdn.jsdelivr.net/gh/SiddhuSandySam/kaamwale-data@main/hub_data.json";
         let hubLoaded = false;
 
+        // 1. Try Local File
         if (fs.existsSync(HUB_DATA_FILE)) {
             try {
                 const localHub = JSON.parse(fs.readFileSync(HUB_DATA_FILE));
@@ -495,10 +499,24 @@ async function runOrchestrator() {
             } catch (e) { console.error(`Worker ${WORKER_ID} | ⚠️ | Local Hub Read Fail: ${e.message}`); }
         }
 
+        // 2. Try CDN (jsDelivr) - Most stable!
+        if (!hubLoaded) {
+            try {
+                console.log(`Worker ${WORKER_ID} | INFO | Fetching Hub Data from jsDelivr CDN...`);
+                const cdnResp = await axios.get(`${CDN_HUB_URL}?cb=${Date.now()}`, { timeout: 30000 });
+                if (cdnResp.data && cdnResp.data.stateUrls) {
+                    stateUrls = cdnResp.data.stateUrls;
+                    hubLoaded = true;
+                    console.log(`Worker ${WORKER_ID} | INFO | Hub Data loaded from CDN.`);
+                }
+            } catch (e) { console.warn(`Worker ${WORKER_ID} | ⚠️ | CDN Hub Fetch Fail: ${e.message}`); }
+        }
+
+        // 3. Fallback to direct API
         if (!hubLoaded) {
             for (let retry = 1; retry <= 5; retry++) {
                 try {
-                    console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table (type=app_data) (Attempt ${retry}/5)...`);
+                    console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table from API (Attempt ${retry}/5)...`);
                     const hubResp = await axios.get(`${MAIN_HUB_URL}?type=app_data&nocache=true`, { timeout: 30000 });
                     if (hubResp.data && hubResp.data.stateUrls) {
                         stateUrls = hubResp.data.stateUrls;
@@ -506,7 +524,7 @@ async function runOrchestrator() {
                         break;
                     }
                 } catch (e) {
-                    console.error(`Worker ${WORKER_ID} | ⚠️ | Hub Fetch Failed: ${e.message}. Retrying in 10s...`);
+                    console.error(`Worker ${WORKER_ID} | ⚠️ | API Hub Fetch Failed: ${e.message}. Retrying in 10s...`);
                     await new Promise(r => setTimeout(r, 10000));
                 }
             }
