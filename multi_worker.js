@@ -116,7 +116,6 @@ async function flushBuffers(isExiting = false) {
 
         // 2. Google Sheets Sync
         if (sheetBuffer.length > 0 && SYNC_SHEET_ENABLED) {
-            // 🚀 SMART STATE ROUTER: Group leads by their actual state to prevent mixed-data sheets
             const groupedLeads = {};
             sheetBuffer.forEach(p => {
                 const s = p.state || "Unknown";
@@ -124,42 +123,55 @@ async function flushBuffers(isExiting = false) {
                 groupedLeads[s].push(p);
             });
 
+            let overallSuccess = true;
             for (const stateName of Object.keys(groupedLeads)) {
                 let leadsToSync = groupedLeads[stateName];
-                const targetUrl = stateUrls[stateName] || currentTargetUrl; // Fallback to current if state not in hub
+                const targetUrl = stateUrls[stateName] || currentTargetUrl;
 
                 let retryAttempt = 0;
-                const MAX_RETRIES = 5;
-                let success = false;
+                const MAX_RETRIES = 10; // 🚀 Increased retries for heavy load
+                let stateSuccess = false;
 
                 console.log(`Worker ${WORKER_ID} | [${mode}] | 🚀 Routing ${leadsToSync.length} leads to [${stateName}] Sheet...`);
 
-                while (retryAttempt < MAX_RETRIES && !success) {
-                    if (retryAttempt > 0) {
-                        const baseWait = 15000 * Math.pow(2, retryAttempt);
-                        await new Promise(r => setTimeout(r, baseWait));
+                while (retryAttempt < MAX_RETRIES && !stateSuccess) {
+                    retryAttempt++;
+                    if (retryAttempt > 1) {
+                        // 🚀 Exponential backoff: Wait longer each time (30s, 60s, 90s...) to let Sheet Lock release
+                        const waitTime = Math.min(30000 * retryAttempt, 120000);
+                        console.log(`Worker ${WORKER_ID} | ⏳ Retry ${retryAttempt}/${MAX_RETRIES} in ${waitTime/1000}s...`);
+                        await new Promise(r => setTimeout(r, waitTime));
                     }
 
                     try {
-                        const response = await axios.post(targetUrl, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 150000 });
+                        const response = await axios.post(targetUrl, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 240000 }); // 🚀 4 min timeout
                         const resData = String(response.data);
 
                         if (resData.includes("Success") || resData.includes("Complete")) {
                             console.log(`Worker ${WORKER_ID} | [${mode}] | ✅ [${stateName}] Sync Success!`);
-                            success = true;
+                            stateSuccess = true;
                         } else {
-                            console.warn(`Worker ${WORKER_ID} | [${mode}] | ⚠️ [${stateName}] Server Busy. Retrying...`);
-                            retryAttempt++;
+                            console.warn(`Worker ${WORKER_ID} | [${mode}] | ⚠️ [${stateName}] Server Busy/Error: ${resData}`);
+                            // If server specifically says error, don't count as success
                         }
                     } catch (e) {
                         console.error(`Worker ${WORKER_ID} | [${mode}] | ❌ [${stateName}] Sync Error: ${e.message}`);
-                        retryAttempt++;
                     }
                 }
+                if (!stateSuccess) overallSuccess = false;
             }
-            sheetBuffer = []; // Clear buffer after processing all groups
-            if (fs.existsSync(BACKUP_LEADS_FILE)) fs.unlinkSync(BACKUP_LEADS_FILE);
-            if (fs.existsSync(FAILED_SYNC_FILE)) fs.unlinkSync(FAILED_SYNC_FILE);
+
+            if (overallSuccess) {
+                // 🚀 ONLY DELETE IF ALL BATCHES SUCCEEDED
+                sheetBuffer = [];
+                if (fs.existsSync(BACKUP_LEADS_FILE)) {
+                    fs.unlinkSync(BACKUP_LEADS_FILE);
+                    console.log(`Worker ${WORKER_ID} | [${mode}] | 🧹 Success! Local backup [${path.basename(BACKUP_LEADS_FILE)}] deleted.`);
+                }
+                if (fs.existsSync(FAILED_SYNC_FILE)) fs.unlinkSync(FAILED_SYNC_FILE);
+            } else {
+                console.error(`Worker ${WORKER_ID} | [${mode}] | 🛑 Sync Failed after all retries. Backup kept for safety.`);
+            }
         }
     } finally { isFlushing = false; }
 }
@@ -374,10 +386,16 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
         // 🚀 IMMEDIATE DISK BACKUP
         try {
             let currentBackup = [];
-            if (fs.existsSync(BACKUP_LEADS_FILE)) currentBackup = JSON.parse(fs.readFileSync(BACKUP_LEADS_FILE));
+            if (fs.existsSync(BACKUP_LEADS_FILE)) {
+                try {
+                    currentBackup = JSON.parse(fs.readFileSync(BACKUP_LEADS_FILE));
+                } catch (e) { currentBackup = []; }
+            }
             currentBackup.push(provider);
             fs.writeFileSync(BACKUP_LEADS_FILE, JSON.stringify(currentBackup, null, 2));
-        } catch (e) {}
+        } catch (e) {
+            console.error(`Worker ${WORKER_ID} | ⚠️ | Backup Write Fail: ${e.message}`);
+        }
 
         if (sheetBuffer.length >= BATCH_LIMIT || firestoreBuffer.length >= BATCH_LIMIT) await flushBuffers();
         const finalPhone = cleanPhone.replace(/[^0-9]/g, '').slice(-10);

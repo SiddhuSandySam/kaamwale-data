@@ -96,13 +96,14 @@ jobs:
             # 1. Fetch latest
             git fetch origin main
             
-            # 2. Add only necessary data files (Using -A to track deletions too)
-            git add -A progress_W*.json 2>/dev/null || true
-            git add -A registry_W*.txt 2>/dev/null || true
-            git add -A backup_leads_W*.json 2>/dev/null || true
-            git add -A failed_sync_W*.json 2>/dev/null || true
+            # 2. Stage ONLY the specific data files (including deletions)
+            # Using quotes allows Git to handle the glob and see deletions
+            git add -A 'progress_W*.json' 2>/dev/null || true
+            git add -A 'registry_W*.txt' 2>/dev/null || true
+            git add -A 'backup_leads_W*.json' 2>/dev/null || true
+            git add -A 'failed_sync_W*.json' 2>/dev/null || true
             
-            # 3. Commit
+            # 3. Commit only if there are changes
             git commit -m "Worker ${{ matrix.worker_id }} update [skip ci]" || { 
               echo "Nothing new to commit, checking remote..."
             }
