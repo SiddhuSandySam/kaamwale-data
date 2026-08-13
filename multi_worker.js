@@ -355,6 +355,20 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
             notificationsEnabled: true, latitude: latitude, longitude: longitude
         };
 
+        // 🚀 STRICT DATA INTEGRITY GUARD: Ensure NO junk enters the system
+        const requiredFields = ['businessName', 'whatsappNumber', 'city', 'state', 'latitude', 'longitude', 'profilePhotoUrl'];
+        const missingFields = requiredFields.filter(field => !provider[field] || provider[field] === 0 || provider[field] === "0");
+
+        if (missingFields.length > 0) {
+            console.log(`Worker ${WORKER_ID} | [🛑] | REJECT | Business: ${businessName} | Reason: Missing fields (${missingFields.join(', ')})`);
+            return 0;
+        }
+
+        if (provider.latitude === 0 || provider.longitude === 0) {
+            console.log(`Worker ${WORKER_ID} | [🛑] | REJECT | Business: ${businessName} | Reason: Invalid Coordinates (0,0)`);
+            return 0;
+        }
+
         firestoreBuffer.push(provider); sheetBuffer.push(provider);
 
         // 🚀 IMMEDIATE DISK BACKUP
