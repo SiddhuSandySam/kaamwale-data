@@ -25,19 +25,24 @@ jobs:
         run: |
           git config --global user.name "RapidHelp-Robot"
           git config --global user.email "robot@kaamwale.com"
-          git checkout .github/workflows/grid_sync.yml
           
           # 🚀 ATOMIC SYNC LOOP
           for i in {1..20}; do
             echo "Attempt $i: Syncing robot updates..."
             
-            # 1. Stage only data files (Fixes unstaged changes error and avoids large files)
-            git add hub_data.json *_grids/*.json
+            # 1. Force untrack any accidental large files or node_modules
+            git rm -r --cached node_modules maharashtra.json registry.txt 2>/dev/null || true
             
-            # 2. Commit
-            git commit -m "Robot: Multi-State Data Sync [Auto-Sync]" || { echo "Nothing to sync"; exit 0; }
+            # 2. Stage only targeted data files
+            git add hub_data.json
+            git add *_grids/*.json
             
-            # 3. Ultimate Pull & Push
+            # 3. Commit
+            git commit -m "Robot: Multi-State Data Sync [Auto-Sync]" || { 
+              echo "Nothing to sync, checking remote updates..."
+            }
+            
+            # 4. Ultimate Pull & Push
             if git pull --rebase --autostash -X ours origin main; then
               if git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main; then
                 echo "✅ Robot sync successful!"
@@ -45,8 +50,8 @@ jobs:
               fi
             fi
             
-            echo "❌ Conflict, retrying..."
+            echo "❌ Conflict or Network Error, retrying..."
             git rebase --abort || true
-            sleep 15
+            sleep 20
           done
           exit 1
