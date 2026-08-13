@@ -33,12 +33,9 @@ jobs:
             # 1. Force untrack any accidental large files or node_modules
             git rm -r --cached node_modules maharashtra.json registry.txt 2>/dev/null || true
             
-            # 2. Stage ALL grids folders (Including deletions to match exactly with Hub)
+            # 2. Stage ALL data files dynamically (Matches all states from config)
             git add -A hub_data.json
-            git add -A maharashtra_grids/ 2>/dev/null || true
-            git add -A andhra_pradesh_grids/ 2>/dev/null || true
-            git add -A gujarat_grids/ 2>/dev/null || true
-            git add -A *_grids/*.json 2>/dev/null || true
+            git add -A *_grids/ 2>/dev/null || true
             
             # 3. Commit
             git commit -m "Robot: Multi-State Data Sync [Auto-Sync]" || { 
