@@ -265,26 +265,37 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
         const addressParts = cleanFullAddress.split(',').map(p => p.trim());
         let detectedCity = city;
         let detectedLocality = city;
+        let detectedState = state;
 
         if (addressParts.length >= 3) {
             let stateIdx = addressParts.length - 1;
             if (addressParts[stateIdx].toLowerCase() === "india" && addressParts.length >= 4) stateIdx--;
             const statePart = addressParts[stateIdx];
+
+            // 🚀 STRICT STATE MISMATCH GUARD: Ensure Andhra stays in Andhra!
             if (!statePart.toLowerCase().includes(state.toLowerCase())) {
                 console.log(`Worker ${WORKER_ID} | [🛑] | SKIP | Business: ${businessName} | Reason: State Mismatch (Detected: ${statePart}, Expected: ${state})`);
                 return 0;
             }
             detectedCity = addressParts[stateIdx - 1];
+            detectedState = statePart;
 
-            // 🛡️ SMART LOCALITY EXTRACTION: Avoid numbers, alphanumeric house IDs, and junk building terms
-            const JUNK_KEYWORDS = ['building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block', 'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'station', 'bus stop', 'society', 'apt', 'apartment', 'villa', 'tower'];
+            // 🛡️ SMART LOCALITY EXTRACTION: Enhanced filter to remove landmarks
+            const JUNK_KEYWORDS = [
+                'building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block',
+                'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'station', 'bus stop', 'society',
+                'apt', 'apartment', 'villa', 'tower', 'beside', 'behind', 'temple', 'hospital', 'school', 'church',
+                'masjid', 'gate', 'mall', 'market', 'complex', 'center', 'centre', 'chowk', 'circle', 'bypass', 'yard'
+            ];
+
             let foundLocality = "";
             for (let i = stateIdx - 2; i >= 0; i--) {
                 const part = addressParts[i].trim();
+                const partLower = part.toLowerCase();
 
-                // Check if it looks like a house/plot number (e.g., "7-B", "123", "A/5")
-                const isHouseNumber = /^([A-Z0-9]+[\-\/ ]*[A-Z0-9]*)$/i.test(part) && (part.length <= 6 || /^[0-9]+$/.test(part));
-                const hasJunkWords = JUNK_KEYWORDS.some(k => part.toLowerCase().includes(k));
+                // Check if it looks like a house/plot number
+                const isHouseNumber = /^([A-Z0-9]+[\-\/ ]*[A-Z0-9]*)$/i.test(part) && (part.length <= 8);
+                const hasJunkWords = JUNK_KEYWORDS.some(k => partLower.includes(k));
 
                 if (!isHouseNumber && !hasJunkWords && part.length > 2) {
                     foundLocality = part;
