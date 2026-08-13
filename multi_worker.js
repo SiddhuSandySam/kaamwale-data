@@ -280,12 +280,13 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
             detectedCity = addressParts[stateIdx - 1];
             detectedState = statePart;
 
-            // 🛡️ SMART LOCALITY EXTRACTION: Enhanced filter to remove landmarks
+            // 🛡️ SMART LOCALITY EXTRACTION: Enhanced filter to remove landmarks and numeric parts
             const JUNK_KEYWORDS = [
                 'building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block',
                 'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'station', 'bus stop', 'society',
                 'apt', 'apartment', 'villa', 'tower', 'beside', 'behind', 'temple', 'hospital', 'school', 'church',
-                'masjid', 'gate', 'mall', 'market', 'complex', 'center', 'centre', 'chowk', 'circle', 'bypass', 'yard'
+                'masjid', 'gate', 'mall', 'market', 'complex', 'center', 'centre', 'chowk', 'circle', 'bypass', 'yard',
+                'ward', 'street', 'gali', 'sector', 'khasra'
             ];
 
             let foundLocality = "";
@@ -293,11 +294,14 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
                 const part = addressParts[i].trim();
                 const partLower = part.toLowerCase();
 
-                // Check if it looks like a house/plot number
-                const isHouseNumber = /^([A-Z0-9]+[\-\/ ]*[A-Z0-9]*)$/i.test(part) && (part.length <= 8);
+                // 🚀 ADVANCED HOUSE/CODE FILTER: Matches "2 & 3", "12-A", "Ward 4", pure numbers, etc.
+                const isJunkCode = /^[0-9\-\/\&\s\.\#]+$/.test(part) ||
+                                 (part.length <= 5 && /[0-9]/.test(part)) ||
+                                 (partLower.includes('&') && part.length <= 10);
+
                 const hasJunkWords = JUNK_KEYWORDS.some(k => partLower.includes(k));
 
-                if (!isHouseNumber && !hasJunkWords && part.length > 2) {
+                if (!isJunkCode && !hasJunkWords && part.length > 2) {
                     foundLocality = part;
                     break;
                 }
