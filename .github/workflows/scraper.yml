@@ -81,6 +81,11 @@ jobs:
       - name: Commit and Push Progress
         if: always() 
         run: |
+          # 🚀 RANDOM TRAFFIC DELAY: Prevent 15 workers from hitting Git at the same second
+          SLEEP_TIME=$(( ( RANDOM % 240 )  + 60 ))
+          echo "🚦 Waiting ${SLEEP_TIME} seconds before Git Sync to avoid congestion..."
+          sleep ${SLEEP_TIME}
+
           git config --global user.name "RapidHelp-Bot"
           git config --global user.email "bot@rapidhelp.in"
           

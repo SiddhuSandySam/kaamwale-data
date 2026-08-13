@@ -473,7 +473,11 @@ async function runOrchestrator() {
     const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' });
     const page = await context.newPage();
 
-    if (WORKER_ID > 0) { await new Promise(r => setTimeout(r, WORKER_ID * 10000)); }
+    if (WORKER_ID > 0) {
+        const startupDelay = WORKER_ID * 60 * 1000;
+        console.log(`Worker ${WORKER_ID} | STAGGER | Waiting ${WORKER_ID} minute(s) before start...`);
+        await new Promise(r => setTimeout(r, startupDelay));
+    }
 
     try {
         // 🚀 SMART HUB LOADING: Use local hub_data.json first, fallback to API
