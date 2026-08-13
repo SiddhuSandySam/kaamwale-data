@@ -116,40 +116,50 @@ async function flushBuffers(isExiting = false) {
 
         // 2. Google Sheets Sync
         if (sheetBuffer.length > 0 && SYNC_SHEET_ENABLED) {
-            let leadsToSync = [...sheetBuffer];
-            let retryAttempt = 0;
-            const MAX_RETRIES = 10; // 🚀 Increased retries
-            let success = false;
+            // 🚀 SMART STATE ROUTER: Group leads by their actual state to prevent mixed-data sheets
+            const groupedLeads = {};
+            sheetBuffer.forEach(p => {
+                const s = p.state || "Unknown";
+                if (!groupedLeads[s]) groupedLeads[s] = [];
+                groupedLeads[s].push(p);
+            });
 
-            while (retryAttempt < MAX_RETRIES && !success) {
-                if (retryAttempt > 0) {
-                    await syncFromSatellite(currentTargetUrl);
-                    leadsToSync = leadsToSync.filter(p => !registry.has(p.callNumber));
-                    if (leadsToSync.length === 0) {
-                        console.log(`Worker ${WORKER_ID} | [SUCCESS] | All leads already saved in sheet.`);
-                        sheetBuffer = []; success = true; break;
+            for (const stateName of Object.keys(groupedLeads)) {
+                let leadsToSync = groupedLeads[stateName];
+                const targetUrl = stateUrls[stateName] || currentTargetUrl; // Fallback to current if state not in hub
+
+                let retryAttempt = 0;
+                const MAX_RETRIES = 5;
+                let success = false;
+
+                console.log(`Worker ${WORKER_ID} | [${mode}] | 🚀 Routing ${leadsToSync.length} leads to [${stateName}] Sheet...`);
+
+                while (retryAttempt < MAX_RETRIES && !success) {
+                    if (retryAttempt > 0) {
+                        const baseWait = 15000 * Math.pow(2, retryAttempt);
+                        await new Promise(r => setTimeout(r, baseWait));
+                    }
+
+                    try {
+                        const response = await axios.post(targetUrl, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 150000 });
+                        const resData = String(response.data);
+
+                        if (resData.includes("Success") || resData.includes("Complete")) {
+                            console.log(`Worker ${WORKER_ID} | [${mode}] | ✅ [${stateName}] Sync Success!`);
+                            success = true;
+                        } else {
+                            console.warn(`Worker ${WORKER_ID} | [${mode}] | ⚠️ [${stateName}] Server Busy. Retrying...`);
+                            retryAttempt++;
+                        }
+                    } catch (e) {
+                        console.error(`Worker ${WORKER_ID} | [${mode}] | ❌ [${stateName}] Sync Error: ${e.message}`);
+                        retryAttempt++;
                     }
                 }
-
-                if (retryAttempt > 0 || !isExiting) {
-                    const baseWait = retryAttempt === 0 ? 10000 : 30000 * Math.pow(2, retryAttempt);
-                    await new Promise(r => setTimeout(r, baseWait));
-                }
-
-                console.log(`Worker ${WORKER_ID} | [${mode}] | Sheet: Syncing ${leadsToSync.length} leads... (Attempt ${retryAttempt + 1})`);
-                try {
-                    const response = await axios.post(currentTargetUrl, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 150000 });
-                    const resData = String(response.data);
-                    console.log(`Worker ${WORKER_ID} | [${mode}] | 📊 Sheet Response: ${resData} 🚀`);
-
-                    if (resData.includes("Success") || resData.includes("Complete")) {
-                        sheetBuffer = [];
-                        if (fs.existsSync(BACKUP_LEADS_FILE)) fs.unlinkSync(BACKUP_LEADS_FILE);
-                        if (fs.existsSync(FAILED_SYNC_FILE)) fs.unlinkSync(FAILED_SYNC_FILE);
-                        success = true;
-                    } else { retryAttempt++; }
-                } catch (e) { retryAttempt++; }
             }
+            sheetBuffer = []; // Clear buffer after processing all groups
+            if (fs.existsSync(BACKUP_LEADS_FILE)) fs.unlinkSync(BACKUP_LEADS_FILE);
+            if (fs.existsSync(FAILED_SYNC_FILE)) fs.unlinkSync(FAILED_SYNC_FILE);
         }
     } finally { isFlushing = false; }
 }
