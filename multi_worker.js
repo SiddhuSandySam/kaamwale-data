@@ -128,27 +128,29 @@ async function flushBuffers(isExiting = false) {
                 let leadsToSync = groupedLeads[stateName];
                 const targetUrl = stateUrls[stateName] || currentTargetUrl;
 
-                let retryAttempt = 0;
-                const MAX_RETRIES = 10; // 🚀 Increased retries for heavy load
-                let stateSuccess = false;
-
+                // 🚀 DETAILED LOGGING: Show names of leads being synced
+                const leadNames = leadsToSync.map(l => l.businessName || l.id).join(", ");
                 console.log(`Worker ${WORKER_ID} | [${mode}] | 🚀 Routing ${leadsToSync.length} leads to [${stateName}] Sheet...`);
+                console.log(`Worker ${WORKER_ID} | [DATA] | Leads: [${leadNames}]`);
+
+                let retryAttempt = 0;
+                const MAX_RETRIES = 10;
+                let stateSuccess = false;
 
                 while (retryAttempt < MAX_RETRIES && !stateSuccess) {
                     retryAttempt++;
                     if (retryAttempt > 1) {
-                        // 🚀 Exponential backoff: Wait longer each time (30s, 60s, 90s...) to let Sheet Lock release
                         const waitTime = Math.min(30000 * retryAttempt, 120000);
                         console.log(`Worker ${WORKER_ID} | ⏳ Retry ${retryAttempt}/${MAX_RETRIES} in ${waitTime/1000}s...`);
                         await new Promise(r => setTimeout(r, waitTime));
                     }
 
                     try {
-                        const response = await axios.post(targetUrl, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 240000 }); // 🚀 4 min timeout
+                        const response = await axios.post(targetUrl, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 240000 });
                         const resData = String(response.data);
 
                         if (resData.includes("Success") || resData.includes("Complete")) {
-                            console.log(`Worker ${WORKER_ID} | [${mode}] | ✅ [${stateName}] Sync Success!`);
+                            console.log(`Worker ${WORKER_ID} | [${mode}] | ✅ [${stateName}] Sync Success for: [${leadNames}]`);
                             stateSuccess = true;
                         } else {
                             console.warn(`Worker ${WORKER_ID} | [${mode}] | ⚠️ [${stateName}] Server Busy/Error: ${resData}`);
