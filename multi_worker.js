@@ -465,12 +465,20 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             if (!updated) continue;
 
             const res = await scrapeIndividualProfile(page, nameRaw, city, state, categoryId, subcategory);
-            if (res === 1) { foundCount++; streak = 0; }
-            else if (res === "DUPLICATE") {
+            if (res === 1) {
+                foundCount++;
+                streak = 0;
+            } else {
+                // 🚀 AGGRESSIVE SKIP: Increment streak for BOTH duplicates AND invalid leads
                 streak++;
-                const phone = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
-                const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
-                console.log(`Worker ${WORKER_ID} | [-] | Skip: Duplicate Number: ${cleanPhone} (Streak: ${streak}/4)`);
+                if (res === "DUPLICATE") {
+                    const phone = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
+                    const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
+                    console.log(`Worker ${WORKER_ID} | [-] | Skip: Duplicate Number: ${cleanPhone} (Streak: ${streak}/4)`);
+                } else {
+                    console.log(`Worker ${WORKER_ID} | [-] | Skip: Invalid/Poor Quality (Streak: ${streak}/4)`);
+                }
+
                 if (streak >= 4) {
                     console.log(`Worker ${WORKER_ID} | [!] | Streak hit. Moving to next sub-category...`);
                     return foundCount;
