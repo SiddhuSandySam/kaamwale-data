@@ -16,7 +16,8 @@ const isFullSync = process.argv.includes('--full');
 
 function getGridId(lat, lon) {
     if (!lat || !lon || lat === 0 || lon === 0) return null;
-    return `g_${Math.floor(lat * 5)}_${Math.floor(lon * 5)}`;
+    // 🚀 11KM RESOLUTION (Factor 10): Balanced for CDN stability and wide coverage
+    return `g_${Math.floor(lat * 10)}_${Math.floor(lon * 10)}`;
 }
 
 async function startRobotSync() {
