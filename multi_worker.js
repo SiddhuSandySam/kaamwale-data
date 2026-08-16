@@ -269,7 +269,7 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
 
         if (registry.has(cleanPhone)) {
             console.log(`Worker ${WORKER_ID} | [-] | SKIP | Business: ${businessName} | Phone: ${cleanPhone} | Reason: Duplicate (Registry)`);
-            return "DUPLICATE";
+            return { status: "DUPLICATE", phone: cleanPhone };
         }
 
         await page.waitForSelector('button[data-item-id="address"]', { timeout: 15000 }).catch(() => {});
@@ -469,12 +469,9 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
                 foundCount++;
                 streak = 0;
             } else {
-                // 🚀 AGGRESSIVE SKIP: Increment streak for BOTH duplicates AND invalid leads
                 streak++;
-                if (res === "DUPLICATE") {
-                    const phone = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
-                    const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
-                    console.log(`Worker ${WORKER_ID} | [-] | Skip: Duplicate Number: ${cleanPhone} (Streak: ${streak}/4)`);
+                if (res && res.status === "DUPLICATE") {
+                    console.log(`Worker ${WORKER_ID} | [-] | Skip: Duplicate Number: ${res.phone} (Streak: ${streak}/4)`);
                 } else {
                     console.log(`Worker ${WORKER_ID} | [-] | Skip: Invalid/Poor Quality (Streak: ${streak}/4)`);
                 }
