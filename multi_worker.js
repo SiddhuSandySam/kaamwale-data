@@ -330,7 +330,7 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
                     break;
                 }
             }
-            detectedLocality = foundLocality || addressParts[stateIdx - 2] || detectedCity;
+            detectedLocality = foundLocality || detectedCity;
         }
 
         const isLatValid = latitude > 6.0 && latitude < 38.5;
