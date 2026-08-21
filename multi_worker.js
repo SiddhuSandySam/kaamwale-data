@@ -318,19 +318,32 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
                 const part = addressParts[i].trim();
                 const partLower = part.toLowerCase();
 
-                // 🚀 ADVANCED HOUSE/CODE FILTER: Matches "2 & 3", "12-A", "Ward 4", pure numbers, etc.
+                // 🚀 ULTRA-CLEAN FILTER: Reject Plus Codes, pure numbers, and tiny strings
+                const isPlusCode = part.includes('+');
                 const isJunkCode = /^[0-9\-\/\&\s\.\#]+$/.test(part) ||
                                  (part.length <= 5 && /[0-9]/.test(part)) ||
                                  (partLower.includes('&') && part.length <= 10);
 
                 const hasJunkWords = JUNK_KEYWORDS.some(k => partLower.includes(k));
 
-                if (!isJunkCode && !hasJunkWords && part.length > 2) {
+                if (!isPlusCode && !isJunkCode && !hasJunkWords && part.length > 2) {
                     foundLocality = part;
                     break;
                 }
             }
             detectedLocality = foundLocality || detectedCity;
+
+            // 🚀 AUTO-DISCOVERY: Suggest new cities if not in config
+            try {
+                const isExisting = config.states.some(s => s.name === state && s.cities.some(c => c.toLowerCase() === detectedCity.toLowerCase()));
+                if (!isExisting && detectedCity && detectedCity.length > 2 && !detectedCity.includes('+')) {
+                    const discoveryFile = path.join(__dirname, 'discovered_locations.json');
+                    let discoveries = fs.existsSync(discoveryFile) ? JSON.parse(fs.readFileSync(discoveryFile)) : {};
+                    const key = `${state}|${detectedCity}`;
+                    discoveries[key] = (discoveries[key] || 0) + 1;
+                    fs.writeFileSync(discoveryFile, JSON.stringify(discoveries, null, 2));
+                }
+            } catch (e) {}
         }
 
         const isLatValid = latitude > 6.0 && latitude < 38.5;
