@@ -1,20 +1,23 @@
 /**
- * RAPIDHELP MASTER LOCATION BOT (V2 - CROWDSOURCED VALIDATION)
- * 🚀 PURPOSE: Automatically expand config.json based on scraper discoveries.
- * 🛡️ LOGIC: Validate cities based on provider frequency (Majority Voting).
+ * RAPIDHELP MASTER LOCATION BOT (V4 - DETAILED LOGGING)
+ * 🚀 PURPOSE: Automatically expand Google Sheet "Locations" with advanced reporting.
+ * 🛡️ LOGIC: Majority voting (Count >= 5) and direct Google Sheet sync.
  * Author: Sandesh Koli (RapidHelp)
  */
 
+const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-const CONFIG_FILE = path.join(__dirname, 'config.json');
+const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
 const DISCOVERY_FILE = path.join(__dirname, 'discovered_locations.json');
-const CONFIDENCE_THRESHOLD = 5; // 🚀 Need at least 5 providers to confirm a city
+const CONFIDENCE_THRESHOLD = 5;
 
-async function expandConfig() {
+async function syncToSheet() {
+    console.log(`\n[${new Date().toLocaleString()}] 🚀 DISCOVERY BOT V4 STARTED...`);
+
     if (!fs.existsSync(DISCOVERY_FILE)) {
-        console.log("No new discoveries found.");
+        console.log("ℹ️ No discovery file found. Nothing to do.");
         return;
     }
 
@@ -22,56 +25,71 @@ async function expandConfig() {
     try {
         discoveries = JSON.parse(fs.readFileSync(DISCOVERY_FILE));
     } catch (e) {
-        console.error("Invalid discovery file.");
+        console.error("❌ Error reading discovery file.");
         return;
     }
 
-    let config = JSON.parse(fs.readFileSync(CONFIG_FILE));
-    let updated = false;
-
     const keys = Object.keys(discoveries);
-    console.log(`\n===============================================`);
-    console.log(`🤖 DISCOVERY BOT | Analyzing ${keys.length} suggested locations.`);
-    console.log(`===============================================\n`);
+    if (keys.length === 0) {
+        console.log("ℹ️ Discovery file is empty.");
+        return;
+    }
+
+    console.log(`📊 Found ${keys.length} unique location suggestions. Analyzing confidence...`);
+    console.log(`---------------------------------------------------------------`);
+
+    const stats = { added: 0, existed: 0, pending: 0, errors: 0 };
+    const remainingDiscoveries = {};
 
     for (const key of keys) {
         const count = discoveries[key];
         const [stateName, cityName] = key.split('|');
 
         if (count >= CONFIDENCE_THRESHOLD) {
-            console.log(`[+] VALIDATED: ${cityName} (${stateName}) found ${count} times.`);
+            process.stdout.write(`[*] [${stateName}] ${cityName} (${count}/${CONFIDENCE_THRESHOLD}) -> Validating... `);
 
-            const stateObj = config.states.find(s => s.name.toLowerCase() === stateName.toLowerCase());
-            if (stateObj) {
-                if (!stateObj.cities.some(c => c.toLowerCase() === cityName.toLowerCase())) {
-                    stateObj.cities.push(cityName);
-                    updated = true;
-                    console.log(`[!] APPENDED: ${cityName} added to ${stateName}.`);
+            try {
+                const response = await axios.post(HUB_URL, {
+                    type: "ADD_NEW_CITY",
+                    state: stateName,
+                    city: cityName
+                });
+
+                const resMsg = String(response.data);
+                if (resMsg.includes("Success")) {
+                    console.log("✅ ADDED");
+                    stats.added++;
+                } else if (resMsg.includes("Exists")) {
+                    console.log("⏭️ ALREADY IN SHEET");
+                    stats.existed++;
                 } else {
-                    console.log(`[i] EXISTS: ${cityName} already in config.`);
+                    console.log(`⚠️ ERROR: ${resMsg}`);
+                    stats.errors++;
+                    remainingDiscoveries[key] = count;
                 }
+            } catch (e) {
+                console.log(`❌ FAIL: ${e.message}`);
+                stats.errors++;
+                remainingDiscoveries[key] = count;
             }
         } else {
-            console.log(`[-] PENDING: ${cityName} (${stateName}) count is ${count}/${CONFIDENCE_THRESHOLD}. Keeping for next run.`);
+            // console.log(`[-] [${stateName}] ${cityName} (${count}/${CONFIDENCE_THRESHOLD}) -> PENDING`);
+            stats.pending++;
+            remainingDiscoveries[key] = count;
         }
     }
 
-    if (updated) {
-        fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
-        console.log("\n✅ config.json updated successfully.");
-    }
-
-    // Smart Cleanup: Remove only validated cities, keep pending ones for next session
-    const remainingDiscoveries = {};
-    for (const key of keys) {
-        if (discoveries[key] < CONFIDENCE_THRESHOLD) {
-            remainingDiscoveries[key] = discoveries[key];
-        }
-    }
+    // Save state
     fs.writeFileSync(DISCOVERY_FILE, JSON.stringify(remainingDiscoveries, null, 2));
 
-    console.log(`\n🏁 SESSION COMPLETE. Pending Discoveries: ${Object.keys(remainingDiscoveries).length}`);
-    console.log(`===============================================\n`);
+    console.log(`---------------------------------------------------------------`);
+    console.log(`🏁 BATCH COMPLETE REPORT:`);
+    console.log(`✅ Newly Added:    ${stats.added}`);
+    console.log(`⏭️  Already Existed: ${stats.existed}`);
+    console.log(`⏳ Still Pending:  ${stats.pending}`);
+    console.log(`❌ Failed/Errors:   ${stats.errors}`);
+    console.log(`---------------------------------------------------------------`);
+    console.log(`[${new Date().toLocaleString()}] 🚀 BOT FINISHED.\n`);
 }
 
-expandConfig().catch(err => console.error("Fatal Error:", err));
+syncToSheet().catch(err => console.error("Fatal Error:", err));
