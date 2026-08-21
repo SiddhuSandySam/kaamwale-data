@@ -340,6 +340,7 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
                     const discoveryFile = path.join(__dirname, 'discovered_locations.json');
                     let discoveries = fs.existsSync(discoveryFile) ? JSON.parse(fs.readFileSync(discoveryFile)) : {};
                     const key = `${state}|${detectedCity}`;
+                    // Store discovery as a count for confidence
                     discoveries[key] = (discoveries[key] || 0) + 1;
                     fs.writeFileSync(discoveryFile, JSON.stringify(discoveries, null, 2));
                 }
