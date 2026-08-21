@@ -1,0 +1,32 @@
+name: RapidHelp Location Discovery Bot
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Daily at midnight
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install axios
+
+      - name: Run Validator
+        run: node master_location_bot.js
+
+      - name: Push Updates
+        run: |
+          git config --global user.name "RapidHelp-Bot"
+          git config --global user.email "bot@rapidhelp.in"
+          git add config.json discovered_locations.json
+          git commit -m "Auto-Discovery: Validated and added new cities to config [skip ci]" || exit 0
+          git push origin main
