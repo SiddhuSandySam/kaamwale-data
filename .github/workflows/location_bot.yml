@@ -27,6 +27,8 @@ jobs:
         run: |
           git config --global user.name "RapidHelp-Bot"
           git config --global user.email "bot@rapidhelp.in"
-          git add config.json discovered_locations.json
+          # 🚀 SMART ADD: Only add files if they exist to prevent exit 128
+          [ -f discovered_locations.json ] && git add discovered_locations.json || echo "No discovery file to add"
+          [ -f config.json ] && git add config.json || echo "No config file to add"
           git commit -m "Auto-Discovery: Validated and added new cities to config [skip ci]" || exit 0
           git push origin main
