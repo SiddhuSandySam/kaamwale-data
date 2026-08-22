@@ -1,7 +1,7 @@
 /**
- * RAPIDHELP MASTER LOCATION BOT (V4 - DETAILED LOGGING)
- * 🚀 PURPOSE: Automatically expand Google Sheet "Locations" with advanced reporting.
- * 🛡️ LOGIC: Majority voting (Count >= 5) and direct Google Sheet sync.
+ * RAPIDHELP MASTER LOCATION BOT (V5 - STRICT FILTERING)
+ * 🚀 PURPOSE: Merge and validate city discoveries from all 15 workers.
+ * 🛡️ RULES: Min 3 chars, No numbers, No Plus-Codes, confidence >= 5.
  * Author: Sandesh Koli (RapidHelp)
  */
 
@@ -10,43 +10,56 @@ const fs = require('fs');
 const path = require('path');
 
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
-const DISCOVERY_FILE = path.join(__dirname, 'discovered_locations.json');
 const CONFIDENCE_THRESHOLD = 5;
 
 async function syncToSheet() {
-    console.log(`\n[${new Date().toLocaleString()}] 🚀 DISCOVERY BOT V4 STARTED...`);
+    console.log(`\n[${new Date().toLocaleString()}] 🚀 DISCOVERY BOT V5 STARTED...`);
 
-    if (!fs.existsSync(DISCOVERY_FILE)) {
-        console.log("ℹ️ No discovery file found. Nothing to do.");
+    const allDiscoveries = {};
+    const workerFiles = fs.readdirSync(__dirname).filter(f => f.startsWith('discovered_W') && f.endsWith('.json'));
+
+    if (workerFiles.length === 0) {
+        console.log("ℹ️ No worker discovery files found.");
         return;
     }
 
-    let discoveries;
-    try {
-        discoveries = JSON.parse(fs.readFileSync(DISCOVERY_FILE));
-    } catch (e) {
-        console.error("❌ Error reading discovery file.");
-        return;
+    // 🚀 STEP 1: MERGE ALL WORKER FILES
+    console.log(`📂 Merging ${workerFiles.length} worker files...`);
+    for (const file of workerFiles) {
+        try {
+            const data = JSON.parse(fs.readFileSync(path.join(__dirname, file)));
+            for (const key in data) {
+                allDiscoveries[key] = (allDiscoveries[key] || 0) + data[key];
+            }
+            // Delete worker file after merging to keep Git clean
+            fs.unlinkSync(path.join(__dirname, file));
+        } catch (e) { console.error(`❌ Error reading ${file}: ${e.message}`); }
     }
 
-    const keys = Object.keys(discoveries);
-    if (keys.length === 0) {
-        console.log("ℹ️ Discovery file is empty.");
-        return;
-    }
-
-    console.log(`📊 Found ${keys.length} unique location suggestions. Analyzing confidence...`);
-    console.log(`---------------------------------------------------------------`);
-
-    const stats = { added: 0, existed: 0, pending: 0, errors: 0 };
+    const keys = Object.keys(allDiscoveries);
+    const stats = { added: 0, existed: 0, pending: 0, rejected: 0, errors: 0 };
     const remainingDiscoveries = {};
 
+    console.log(`📊 Processing ${keys.length} merged suggestions...`);
+    console.log(`---------------------------------------------------------------`);
+
     for (const key of keys) {
-        const count = discoveries[key];
+        const count = allDiscoveries[key];
         const [stateName, cityName] = key.split('|');
 
+        // 🛡️ STRICT FILTERS:
+        const hasNumbers = /\d/.test(cityName); // Rule: No numbers in city name
+        const isTooShort = cityName.length < 3; // Rule: Min 3 characters
+        const isPlusCode = cityName.includes('+');
+
+        if (hasNumbers || isTooShort || isPlusCode) {
+            console.log(`[X] REJECTED: ${cityName} (Failed Strict Rules)`);
+            stats.rejected++;
+            continue;
+        }
+
         if (count >= CONFIDENCE_THRESHOLD) {
-            process.stdout.write(`[*] [${stateName}] ${cityName} (${count}/${CONFIDENCE_THRESHOLD}) -> Validating... `);
+            process.stdout.write(`[*] [${stateName}] ${cityName} (${count}) -> Validating... `);
 
             try {
                 const response = await axios.post(HUB_URL, {
@@ -60,7 +73,7 @@ async function syncToSheet() {
                     console.log("✅ ADDED");
                     stats.added++;
                 } else if (resMsg.includes("Exists")) {
-                    console.log("⏭️ ALREADY IN SHEET");
+                    console.log("⏭️ EXISTS");
                     stats.existed++;
                 } else {
                     console.log(`⚠️ ERROR: ${resMsg}`);
@@ -73,23 +86,25 @@ async function syncToSheet() {
                 remainingDiscoveries[key] = count;
             }
         } else {
-            // console.log(`[-] [${stateName}] ${cityName} (${count}/${CONFIDENCE_THRESHOLD}) -> PENDING`);
             stats.pending++;
             remainingDiscoveries[key] = count;
         }
     }
 
-    // Save state
-    fs.writeFileSync(DISCOVERY_FILE, JSON.stringify(remainingDiscoveries, null, 2));
+    // 🚀 SAVE PENDING: Only save cities that are still building confidence
+    if (Object.keys(remainingDiscoveries).length > 0) {
+        // Save to a unified file for next bot run
+        fs.writeFileSync(path.join(__dirname, 'discovered_W_MASTER.json'), JSON.stringify(remainingDiscoveries, null, 2));
+    }
 
     console.log(`---------------------------------------------------------------`);
-    console.log(`🏁 BATCH COMPLETE REPORT:`);
+    console.log(`🏁 FINAL REPORT:`);
     console.log(`✅ Newly Added:    ${stats.added}`);
     console.log(`⏭️  Already Existed: ${stats.existed}`);
     console.log(`⏳ Still Pending:  ${stats.pending}`);
+    console.log(`🛡️  Rules Rejected: ${stats.rejected}`);
     console.log(`❌ Failed/Errors:   ${stats.errors}`);
     console.log(`---------------------------------------------------------------`);
-    console.log(`[${new Date().toLocaleString()}] 🚀 BOT FINISHED.\n`);
 }
 
 syncToSheet().catch(err => console.error("Fatal Error:", err));

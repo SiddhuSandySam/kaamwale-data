@@ -337,7 +337,7 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
             try {
                 const isExisting = config.states.some(s => s.name === state && s.cities.some(c => c.toLowerCase() === detectedCity.toLowerCase()));
                 if (!isExisting && detectedCity && detectedCity.length > 2 && !detectedCity.includes('+')) {
-                    const discoveryFile = path.join(__dirname, 'discovered_locations.json');
+                    const discoveryFile = path.join(__dirname, `discovered_W${WORKER_ID}.json`);
                     let discoveries = fs.existsSync(discoveryFile) ? JSON.parse(fs.readFileSync(discoveryFile)) : {};
                     const key = `${state}|${detectedCity}`;
                     // Store discovery as a count for confidence
