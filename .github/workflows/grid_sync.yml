@@ -38,6 +38,10 @@ jobs:
             echo "📡 Running INCREMENTAL Sync..."
             node auto_sync_grids.js
           fi
+          
+          # 🚀 NEW: Sync config.json with latest Hub data
+          echo "🔄 Syncing config.json..."
+          node config_sync_bot.js
 
       - name: Commit and Push
         env:
@@ -61,7 +65,7 @@ jobs:
             
             # 2. Stage ONLY the specific data folders and files
             # We avoid 'git add .' to prevent any surprises
-            git add hub_data.json last_sync.json
+            git add hub_data.json last_sync.json config.json
             git add "*_grids/*.json" 2>/dev/null || true
             
             # 3. Commit
