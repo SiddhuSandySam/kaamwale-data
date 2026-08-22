@@ -1,0 +1,21 @@
+name: RapidHelp Data Stats Report
+
+on:
+  workflow_dispatch: # Allow manual trigger
+  schedule:
+    - cron: '0 18 * * *' # Daily at 11:30 PM IST (6 PM UTC)
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate Report
+        run: node check_counts.js
