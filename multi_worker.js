@@ -333,18 +333,45 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
             }
             detectedLocality = foundLocality || detectedCity;
 
-            // 🚀 AUTO-DISCOVERY: Suggest new cities if not in config
+            // 🚀 AUTO-DISCOVERY: Suggest new cities or areas if not in config
             try {
-                const isExisting = config.states.some(s => s.name === state && s.cities.some(c => c.toLowerCase() === detectedCity.toLowerCase()));
-                if (!isExisting && detectedCity && detectedCity.length > 2 && !detectedCity.includes('+')) {
-                    const discoveryFile = path.join(__dirname, `discovered_W${WORKER_ID}.json`);
-                    let discoveries = fs.existsSync(discoveryFile) ? JSON.parse(fs.readFileSync(discoveryFile)) : {};
-                    const key = `${state}|${detectedCity}`;
-                    // Store discovery as a count for confidence
-                    discoveries[key] = (discoveries[key] || 0) + 1;
-                    fs.writeFileSync(discoveryFile, JSON.stringify(discoveries, null, 2));
-                }
-            } catch (e) {}
+                // Look at both the detected city and locality (index -1 and -2)
+                const candidates = [detectedCity, detectedLocality];
+
+                candidates.forEach(name => {
+                    if (!name || name === "N/A") return;
+
+                    // 🛡️ CLEAN NAME: Remove pincodes (numbers) and special characters
+                    const cleanName = name.replace(/[0-9]/g, '').replace(/[\+\#\-\/\&]/g, '').trim();
+
+                    if (cleanName.length < 3) return;
+
+                    const isExisting = config.states.some(s =>
+                        s.name.toLowerCase().includes(state.toLowerCase()) &&
+                        s.cities.some(c => c.toLowerCase() === cleanName.toLowerCase())
+                    );
+
+                    if (!isExisting) {
+                        console.log(`Worker ${WORKER_ID} | DISCOVERY | 💡 NEW AREA DETECTED: [${cleanName}] in [${state}]`);
+                        const discoveryFile = path.join(__dirname, `discovered_W${WORKER_ID}.json`);
+                        let discoveries = {};
+
+                        if (fs.existsSync(discoveryFile)) {
+                            try {
+                                discoveries = JSON.parse(fs.readFileSync(discoveryFile));
+                            } catch (parseErr) { discoveries = {}; }
+                        }
+
+                        const key = `${state}|${cleanName}`;
+                        discoveries[key] = (discoveries[key] || 0) + 1;
+
+                        fs.writeFileSync(discoveryFile, JSON.stringify(discoveries, null, 2));
+                        // console.log(`Worker ${WORKER_ID} | DISCOVERY | Logged: ${cleanName} (Confidence: ${discoveries[key]})`);
+                    }
+                });
+            } catch (e) {
+                console.error(`Worker ${WORKER_ID} | DISCOVERY | ❌ Error writing discovery file: ${e.message}`);
+            }
         }
 
         const isLatValid = latitude > 6.0 && latitude < 38.5;
