@@ -1,7 +1,7 @@
 /**
  * RAPIDHELP MASTER LOCATION BOT (V5 - STRICT FILTERING)
  * 🚀 PURPOSE: Merge and validate city discoveries from all 15 workers.
- * 🛡️ RULES: Min 3 chars, No numbers, No Plus-Codes, confidence >= 5.
+ * 🛡️ RULES: Min 3 chars, No numbers, No Plus-Codes, confidence >= 10.
  * Author: Sandesh Koli (RapidHelp)
  */
 
@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
-const CONFIDENCE_THRESHOLD = 5;
+const CONFIDENCE_THRESHOLD = 10;
 
 async function syncToSheet() {
     console.log(`\n[${new Date().toLocaleString()}] 🚀 DISCOVERY BOT V5 STARTED...`);
@@ -48,11 +48,12 @@ async function syncToSheet() {
         const [stateName, cityName] = key.split('|');
 
         // 🛡️ STRICT FILTERS:
-        const hasNumbers = /\d/.test(cityName); // Rule: No numbers in city name
-        const isTooShort = cityName.length < 3; // Rule: Min 3 characters
-        const isPlusCode = cityName.includes('+');
+        const hasNumbers = /\d/.test(cityName);
+        const isTooShort = cityName.length < 3;
+        // 🚀 ONLY LETTERS AND SPACES: Reject if any special char exists
+        const hasSpecialChars = /[^a-zA-Z\s]/.test(cityName);
 
-        if (hasNumbers || isTooShort || isPlusCode) {
+        if (hasNumbers || isTooShort || hasSpecialChars) {
             console.log(`[X] REJECTED: ${cityName} (Failed Strict Rules)`);
             stats.rejected++;
             continue;
