@@ -11,14 +11,13 @@ const axios = require('axios');
 
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
 
-// 🚀 ARGS: node image_refresher.js [state] [limit]
+// 🚀 ARGS: node image_refresher.js [state]
 const args = process.argv.slice(2);
 const TARGET_STATE = args[0] || null;
-const REFRESH_LIMIT = parseInt(args[1]) || 9999;
 
-async function refreshImages(stateName, limit) {
+async function refreshImages(stateName) {
     console.log(`\n===============================================`);
-    console.log(`🔄 REFRESH SESSION: ${stateName} (Limit: ${limit})`);
+    console.log(`🔄 REFRESH SESSION: ${stateName}`);
     console.log(`===============================================`);
 
     const folderName = `${stateName.toLowerCase().replace(/ /g, '_')}_grids`;
@@ -36,14 +35,11 @@ async function refreshImages(stateName, limit) {
     const files = fs.readdirSync(gridDir).filter(f => f.endsWith('.json'));
 
     for (const file of files) {
-        if (updatedCount >= limit) break;
-
         const filePath = path.join(gridDir, file);
         let providers = JSON.parse(fs.readFileSync(filePath));
         let fileChanged = false;
 
         for (let p of providers) {
-            if (updatedCount >= limit) break;
             if (!p.id.startsWith('shadow_')) continue;
 
             console.log(`\n🔍 Provider: ${p.businessName} [${p.id}]`);
@@ -106,13 +102,13 @@ async function refreshImages(stateName, limit) {
 
 async function main() {
     if (TARGET_STATE) {
-        await refreshImages(TARGET_STATE, REFRESH_LIMIT);
+        await refreshImages(TARGET_STATE);
     } else {
         const folders = fs.readdirSync(__dirname).filter(f => f.endsWith('_grids'));
         for (const folder of folders) {
             const stateName = folder.replace('_grids', '').replace(/_/g, ' ');
             const formattedState = stateName.replace(/\b\w/g, l => l.toUpperCase());
-            await refreshImages(formattedState, REFRESH_LIMIT);
+            await refreshImages(formattedState);
         }
     }
     console.log(`\n🏁 Global Refresh Session Complete.`);

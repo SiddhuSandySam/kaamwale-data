@@ -9,10 +9,6 @@ on:
         description: 'Target State (e.g. Maharashtra) or leave empty for ALL'
         required: false
         default: ''
-      limit:
-        description: 'How many images to refresh'
-        required: false
-        default: '1000'
 
 jobs:
   refresh:
@@ -34,7 +30,7 @@ jobs:
           sudo apt-get install -y xvfb
 
       - name: Run Image Refresher (with XVFB for Headed Mode)
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" node image_refresher.js "${{ github.event.inputs.state }}" "${{ github.event.inputs.limit }}"
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" node image_refresher.js "${{ github.event.inputs.state }}"
 
       - name: Commit & Push Changes
         run: |
