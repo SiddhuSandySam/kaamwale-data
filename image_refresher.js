@@ -13,10 +13,11 @@ const { execSync } = require('child_process');
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
 
 // 🚀 CONFIG
-const BATCH_SIZE = 10; // Send 10 updates at once to Sheet
-const PUSH_INTERVAL = 50; // Git Push every 50 updates
+const BATCH_SIZE = 10;
+const PUSH_INTERVAL = 50;
 let updateBatch = [];
 let totalUpdatedCount = 0;
+let updatedRecordsSummary = []; // 📝 To store summary for logs
 
 const args = process.argv.slice(2);
 const TARGET_STATE = args[0] || null;
@@ -41,16 +42,20 @@ async function flushBatch() {
     console.log(`  ✨ HUB UPDATE: Sending batch of ${updateBatch.length} to Sheet...`);
     try {
         const payload = {
-            type: "BATCH_IMAGE_UPDATE", // Ensure your Apps Script handles an array
+            type: "BATCH_IMAGE_UPDATE",
             updates: updateBatch
         };
         const response = await axios.post(HUB_URL, payload);
         if (response.data.includes("Success")) {
             console.log(`  ✅ HUB STATUS: BATCH SYNCED`);
             totalUpdatedCount += updateBatch.length;
+
+            // Keep record for final summary (limit to last 100 to avoid memory bloat)
+            updatedBatchRecords = updateBatch.map(u => ({ id: u.id, name: u.name }));
+            updatedRecordsSummary.push(...updatedBatchRecords);
+
             updateBatch = [];
 
-            // Periodic Git Push
             if (totalUpdatedCount % PUSH_INTERVAL === 0) {
                 await gitPush(totalUpdatedCount);
             }
@@ -86,7 +91,9 @@ async function refreshImages(stateName) {
         for (let p of providers) {
             if (!p.id.startsWith('shadow_')) continue;
 
-            console.log(`\n🔍 Provider: ${p.businessName} [${p.id}]`);
+            // Extract mobile number from ID for easier tracking
+            const mobile = p.id.split('_')[1] || "N/A";
+            console.log(`\n🔍 Provider: ${p.businessName} | 📱 Mobile: ${mobile}`);
 
             try {
                 const query = `${p.businessName}, ${p.locality}, ${p.city}`;
@@ -102,10 +109,11 @@ async function refreshImages(stateName) {
                 if (newPhotoUrl) {
                     const cleanUrl = newPhotoUrl.split('=')[0] + '=w500-h500-k-no';
                     if (cleanUrl !== p.profilePhotoUrl) {
-                        console.log(`  ✅ NEW URL FOUND: ${cleanUrl.substring(0, 40)}...`);
+                        console.log(`  ✅ NEW URL FOUND for ${mobile}`);
 
                         updateBatch.push({
                             id: p.id,
+                            name: p.businessName, // Added for summary
                             state: p.state,
                             profilePhotoUrl: cleanUrl
                         });
@@ -133,7 +141,7 @@ async function refreshImages(stateName) {
         }
     }
 
-    await flushBatch(); // Final flush for remaining updates
+    await flushBatch();
     await browser.close();
 }
 
@@ -148,9 +156,22 @@ async function main() {
             await refreshImages(formattedState);
         }
     }
-    // Final Git Push
+
     await gitPush("Final");
-    console.log(`\n🏁 Global Refresh Session Complete. Total Updated: ${totalUpdatedCount}`);
+
+    console.log(`\n===============================================`);
+    console.log(`🏁 REFRESH COMPLETE: Total Updated: ${totalUpdatedCount}`);
+    console.log(`===============================================`);
+
+    if (updatedRecordsSummary.length > 0) {
+        console.log(`📜 SUMMARY OF UPDATED RECORDS:`);
+        console.table(updatedRecordsSummary.map(r => ({
+            "Business Name": r.name,
+            "Mobile (ID)": r.id.split('_')[1]
+        })));
+    } else {
+        console.log(`ℹ️ No records needed an update in this session.`);
+    }
 }
 
 main().catch(console.error);
