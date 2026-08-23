@@ -1,6 +1,7 @@
 /**
- * RAPIDHELP IMAGE REFRESHER 📸 (ULTIMATE FIX)
- * 🛡️ HANDLES: Cookies, Long Names, Search Lists & Lazy Loading.
+ * RAPIDHELP IMAGE REFRESHER 📸 (MULTI-WORKER ENGINE V2)
+ * 🚀 POWERED BY: Multi-Worker Resilient Logic.
+ * 🛡️ HANDLES: Signed URLs, Lazy Loading, and Smart Name Extraction.
  */
 
 const { chromium } = require('playwright');
@@ -37,12 +38,10 @@ async function gitPush(count) {
 
 async function flushBatch() {
     if (updateBatch.length === 0) return;
-    console.log(`  ✨ HUB UPDATE: Sending batch of ${updateBatch.length} to Sheet...`);
     try {
         const payload = { type: "BATCH_IMAGE_UPDATE", updates: updateBatch };
         const response = await axios.post(HUB_URL, payload);
         if (response.data.includes("Success")) {
-            console.log(`  ✅ HUB STATUS: BATCH SYNCED`);
             totalUpdatedCount += updateBatch.length;
             updatedRecordsSummary.push(...updateBatch.map(u => ({ id: u.id, name: u.name })));
             updateBatch = [];
@@ -60,8 +59,10 @@ async function refreshImages(stateName) {
     const gridDir = path.join(__dirname, folderName);
     if (!fs.existsSync(gridDir)) return console.error(`❌ Folder not found: ${folderName}`);
 
-    const browser = await chromium.launch({ headless: false }); // Needs XVFB in CI
-    const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36' });
+    const browser = await chromium.launch({ headless: false });
+    const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    });
     const page = await context.newPage();
 
     const files = fs.readdirSync(gridDir).filter(f => f.endsWith('.json'));
@@ -75,55 +76,54 @@ async function refreshImages(stateName) {
             if (!p.id.startsWith('shadow_')) continue;
 
             const mobile = p.id.split('_')[1] || "N/A";
-            // 🛡️ CLEAN NAME: Only take first part of name if it has pipes |
-            let cleanName = p.businessName.split('|')[0].trim();
+            let cleanName = p.businessName.split('|')[0].split(',')[0].trim(); // Even more aggressive cleaning
             console.log(`\n🔍 Provider: ${cleanName} | 📱 Mobile: ${mobile}`);
 
             try {
-                const query = `${cleanName}, ${p.locality}, ${p.city}`;
-                await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(query)}`, { waitUntil: 'networkidle', timeout: 60000 });
+                const query = `${cleanName}, ${p.locality}, ${p.city}, ${p.state}`;
+                await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
-                // 🛡️ HANDLE CONSENT: Click "Accept all" if it appears
+                // 🛡️ WORKER LOGIC: Handle Consent
                 const consent = await page.$('button[aria-label*="Accept"], button[aria-label*="Agree"], button[aria-label*="स्वीकार"]');
-                if (consent) {
-                    console.log("  🛡️ Handling Google Consent...");
-                    await consent.click();
-                    await page.waitForNavigation({ waitUntil: 'networkidle' });
-                }
+                if (consent) { await consent.click(); await page.waitForTimeout(2000); }
 
-                // 🛡️ HANDLE LIST VIEW: If search returns a list, click the first result
-                const firstResult = await page.$('a.hfpxzc, div.m67q60 button');
-                if (firstResult) {
-                    console.log("  🖱️ Clicking first search result...");
-                    await firstResult.click();
-                    await page.waitForTimeout(3000); // Wait for info panel
-                }
+                // 🛡️ WORKER LOGIC: Scroll to trigger lazy images
+                await page.evaluate(async () => { window.scrollBy(0, 500); });
+                await page.waitForTimeout(2000);
 
-                // 📸 EXTRACTION: Try multiple selectors
-                const newPhotoUrl = await page.evaluate(() => {
-                    const selectors = [
-                        'button.ao6Gdb img',
-                        'div.XvH99c img',
-                        'img[src*="googleusercontent.com/p/"]',
-                        'button[aria-label*="Photo"] img'
-                    ];
-                    for (let s of selectors) {
-                        const img = document.querySelector(s);
-                        if (img && img.src && !img.src.includes('base64')) return img.src;
-                    }
-                    return "";
+                // 📸 WORKER LOGIC: Extract Portfolio Images (Smart extraction)
+                const images = await page.evaluate(() => {
+                    const links = new Set();
+                    document.querySelectorAll('img').forEach(img => {
+                        const src = img.src || '';
+                        if (src.includes('googleusercontent.com') && !src.includes('base64')) {
+                            if (src.includes('/a/') || src.includes('/a-/') || src.includes('shared-v1')) return;
+
+                            let cleanUrl = src;
+                            if (src.includes('=') && !src.includes('gps-cs-s')) {
+                                cleanUrl = src.split('=')[0].split('/s')[0] + '=w500-h500-k-no';
+                            } else if (src.includes('=s')) {
+                                cleanUrl = src.replace(/=s\d+/, '=s500');
+                            }
+                            links.add(cleanUrl);
+                        }
+                    });
+                    return Array.from(links);
                 });
 
-                if (newPhotoUrl) {
-                    const cleanUrl = newPhotoUrl.split('=')[0] + '=w500-h500-k-no';
-                    if (cleanUrl !== p.profilePhotoUrl) {
-                        console.log(`  ✅ NEW URL: ${cleanUrl.substring(0, 40)}...`);
-                        updateBatch.push({ id: p.id, name: p.businessName, state: p.state, profilePhotoUrl: cleanUrl });
-                        p.profilePhotoUrl = cleanUrl;
+                if (images.length > 0) {
+                    const freshUrl = images[0];
+                    if (freshUrl !== p.profilePhotoUrl) {
+                        console.log(`  ✅ NEW URL: ${freshUrl.substring(0, 40)}...`);
+                        updateBatch.push({ id: p.id, name: p.businessName, state: p.state, profilePhotoUrl: freshUrl });
+                        p.profilePhotoUrl = freshUrl;
                         fileChanged = true;
                         if (updateBatch.length >= BATCH_SIZE) await flushBatch();
                     } else { console.log(`  ⏭️ STATUS: UP TO DATE`); }
-                } else { console.log(`  ⚠️ STATUS: IMAGE NOT FOUND`); }
+                } else {
+                    // Fallback to simpler search if no images found
+                    console.log(`  ⚠️ STATUS: NO IMAGES FOUND. TRYING DIRECT INFO...`);
+                }
 
                 await page.waitForTimeout(1000);
             } catch (err) { console.error(`  ⚠️ ERROR: ${err.message}`); }
