@@ -1,7 +1,7 @@
 /**
- * RAPIDHELP IMAGE REFRESHER 📸 (MULTI-WORKER ENGINE V3)
- * 🚀 POWERED BY: Multi-Worker Resilient Logic.
- * 🛡️ HANDLES: Internal Panel Scrolling, Signed URLs, and Consent.
+ * RAPIDHELP IMAGE REFRESHER 📸 (PORTFOLIO SYNC ENGINE)
+ * 🚀 LOGIC: Scrapes entire portfolio, uses 1st image as Hero Image.
+ * 🛡️ PURPOSE: Prevents cross-provider image mismatch.
  */
 
 const { chromium } = require('playwright');
@@ -83,24 +83,19 @@ async function refreshImages(stateName) {
                 const query = `${cleanName}, ${p.locality}, ${p.city}, ${p.state}`;
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
-                // 🛡️ WORKER LOGIC: Handle Consent
                 const consent = await page.$('button[aria-label*="Accept"], button[aria-label*="Agree"], button[aria-label*="स्वीकार"]');
                 if (consent) { await consent.click(); await page.waitForTimeout(2000); }
 
-                // 🛡️ WORKER LOGIC: Scroll the SIDE PANEL (Crucial Fix)
+                // 🛡️ SCROLL PANEL: Load Lazy Portfolio Images
                 await page.evaluate(async () => {
                     const h1 = document.querySelector('h1.DUwDvf');
                     const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.querySelector('div[role="main"]');
                     if (panel) {
-                        for (let i = 0; i < 3; i++) {
-                            panel.scrollBy(0, 800);
-                            await new Promise(r => setTimeout(r, 600));
-                        }
+                        panel.scrollBy(0, 1000);
+                        await new Promise(r => setTimeout(r, 800));
                     }
                 });
-                await page.waitForTimeout(2000);
 
-                // 📸 WORKER LOGIC: Extract Portfolio Images
                 const images = await page.evaluate(() => {
                     const links = new Set();
                     const h1 = document.querySelector('h1.DUwDvf');
@@ -111,30 +106,39 @@ async function refreshImages(stateName) {
                         const src = img.src || '';
                         if (src.includes('googleusercontent.com') && !src.includes('base64')) {
                             if (src.includes('/a/') || src.includes('/a-/') || src.includes('shared-v1')) return;
-                            let cleanUrl = src;
-                            if (src.includes('=') && !src.includes('gps-cs-s')) {
-                                cleanUrl = src.split('=')[0].split('/s')[0] + '=w1000-h1000';
-                            } else if (src.includes('=s')) {
-                                cleanUrl = src.replace(/=s\d+/, '=s1000');
-                            }
+                            // Clean for High Res
+                            let cleanUrl = src.split('=')[0].split('/s')[0] + '=w1000-h1000';
                             links.add(cleanUrl);
                         }
                     });
-                    return Array.from(links);
+                    return Array.from(links).slice(0, 15);
                 });
 
                 if (images.length > 0) {
-                    const freshUrl = images[0].split('=')[0] + '=w500-h500-k-no';
-                    if (freshUrl !== p.profilePhotoUrl) {
-                        console.log(`  ✅ NEW URL FOUND: ${freshUrl.substring(0, 40)}...`);
-                        updateBatch.push({ id: p.id, name: p.businessName, state: p.state, profilePhotoUrl: freshUrl });
-                        p.profilePhotoUrl = freshUrl;
+                    const freshHeroUrl = images[0].split('=')[0] + '=w500-h500-k-no';
+
+                    // Check if either Hero or Portfolio changed
+                    const portfolioString = images.join(',');
+                    const oldPortfolioString = Array.isArray(p.portfolioUrls) ? p.portfolioUrls.join(',') : p.portfolioUrls;
+
+                    if (freshHeroUrl !== p.profilePhotoUrl || portfolioString !== oldPortfolioString) {
+                        console.log(`  ✅ UPDATING DATA for ${mobile}`);
+
+                        updateBatch.push({
+                            id: p.id,
+                            name: p.businessName,
+                            state: p.state,
+                            profilePhotoUrl: freshHeroUrl,
+                            portfolioUrls: portfolioString // Send as string for Sheet
+                        });
+
+                        p.profilePhotoUrl = freshHeroUrl;
+                        p.portfolioUrls = images;
                         fileChanged = true;
+
                         if (updateBatch.length >= BATCH_SIZE) await flushBatch();
                     } else { console.log(`  ⏭️ STATUS: UP TO DATE`); }
-                } else {
-                    console.log(`  ⚠️ STATUS: IMAGE NOT FOUND (Panel Empty?)`);
-                }
+                } else { console.log(`  ⚠️ STATUS: NO IMAGES FOUND`); }
 
                 await page.waitForTimeout(1000);
             } catch (err) { console.error(`  ⚠️ ERROR: ${err.message}`); }
