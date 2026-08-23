@@ -10,24 +10,33 @@ on:
         required: false
         default: ''
 
+# 🚀 PREVENT CONFLICTS: Wait if scraper or other workers are running
+concurrency:
+  group: rapidhelp-mega-factory
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4 # 🚀 Updated to v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4 # 🚀 Updated to v4
         with:
-          node-version: '18'
+          node-version: '20' # 🚀 Unified to Node 20
 
       - name: Install dependencies
         run: |
           npm install axios playwright
-          npx playwright install chromium
-          # 🚀 Automatically install system dependencies for Playwright
-          npx playwright install-deps
+          npx playwright install chromium --with-deps
           sudo apt-get install -y xvfb
 
       - name: Run Image Refresher (with XVFB for Headed Mode)
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" node image_refresher.js "${{ github.event.inputs.state }}"
+        run: |
+          Xvfb :99 -screen 0 1280x1024x24 &
+          export DISPLAY=:99
+          node image_refresher.js "${{ github.event.inputs.state }}"

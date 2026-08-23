@@ -51,12 +51,22 @@ async function gitPush(count) {
     try {
         execSync('git config --global user.name "RapidHelp-Bot"');
         execSync('git config --global user.email "bot@rapidhelp.in"');
+
+        // 🛡️ ATOMIC SYNC: Fetch, Rebase and Push
         execSync('git add .');
-        execSync(`git commit -m "Worker: Progressive image refresh [${count} updates] [skip ci]"`);
+        execSync(`git commit -m "Worker: Progressive image refresh [${count} updates] [skip ci]" || echo "No changes to commit"`);
+
+        console.log("  🔄 Pulling latest changes...");
+        execSync('git pull --rebase origin main');
+
+        console.log("  🚀 Pushing to origin...");
         execSync('git push origin main');
+
         console.log(`✅ GIT SYNC SUCCESSFUL.`);
     } catch (err) {
-        console.log(`⚠️ GIT SYNC SKIPPED (No changes or error: ${err.message})`);
+        console.log(`⚠️ GIT SYNC ERROR: ${err.message}`);
+        // If rebase failed, abort it to keep repo clean
+        try { execSync('git rebase --abort'); } catch(e) {}
     }
 }
 
