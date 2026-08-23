@@ -62,6 +62,22 @@ function doPost(e) {
       }
       return ContentService.createTextOutput("Success");
     }
+
+    if (type === "IMAGE_UPDATE") {
+      var lastRow = sheet.getLastRow();
+      if (lastRow <= 1) return ContentService.createTextOutput("Error: No Data");
+
+      var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (var i = 0; i < ids.length; i++) {
+        if (ids[i][0].toString() === data.id.toString()) {
+          var rowNum = i + 2;
+          if (data.profilePhotoUrl) sheet.getRange(rowNum, 18).setValue(data.profilePhotoUrl);
+          if (data.portfolioUrls) sheet.getRange(rowNum, 20).setValue(data.portfolioUrls);
+          return ContentService.createTextOutput("Success: Image Updated");
+        }
+      }
+      return ContentService.createTextOutput("Error: ID not found");
+    }
     return ContentService.createTextOutput("Done");
   } catch (error) {
     return ContentService.createTextOutput("Error: " + error.toString());

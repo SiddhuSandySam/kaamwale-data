@@ -245,7 +245,15 @@ async function extractPortfolio(page) {
                 const src = img.src || '';
                 if (src.includes('googleusercontent.com') && !src.includes('base64')) {
                     if (src.includes('/a/') || src.includes('/a-/') || src.includes('shared-v1')) return;
-                    links.add(src.split('=')[0].split('/s')[0] + '=w1000-h1000');
+
+                    // 🛡️ SMART LINK EXTRACTION: Don't split if it's a signed URL
+                    let cleanUrl = src;
+                    if (src.includes('=') && !src.includes('gps-cs-s')) {
+                        cleanUrl = src.split('=')[0].split('/s')[0] + '=w1000-h1000';
+                    } else if (src.includes('=s')) {
+                        cleanUrl = src.replace(/=s\d+/, '=s1000');
+                    }
+                    links.add(cleanUrl);
                 }
             });
             return Array.from(links).slice(0, 15);
