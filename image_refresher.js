@@ -83,10 +83,6 @@ async function refreshImages(stateName) {
                 const query = `${cleanName}, ${p.locality}, ${p.city}, ${p.state}`;
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
-                // 📸 DEBUG SCREENSHOT: Save current view to see what's happening
-                await page.screenshot({ path: 'debug_map.png' });
-                console.log(`  📸 Screenshot saved: debug_map.png`);
-
                 // 🛡️ WORKER LOGIC: Handle Consent
                 const consent = await page.$('button[aria-label*="Accept"], button[aria-label*="Agree"], button[aria-label*="स्वीकार"]');
                 if (consent) { await consent.click(); await page.waitForTimeout(2000); }
