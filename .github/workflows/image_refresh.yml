@@ -12,7 +12,7 @@ on:
       limit:
         description: 'How many images to refresh'
         required: false
-        default: '50'
+        default: '1000'
 
 jobs:
   refresh:

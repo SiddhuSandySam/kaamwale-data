@@ -14,7 +14,7 @@ const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7p
 // 🚀 ARGS: node image_refresher.js [state] [limit]
 const args = process.argv.slice(2);
 const TARGET_STATE = args[0] || null;
-const REFRESH_LIMIT = parseInt(args[1]) || 50;
+const REFRESH_LIMIT = parseInt(args[1]) || 9999;
 
 async function refreshImages(stateName, limit) {
     console.log(`\n===============================================`);
@@ -52,36 +52,44 @@ async function refreshImages(stateName, limit) {
                 const query = `${p.businessName}, ${p.locality}, ${p.city}`;
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-                // Extract Fresh Hero Image
+                // 📸 Smart Image Extraction
                 const newPhotoUrl = await page.evaluate(() => {
-                    const hero = document.querySelector('button.ao6Gdb img') || document.querySelector('img[decoding="async"]');
-                    return (hero && hero.src && !hero.src.includes('base64')) ? hero.src : "";
+                    // Try different selectors for Google Maps image
+                    const img = document.querySelector('button.ao6Gdb img') ||
+                                document.querySelector('img[src*="googleusercontent.com/p/"]') ||
+                                document.querySelector('div.XvH99c img') ||
+                                document.querySelector('img[decoding="async"]');
+                    return (img && img.src && !img.src.includes('base64')) ? img.src : "";
                 });
 
-                if (newPhotoUrl && newPhotoUrl !== p.profilePhotoUrl) {
+                if (newPhotoUrl) {
                     const cleanUrl = newPhotoUrl.split('=')[0] + '=w500-h500-k-no';
 
-                    console.log(`  ❌ OLD URL: ${p.profilePhotoUrl.substring(0, 60)}...`);
-                    console.log(`  ✅ NEW URL: ${cleanUrl.substring(0, 60)}...`);
+                    if (cleanUrl !== p.profilePhotoUrl) {
+                        console.log(`  ❌ OLD URL: ${p.profilePhotoUrl.substring(0, 40)}...`);
+                        console.log(`  ✅ NEW URL: ${cleanUrl.substring(0, 40)}...`);
 
-                    const updatePayload = {
-                        type: "IMAGE_UPDATE",
-                        id: p.id,
-                        state: p.state,
-                        profilePhotoUrl: cleanUrl
-                    };
+                        const updatePayload = {
+                            type: "IMAGE_UPDATE",
+                            id: p.id,
+                            state: p.state,
+                            profilePhotoUrl: cleanUrl
+                        };
 
-                    const response = await axios.post(HUB_URL, updatePayload);
-                    if (response.data.includes("Success")) {
-                        console.log(`  ✨ HUB STATUS: UPDATED`);
-                        p.profilePhotoUrl = cleanUrl;
-                        fileChanged = true;
-                        updatedCount++;
+                        const response = await axios.post(HUB_URL, updatePayload);
+                        if (response.data.includes("Success")) {
+                            console.log(`  ✨ HUB STATUS: UPDATED`);
+                            p.profilePhotoUrl = cleanUrl;
+                            fileChanged = true;
+                            updatedCount++;
+                        }
+                    } else {
+                        console.log(`  ⏭️ STATUS: ALREADY UP TO DATE`);
                     }
                 } else {
-                    console.log(`  ⏭️ STATUS: NO CHANGE / NOT FOUND`);
+                    console.log(`  ⚠️ STATUS: IMAGE NOT FOUND IN SEARCH`);
                 }
-                await page.waitForTimeout(2000);
+                await page.waitForTimeout(1500);
             } catch (err) {
                 console.error(`  ⚠️ ERROR: ${err.message}`);
             }
