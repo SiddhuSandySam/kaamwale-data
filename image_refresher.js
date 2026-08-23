@@ -10,17 +10,23 @@ const path = require('path');
 const axios = require('axios');
 
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
-const BATCH_SIZE = 5; // 🚀 Start small for safety
 
-async function refreshImages(stateName, limit = 10) {
-    console.log(`\n🔄 Starting Image Refresh for: ${stateName} (Limit: ${limit})`);
+// 🚀 ARGS: node image_refresher.js [state] [limit]
+const args = process.argv.slice(2);
+const TARGET_STATE = args[0] || null;
+const REFRESH_LIMIT = parseInt(args[1]) || 50;
+
+async function refreshImages(stateName, limit) {
+    console.log(`\n===============================================`);
+    console.log(`🔄 REFRESH SESSION: ${stateName} (Limit: ${limit})`);
+    console.log(`===============================================`);
 
     const folderName = `${stateName.toLowerCase().replace(/ /g, '_')}_grids`;
     const gridDir = path.join(__dirname, folderName);
 
     if (!fs.existsSync(gridDir)) {
-        console.error("❌ Folder not found.");
-        return;
+        console.error(`❌ Folder not found: ${folderName}`);
+        return 0;
     }
 
     const browser = await chromium.launch({ headless: false });
@@ -34,21 +40,17 @@ async function refreshImages(stateName, limit = 10) {
 
         const filePath = path.join(gridDir, file);
         let providers = JSON.parse(fs.readFileSync(filePath));
+        let fileChanged = false;
 
         for (let p of providers) {
             if (updatedCount >= limit) break;
-
-            // Only refresh "shadow" (scraped) providers with potential 403 issues
             if (!p.id.startsWith('shadow_')) continue;
 
-            console.log(`🔍 Checking: ${p.businessName}...`);
+            console.log(`\n🔍 Provider: ${p.businessName} [${p.id}]`);
 
             try {
                 const query = `${p.businessName}, ${p.locality}, ${p.city}`;
-                await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(query)}`);
-
-                // Wait for panel to load
-                await page.waitForSelector('h1.DUwDvf', { timeout: 10000 }).catch(() => {});
+                await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
                 // Extract Fresh Hero Image
                 const newPhotoUrl = await page.evaluate(() => {
@@ -57,39 +59,55 @@ async function refreshImages(stateName, limit = 10) {
                 });
 
                 if (newPhotoUrl && newPhotoUrl !== p.profilePhotoUrl) {
-                    console.log(`  ✅ Found New URL for ${p.businessName}`);
+                    const cleanUrl = newPhotoUrl.split('=')[0] + '=w500-h500-k-no';
+
+                    console.log(`  ❌ OLD URL: ${p.profilePhotoUrl.substring(0, 60)}...`);
+                    console.log(`  ✅ NEW URL: ${cleanUrl.substring(0, 60)}...`);
 
                     const updatePayload = {
                         type: "IMAGE_UPDATE",
                         id: p.id,
                         state: p.state,
-                        profilePhotoUrl: newPhotoUrl.split('=')[0] + '=w500-h500-k-no',
-                        // Optional: can add portfolioUrls here too
+                        profilePhotoUrl: cleanUrl
                     };
 
                     const response = await axios.post(HUB_URL, updatePayload);
                     if (response.data.includes("Success")) {
-                        console.log(`  ✨ Hub Updated successfully.`);
-                        p.profilePhotoUrl = updatePayload.profilePhotoUrl;
+                        console.log(`  ✨ HUB STATUS: UPDATED`);
+                        p.profilePhotoUrl = cleanUrl;
+                        fileChanged = true;
                         updatedCount++;
                     }
                 } else {
-                    console.log(`  ⏭️ No change or not found.`);
+                    console.log(`  ⏭️ STATUS: NO CHANGE / NOT FOUND`);
                 }
-
-                await page.waitForTimeout(2000); // Anti-block delay
+                await page.waitForTimeout(2000);
             } catch (err) {
-                console.error(`  ❌ Error: ${err.message}`);
+                console.error(`  ⚠️ ERROR: ${err.message}`);
             }
         }
 
-        // Save back to local JSON
-        fs.writeFileSync(filePath, JSON.stringify(providers, null, 2));
+        if (fileChanged) {
+            fs.writeFileSync(filePath, JSON.stringify(providers, null, 2));
+        }
     }
 
     await browser.close();
-    console.log(`\n🏁 Refresh Complete. Updated ${updatedCount} providers.`);
+    return updatedCount;
 }
 
-// 🚀 TEST RUN: Refresh 5 images from Maharashtra
-refreshImages("Maharashtra", 5).catch(console.error);
+async function main() {
+    if (TARGET_STATE) {
+        await refreshImages(TARGET_STATE, REFRESH_LIMIT);
+    } else {
+        const folders = fs.readdirSync(__dirname).filter(f => f.endsWith('_grids'));
+        for (const folder of folders) {
+            const stateName = folder.replace('_grids', '').replace(/_/g, ' ');
+            const formattedState = stateName.replace(/\b\w/g, l => l.toUpperCase());
+            await refreshImages(formattedState, REFRESH_LIMIT);
+        }
+    }
+    console.log(`\n🏁 Global Refresh Session Complete.`);
+}
+
+main().catch(console.error);
