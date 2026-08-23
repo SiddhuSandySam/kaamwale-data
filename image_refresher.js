@@ -1,7 +1,6 @@
 /**
- * RAPIDHELP IMAGE REFRESHER 📸
- * 🚀 PURPOSE: Automatically find and update expired Google Maps image URLs.
- * 🛡️ PROGRESSIVE: Updates Hub in batches and Pushes to Git periodically.
+ * RAPIDHELP IMAGE REFRESHER 📸 (ULTIMATE FIX)
+ * 🛡️ HANDLES: Cookies, Long Names, Search Lists & Lazy Loading.
  */
 
 const { chromium } = require('playwright');
@@ -17,7 +16,7 @@ const BATCH_SIZE = 10;
 const PUSH_INTERVAL = 50;
 let updateBatch = [];
 let totalUpdatedCount = 0;
-let updatedRecordsSummary = []; // 📝 To store summary for logs
+let updatedRecordsSummary = [];
 
 const args = process.argv.slice(2);
 const TARGET_STATE = args[0] || null;
@@ -38,31 +37,18 @@ async function gitPush(count) {
 
 async function flushBatch() {
     if (updateBatch.length === 0) return;
-
     console.log(`  ✨ HUB UPDATE: Sending batch of ${updateBatch.length} to Sheet...`);
     try {
-        const payload = {
-            type: "BATCH_IMAGE_UPDATE",
-            updates: updateBatch
-        };
+        const payload = { type: "BATCH_IMAGE_UPDATE", updates: updateBatch };
         const response = await axios.post(HUB_URL, payload);
         if (response.data.includes("Success")) {
             console.log(`  ✅ HUB STATUS: BATCH SYNCED`);
             totalUpdatedCount += updateBatch.length;
-
-            // Keep record for final summary (limit to last 100 to avoid memory bloat)
-            updatedBatchRecords = updateBatch.map(u => ({ id: u.id, name: u.name }));
-            updatedRecordsSummary.push(...updatedBatchRecords);
-
+            updatedRecordsSummary.push(...updateBatch.map(u => ({ id: u.id, name: u.name })));
             updateBatch = [];
-
-            if (totalUpdatedCount % PUSH_INTERVAL === 0) {
-                await gitPush(totalUpdatedCount);
-            }
+            if (totalUpdatedCount % PUSH_INTERVAL === 0) await gitPush(totalUpdatedCount);
         }
-    } catch (err) {
-        console.error(`  ❌ HUB ERROR: ${err.message}`);
-    }
+    } catch (err) { console.error(`  ❌ HUB ERROR: ${err.message}`); }
 }
 
 async function refreshImages(stateName) {
@@ -72,14 +58,11 @@ async function refreshImages(stateName) {
 
     const folderName = `${stateName.toLowerCase().replace(/ /g, '_')}_grids`;
     const gridDir = path.join(__dirname, folderName);
+    if (!fs.existsSync(gridDir)) return console.error(`❌ Folder not found: ${folderName}`);
 
-    if (!fs.existsSync(gridDir)) {
-        console.error(`❌ Folder not found: ${folderName}`);
-        return;
-    }
-
-    const browser = await chromium.launch({ headless: false });
-    const page = await browser.newPage();
+    const browser = await chromium.launch({ headless: false }); // Needs XVFB in CI
+    const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36' });
+    const page = await context.newPage();
 
     const files = fs.readdirSync(gridDir).filter(f => f.endsWith('.json'));
 
@@ -91,87 +74,78 @@ async function refreshImages(stateName) {
         for (let p of providers) {
             if (!p.id.startsWith('shadow_')) continue;
 
-            // Extract mobile number from ID for easier tracking
             const mobile = p.id.split('_')[1] || "N/A";
-            console.log(`\n🔍 Provider: ${p.businessName} | 📱 Mobile: ${mobile}`);
+            // 🛡️ CLEAN NAME: Only take first part of name if it has pipes |
+            let cleanName = p.businessName.split('|')[0].trim();
+            console.log(`\n🔍 Provider: ${cleanName} | 📱 Mobile: ${mobile}`);
 
             try {
-                const query = `${p.businessName}, ${p.locality}, ${p.city}`;
-                await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                const query = `${cleanName}, ${p.locality}, ${p.city}`;
+                await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(query)}`, { waitUntil: 'networkidle', timeout: 60000 });
 
+                // 🛡️ HANDLE CONSENT: Click "Accept all" if it appears
+                const consent = await page.$('button[aria-label*="Accept"], button[aria-label*="Agree"], button[aria-label*="स्वीकार"]');
+                if (consent) {
+                    console.log("  🛡️ Handling Google Consent...");
+                    await consent.click();
+                    await page.waitForNavigation({ waitUntil: 'networkidle' });
+                }
+
+                // 🛡️ HANDLE LIST VIEW: If search returns a list, click the first result
+                const firstResult = await page.$('a.hfpxzc, div.m67q60 button');
+                if (firstResult) {
+                    console.log("  🖱️ Clicking first search result...");
+                    await firstResult.click();
+                    await page.waitForTimeout(3000); // Wait for info panel
+                }
+
+                // 📸 EXTRACTION: Try multiple selectors
                 const newPhotoUrl = await page.evaluate(() => {
-                    const img = document.querySelector('button.ao6Gdb img') ||
-                                document.querySelector('img[src*="googleusercontent.com/p/"]') ||
-                                document.querySelector('div.XvH99c img');
-                    return (img && img.src && !img.src.includes('base64')) ? img.src : "";
+                    const selectors = [
+                        'button.ao6Gdb img',
+                        'div.XvH99c img',
+                        'img[src*="googleusercontent.com/p/"]',
+                        'button[aria-label*="Photo"] img'
+                    ];
+                    for (let s of selectors) {
+                        const img = document.querySelector(s);
+                        if (img && img.src && !img.src.includes('base64')) return img.src;
+                    }
+                    return "";
                 });
 
                 if (newPhotoUrl) {
                     const cleanUrl = newPhotoUrl.split('=')[0] + '=w500-h500-k-no';
                     if (cleanUrl !== p.profilePhotoUrl) {
-                        console.log(`  ✅ NEW URL FOUND for ${mobile}`);
-
-                        updateBatch.push({
-                            id: p.id,
-                            name: p.businessName, // Added for summary
-                            state: p.state,
-                            profilePhotoUrl: cleanUrl
-                        });
-
+                        console.log(`  ✅ NEW URL: ${cleanUrl.substring(0, 40)}...`);
+                        updateBatch.push({ id: p.id, name: p.businessName, state: p.state, profilePhotoUrl: cleanUrl });
                         p.profilePhotoUrl = cleanUrl;
                         fileChanged = true;
+                        if (updateBatch.length >= BATCH_SIZE) await flushBatch();
+                    } else { console.log(`  ⏭️ STATUS: UP TO DATE`); }
+                } else { console.log(`  ⚠️ STATUS: IMAGE NOT FOUND`); }
 
-                        if (updateBatch.length >= BATCH_SIZE) {
-                            await flushBatch();
-                        }
-                    } else {
-                        console.log(`  ⏭️ STATUS: UP TO DATE`);
-                    }
-                } else {
-                    console.log(`  ⚠️ STATUS: IMAGE NOT FOUND`);
-                }
                 await page.waitForTimeout(1000);
-            } catch (err) {
-                console.error(`  ⚠️ ERROR: ${err.message}`);
-            }
+            } catch (err) { console.error(`  ⚠️ ERROR: ${err.message}`); }
         }
-
-        if (fileChanged) {
-            fs.writeFileSync(filePath, JSON.stringify(providers, null, 2));
-        }
+        if (fileChanged) fs.writeFileSync(filePath, JSON.stringify(providers, null, 2));
     }
-
     await flushBatch();
     await browser.close();
 }
 
 async function main() {
-    if (TARGET_STATE) {
-        await refreshImages(TARGET_STATE);
-    } else {
+    if (TARGET_STATE) { await refreshImages(TARGET_STATE); }
+    else {
         const folders = fs.readdirSync(__dirname).filter(f => f.endsWith('_grids'));
         for (const folder of folders) {
-            const stateName = folder.replace('_grids', '').replace(/_/g, ' ');
-            const formattedState = stateName.replace(/\b\w/g, l => l.toUpperCase());
-            await refreshImages(formattedState);
+            const stateName = folder.replace('_grids', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            await refreshImages(stateName);
         }
     }
-
     await gitPush("Final");
-
-    console.log(`\n===============================================`);
-    console.log(`🏁 REFRESH COMPLETE: Total Updated: ${totalUpdatedCount}`);
-    console.log(`===============================================`);
-
-    if (updatedRecordsSummary.length > 0) {
-        console.log(`📜 SUMMARY OF UPDATED RECORDS:`);
-        console.table(updatedRecordsSummary.map(r => ({
-            "Business Name": r.name,
-            "Mobile (ID)": r.id.split('_')[1]
-        })));
-    } else {
-        console.log(`ℹ️ No records needed an update in this session.`);
-    }
+    console.log(`\n🏁 REFRESH COMPLETE. Total Updated: ${totalUpdatedCount}`);
+    if (updatedRecordsSummary.length > 0) console.table(updatedRecordsSummary);
 }
 
 main().catch(console.error);
