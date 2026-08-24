@@ -20,14 +20,21 @@ permissions:
 
 jobs:
   refresh:
+    name: Refresher ${{ matrix.worker_id }}
     runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        worker_id: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] # 🚀 10 Parallel Workers
+
     steps:
-      - uses: actions/checkout@v4 # 🚀 Updated to v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4 # 🚀 Updated to v4
+        uses: actions/setup-node@v4
         with:
-          node-version: '20' # 🚀 Unified to Node 20
+          node-version: '20'
 
       - name: Install dependencies
         run: |
@@ -35,8 +42,40 @@ jobs:
           npx playwright install chromium --with-deps
           sudo apt-get install -y xvfb
 
-      - name: Run Image Refresher (with XVFB for Headed Mode)
+      - name: Run Image Refresher
+        env:
+          DISPLAY: :99
         run: |
           Xvfb :99 -screen 0 1280x1024x24 &
-          export DISPLAY=:99
-          node image_refresher.js "${{ github.event.inputs.state }}"
+          node image_refresher.js ${{ matrix.worker_id }} 10 "${{ github.event.inputs.state }}"
+
+      - name: Commit and Push Registry
+        if: always()
+        run: |
+          # 🚀 RANDOM TRAFFIC DELAY
+          SLEEP_TIME=$(( ( RANDOM % 120 )  + 30 ))
+          echo "🚦 Waiting ${SLEEP_TIME} seconds before Git Sync..."
+          sleep ${SLEEP_TIME}
+
+          git config --global user.name "RapidHelp-Bot"
+          git config --global user.email "bot@rapidhelp.in"
+          
+          # Stage specific registry files
+          git add refresher_registry_W*.json 2>/dev/null || true
+          
+          git commit -m "Refresher ${{ matrix.worker_id }} update [skip ci]" || echo "Nothing new"
+          
+          # Discard junk
+          git checkout -- .
+          
+          for i in {1..20}; do
+            git fetch origin main
+            if git pull --rebase --autostash -X ours origin main; then
+              if git push origin main; then
+                echo "✅ Registry pushed successfully!"
+                break
+              fi
+            fi
+            git rebase --abort || true
+            sleep 15
+          done
