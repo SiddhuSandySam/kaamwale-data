@@ -79,8 +79,6 @@ async function gitPush(count) {
 
         console.log("  🔄 Syncing with remote...");
         execSync('git pull --rebase origin main');
-
-        console.log("  🚀 Pushing to origin...");
         execSync('git push origin main');
 
         console.log(`✅ GIT SYNC SUCCESSFUL.`);
@@ -122,14 +120,12 @@ async function extractPortfolio(page) {
         });
         await page.waitForTimeout(1500);
 
-        // 🚀 SMART GALLERY TRIGGER: Click to open photos if available
         const photoGalleryBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
         if (photoGalleryBtn) {
             console.log("  📸 Gallery found. Opening...");
             await photoGalleryBtn.click();
             await page.waitForTimeout(4000);
 
-            // Deep Scroll Gallery
             await page.evaluate(async () => {
                 const gallery = document.querySelector('div[role="main"], div[role="grid"], .m67q60');
                 if (gallery) {
@@ -144,7 +140,6 @@ async function extractPortfolio(page) {
 
         return await page.evaluate(() => {
             const links = new Set();
-            // Exhaustive search for images and background images
             const allElements = Array.from(document.querySelectorAll('img, div[style*="background-image"]'));
 
             allElements.forEach(el => {
@@ -201,7 +196,7 @@ async function refreshImages(stateName) {
     const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' });
     const page = await context.newPage();
 
-    const files = ["test_final.json"];
+    const files = fs.readdirSync(gridDir).filter(f => f.endsWith('.json'));
     let providerGlobalIndex = 0;
 
     for (const file of files) {
@@ -227,7 +222,16 @@ async function refreshImages(stateName) {
                 continue;
             }
 
-            let broken = true; // 🚀 FORCE REFRESH FOR TEST
+            let broken = await isUrlBroken(p.profilePhotoUrl);
+            if (!broken && Array.isArray(p.portfolioUrls) && p.portfolioUrls.length > 0) {
+                for (let i = 0; i < Math.min(p.portfolioUrls.length, 3); i++) {
+                    if (await isUrlBroken(p.portfolioUrls[i])) {
+                        console.log(`  🔍 [CHECK] Portfolio item broken. Refreshing...`);
+                        broken = true;
+                        break;
+                    }
+                }
+            }
 
             if (!broken) {
                 console.log(`✅ Provider: ${cleanName} | 📱 ${mobile} | Status: ALL OK`);
