@@ -156,72 +156,78 @@ async function refreshImages(stateName) {
             if (!p.id.startsWith('shadow_')) continue;
 
             const mobile = p.id.split('_')[1] || "N/A";
+            let cleanName = p.businessName.split('|')[0].split(',')[0].trim();
 
-            // 🛡️ CHECK IF REFRESH NEEDED
+            // 🛡️ 1. CHECK STATUS FIRST
             const broken = await isUrlBroken(p.profilePhotoUrl);
+
             if (!broken) {
-                console.log(`  ⏭️ STATUS: URL WORKING for ${mobile}`);
+                console.log(`\n✅ Provider: ${cleanName} | 📱 ${mobile} | Status: URL OK (Skipping)`);
                 continue;
             }
 
-            // 🛡️ SMART QUERY: Use Name + Full Address for 100% Accuracy
-            let cleanName = p.businessName.split('|')[0].split(',')[0].trim();
+            console.log(`\n🚨 Provider: ${cleanName} | 📱 ${mobile} | Status: BROKEN (Refreshing...)`);
+
+            // 🛡️ 2. SEARCH ON MAPS
             const query = `${cleanName}, ${p.fullAddress || (p.locality + ", " + p.city)}`;
-
-            console.log(`\n🔍 Provider: ${cleanName} | 📱 Mobile: ${mobile} (URL Broken)`);
-
             try {
+                process.stdout.write(`  🔍 Searching Maps for: ${cleanName}... `);
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+                console.log("Done.");
 
                 // 🛡️ Handle Consent
                 const consent = await page.$('button[aria-label*="Accept"], button[aria-label*="Agree"], button[aria-label*="स्वीकार"]');
                 if (consent) { await consent.click(); await page.waitForTimeout(2000); }
 
-                // 🛡️ HANDLE RESULTS
+                // 🛡️ 3. VERIFY & SELECT
                 const results = await page.$$('a.hfpxzc, div.m67q60 button');
                 if (results.length > 0) {
-                    console.log(`  🖱️ Found ${results.length} results. Verifying mobile...`);
+                    console.log(`  🖱️ Multiple results (${results.length}). Verifying phone...`);
                     let matched = false;
                     for (let res of results) {
                         await res.click();
                         await page.waitForTimeout(2500);
                         if (await verifyPhoneNumber(page, mobile)) {
-                            console.log(`  ✅ MATCH FOUND for ${mobile}`);
-                            matched = true;
-                            break;
+                            matched = true; break;
                         }
                     }
                     if (!matched) {
-                        console.log(`  ❌ DATA MISMATCH: Mobile ${mobile} not found in search results.`);
+                        console.log(`  ❌ MISMATCH: Correct provider not found. Skipping.`);
                         continue;
                     }
                 } else {
-                    // Direct Place Sheet?
-                    console.log(`  🔍 Direct result? Verifying mobile...`);
                     if (!(await verifyPhoneNumber(page, mobile))) {
-                        console.log(`  ❌ DATA MISMATCH: Mobile ${mobile} doesn't match direct result.`);
+                        console.log(`  ❌ MISMATCH: Direct result doesn't match mobile. Skipping.`);
                         continue;
                     }
                 }
 
-                // 📸 Portfolio Extraction (Multi-Worker Logic)
+                // 📸 4. SCRAPE NEW IMAGES
+                process.stdout.write(`  📸 Extracting Portfolio... `);
                 let portfolio = await extractPortfolio(page);
+                console.log(`${portfolio.length} images found.`);
 
                 if (portfolio.length > 0) {
-                    const freshHeroUrl = portfolio[0].split('=')[0] + '=w500-h500-k-no'; // 🚀 FIXED HERO FORMAT
+                    const freshHeroUrl = portfolio[0].split('=')[0] + '=w500-h500-k-no';
                     const portfolioString = portfolio.join(',');
                     const oldPortfolioString = Array.isArray(p.portfolioUrls) ? p.portfolioUrls.join(',') : p.portfolioUrls;
 
                     if (freshHeroUrl !== p.profilePhotoUrl || portfolioString !== oldPortfolioString) {
-                        console.log(`  📸 [NEW IMAGES] sapadla for ${mobile}:`);
-                        console.log(`     🔗 Hero: ${freshHeroUrl.substring(0, 60)}...`);
+                        console.log(`  ✨ SUCCESS: New URL fetched!`);
+                        console.log(`     🔗 New Hero: ${freshHeroUrl.substring(0, 70)}...`);
+
                         updateBatch.push({ id: p.id, name: p.businessName, profilePhotoUrl: freshHeroUrl, portfolioUrls: portfolioString });
                         p.profilePhotoUrl = freshHeroUrl;
                         p.portfolioUrls = portfolio;
                         fileChanged = true;
+
                         if (updateBatch.length >= BATCH_SIZE) await flushBatch();
+                    } else {
+                        console.log(`  ➖ URL already latest in local storage.`);
                     }
-                } else { console.log(`  ⚠️ STATUS: NO IMAGES FOUND`); }
+                } else {
+                    console.log(`  ⚠️ WARNING: No images available on Google Maps for this provider.`);
+                }
 
                 await page.waitForTimeout(1000);
             } catch (err) { console.error(`  ⚠️ ERROR: ${err.message}`); }
