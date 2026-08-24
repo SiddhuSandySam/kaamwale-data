@@ -738,6 +738,14 @@ async function runOrchestrator() {
         console.log(`\n===============================================`);
         console.log(`🏁 MISSION ACCOMPLISHED: ALL STATES COMPLETED!`);
         console.log(`===============================================\n`);
+
+        // 🚀 MARK AS FULLY COMPLETE: Set index beyond length to prevent re-runs
+        progress.stateIndex = config.states.length;
+        progress.cityIndex = 0;
+        progress.categoryIndex = 0;
+        progress.subcategoryIndex = 0;
+        await saveProgress();
+
         await gracefulShutdown(false);
 
     } catch (fatal) {
