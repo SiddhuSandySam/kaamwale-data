@@ -191,12 +191,13 @@ async function refreshImages(stateName) {
                 let portfolio = await extractPortfolio(page);
 
                 if (portfolio.length > 0) {
-                    const freshHeroUrl = portfolio[0]; // First item as profile photo
+                    const freshHeroUrl = portfolio[0].split('=')[0] + '=w500-h500-k-no'; // 🚀 FIXED HERO FORMAT
                     const portfolioString = portfolio.join(',');
                     const oldPortfolioString = Array.isArray(p.portfolioUrls) ? p.portfolioUrls.join(',') : p.portfolioUrls;
 
                     if (freshHeroUrl !== p.profilePhotoUrl || portfolioString !== oldPortfolioString) {
-                        console.log(`  [NEW URL] sapadla: ${freshHeroUrl.substring(0, 50)}...`);
+                        console.log(`  📸 [NEW IMAGES] sapadla for ${mobile}:`);
+                        console.log(`     🔗 Hero: ${freshHeroUrl.substring(0, 60)}...`);
                         updateBatch.push({ id: p.id, name: p.businessName, profilePhotoUrl: freshHeroUrl, portfolioUrls: portfolioString });
                         p.profilePhotoUrl = freshHeroUrl;
                         p.portfolioUrls = portfolio;

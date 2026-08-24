@@ -63,10 +63,22 @@ async function loadProgress() {
         try {
             const doc = await db.collection('metadata').doc(`progress_W${WORKER_ID}`).get();
             if (doc.exists) {
-                progress = doc.data();
-                console.log(`Worker ${WORKER_ID} | INFO | Firebase Progress Loaded.`);
+                const cloudProgress = doc.data();
+                // 🚀 SMART JUMP: If cloud progress is ahead (higher indices), override local
+                const isCloudAhead = cloudProgress.stateIndex > progress.stateIndex ||
+                    (cloudProgress.stateIndex === progress.stateIndex && cloudProgress.categoryIndex > progress.categoryIndex) ||
+                    (cloudProgress.stateIndex === progress.stateIndex && cloudProgress.categoryIndex === progress.categoryIndex && cloudProgress.cityIndex > progress.cityIndex);
+
+                if (isCloudAhead) {
+                    progress = cloudProgress;
+                    console.log(`Worker ${WORKER_ID} | INFO | 🚀 Cloud Progress is ahead. Jumping to State: ${progress.stateIndex}, Cat: ${progress.categoryIndex}, City: ${progress.cityIndex}`);
+                } else {
+                    console.log(`Worker ${WORKER_ID} | INFO | Firebase Progress synced (Local is ahead or equal).`);
+                }
             }
-        } catch (e) {}
+        } catch (e) {
+            console.warn(`Worker ${WORKER_ID} | WARN | Could not fetch cloud progress: ${e.message}`);
+        }
     }
 }
 

@@ -78,6 +78,9 @@ jobs:
             fi
           done
 
+      - name: Cleanup Credentials
+        run: rm -f serviceAccountKey.json
+
       - name: Commit and Push Progress
         if: always() 
         run: |
