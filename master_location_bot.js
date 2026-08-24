@@ -50,11 +50,14 @@ async function syncToSheet() {
         // 🛡️ STRICT FILTERS:
         const hasNumbers = /\d/.test(cityName);
         const isTooShort = cityName.length < 3;
-        // 🚀 ONLY LETTERS AND SPACES: Reject if any special char exists
         const hasSpecialChars = /[^a-zA-Z\s]/.test(cityName);
 
-        if (hasNumbers || isTooShort || hasSpecialChars) {
-            console.log(`[X] REJECTED: ${cityName} (Failed Strict Rules)`);
+        // 🚀 NEW: Landmark/POI Filter
+        const junkPrefixes = ['next to', 'opp', 'near', 'inside', 'beside', 'behind', 'backside', 'front of'];
+        const isLandmark = junkPrefixes.some(prefix => cityName.toLowerCase().startsWith(prefix));
+
+        if (hasNumbers || isTooShort || hasSpecialChars || isLandmark) {
+            console.log(`[X] REJECTED: ${cityName} (${isLandmark ? 'Landmark' : 'Failed Rules'})`);
             stats.rejected++;
             continue;
         }
