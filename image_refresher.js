@@ -302,10 +302,20 @@ async function refreshImages(stateName) {
 }
 
 async function main() {
-    if (TARGET_STATE) { await refreshImages(TARGET_STATE); }
-    else {
-        const folders = fs.readdirSync(__dirname).filter(f => f.endsWith('_grids'));
-        for (const folder of folders) {
+    // 🚀 GET ALL STATE GRID FOLDERS
+    const allFolders = fs.readdirSync(__dirname).filter(f => f.endsWith('_grids') && fs.lstatSync(path.join(__dirname, f)).isDirectory());
+
+    if (TARGET_STATE) {
+        const specificFolder = `${TARGET_STATE.toLowerCase().replace(/ /g, '_')}_grids`;
+        if (allFolders.includes(specificFolder)) {
+            await refreshImages(TARGET_STATE);
+        } else {
+            console.error(`❌ State folder not found: ${specificFolder}`);
+        }
+    } else {
+        console.log(`🌐 Total States Found: ${allFolders.length}`);
+        // Process each state one by one, modulo will handle provider-level split
+        for (const folder of allFolders) {
             const stateName = folder.replace('_grids', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             await refreshImages(stateName);
         }
