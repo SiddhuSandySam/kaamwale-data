@@ -1,7 +1,7 @@
 /**
- * RAPIDHELP IMAGE REFRESHER 📸 (PRECISION ENGINE V5.2)
- * 🚀 POWERED BY: Deep Gallery Extraction & Dynamic Multi-Worker Split.
- * 🛡️ HANDLES: Hidden Photo Galleries, Permanent ID Matching & 30-Day Registry.
+ * RAPIDHELP IMAGE REFRESHER 📸 (PRECISION ENGINE V5.6)
+ * 🚀 POWERED BY: Deep Gallery Extraction & Unique Image Logic.
+ * 🛡️ HANDLES: Duplicate Images, Multi-Hub Routing & 30-Day Registry.
  */
 
 const { chromium } = require('playwright');
@@ -89,14 +89,10 @@ async function gitPush(count) {
     try {
         execSync('git config --global user.name "RapidHelp-Bot"');
         execSync('git config --global user.email "bot@rapidhelp.in"');
-
         execSync('git add .');
         execSync(`git commit -m "Worker: Progressive image refresh [${count} updates] [skip ci]" || echo "No changes"`);
-
-        console.log("  🔄 Syncing with remote...");
         execSync('git pull --rebase origin main');
         execSync('git push origin main');
-
         console.log(`✅ GIT SYNC SUCCESSFUL.`);
     } catch (err) {
         console.log(`⚠️ GIT SYNC ERROR: ${err.message}`);
@@ -107,7 +103,6 @@ async function gitPush(count) {
 async function flushBatch() {
     if (updateBatch.length === 0) return;
     try {
-        // Group updates by state
         const grouped = {};
         updateBatch.forEach(u => {
             const s = u.state || "Unknown";
@@ -117,9 +112,11 @@ async function flushBatch() {
 
         for (const stateName of Object.keys(grouped)) {
             const updates = grouped[stateName];
-            const targetHub = stateUrls[stateName] || HUB_URL; // Fallback to main hub
+            const targetHub = stateUrls[stateName] || HUB_URL;
 
-            console.log(`  📤 [HUB] Pushing ${updates.length} updates to [${stateName}] Engine...`);
+            console.log(`  📤 [ROUTING] State: ${stateName} | Target Hub: ${targetHub.substring(0, 50)}...`);
+            console.log(`  📤 [HUB] Pushing ${updates.length} updates...`);
+
             const response = await axios.post(targetHub, { type: "BATCH_IMAGE_UPDATE", updates: updates });
             const resMsg = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
             console.log(`  📥 [HUB] Response from [${stateName}]: ${resMsg}`);
@@ -130,27 +127,15 @@ async function flushBatch() {
             }
         }
         updateBatch = [];
-        if (totalUpdatedCount % PUSH_INTERVAL === 0) await gitPush(totalUpdatedCount);
+        if (totalUpdatedCount % PUSH_INTERVAL === 0 && totalUpdatedCount > 0) await gitPush(totalUpdatedCount);
     } catch (err) { console.error(`  ❌ [HUB] ERROR: ${err.message}`); }
 }
 
 async function extractPortfolio(page) {
     try {
-        await page.evaluate(async () => {
-            const h1 = document.querySelector('h1.DUwDvf');
-            const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.querySelector('div[role="main"]');
-            if (panel) {
-                for (let i = 0; i < 4; i++) {
-                    panel.scrollBy(0, 1000);
-                    await new Promise(r => setTimeout(r, 800));
-                }
-            }
-        });
-        await page.waitForTimeout(1500);
-
         const photoGalleryBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
         if (photoGalleryBtn) {
-            console.log("  📸 Gallery found. Opening...");
+            console.log("  📸 Opening Photo Gallery...");
             await photoGalleryBtn.click();
             await page.waitForTimeout(4000);
 
@@ -167,44 +152,22 @@ async function extractPortfolio(page) {
         }
 
         return await page.evaluate(() => {
-            const links = new Set();
+            const baseLinks = new Set();
             const allElements = Array.from(document.querySelectorAll('img, div[style*="background-image"]'));
 
             allElements.forEach(el => {
                 let src = '';
-                if (el.tagName === 'IMG') {
-                    src = el.src || '';
-                } else {
+                if (el.tagName === 'IMG') src = el.src || '';
+                else {
                     const bg = el.style.backgroundImage;
-                    if (bg && bg.includes('url')) {
-                        src = bg.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
-                    }
+                    if (bg && bg.includes('url')) src = bg.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
                 }
+                if (!src || !src.includes('googleusercontent.com') || src.includes('/a/')) return;
 
-                if (!src || src.startsWith('data:')) return;
-
-                const photoId = el.getAttribute('data-photo-id');
-
-                if (photoId) {
-                    links.add(`https://lh3.googleusercontent.com/p/${photoId}=s1000`);
-                } else if (src.includes('googleusercontent.com')) {
-                    if (src.includes('/a/') || src.includes('/a-/') || src.includes('shared-v1')) return;
-
-                    const pMatch = src.match(/\/p\/([A-Za-z0-9_-]+)/);
-                    if (pMatch && pMatch[1]) {
-                        links.add(`https://lh3.googleusercontent.com/p/${pMatch[1]}=s1000`);
-                    } else {
-                        let cleanUrl = src;
-                        if (src.includes('=') && !src.includes('gps-cs-s')) {
-                            cleanUrl = src.split('=')[0].split('/s')[0] + '=w1000-h1000';
-                        } else if (src.includes('=s')) {
-                            cleanUrl = src.replace(/=s\d+/, '=s1000');
-                        }
-                        links.add(cleanUrl);
-                    }
-                }
+                const baseUrl = src.split('=')[0].split('/s')[0];
+                baseLinks.add(baseUrl);
             });
-            return Array.from(links).slice(0, 15);
+            return Array.from(baseLinks).map(base => `${base}=s1000`).slice(0, 15);
         });
     } catch (e) {
         return [];
@@ -246,7 +209,7 @@ async function refreshImages(stateName) {
             const needsCheck = (Date.now() - lastChecked > THIRTY_DAYS_MS);
 
             if (!needsCheck) {
-                console.log(`  ⏭️ [FAST SKIP] ${cleanName} (${mobile}) - Checked recently.`);
+                console.log(`  ⏭️ [FAST SKIP] ${cleanName} (${mobile})`);
                 continue;
             }
 
@@ -272,19 +235,15 @@ async function refreshImages(stateName) {
 
             const query = `${cleanName}, ${p.fullAddress || (p.locality + ", " + p.city)}`;
             try {
-                process.stdout.write(`  🔍 Searching Maps... `);
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
-                console.log("Done.");
 
                 const consent = await page.$('button[aria-label*="Accept"], button[aria-label*="Agree"], button[aria-label*="स्वीकार"]');
                 if (consent) { await consent.click(); await page.waitForTimeout(2000); }
 
                 const results = await page.$$('a.hfpxzc, div.m67q60 button');
                 if (results.length > 0) {
-                    console.log(`  🖱️ Found ${results.length} results. Checking each...`);
                     let matched = false;
                     for (let i = 0; i < Math.min(results.length, 5); i++) {
-                        console.log(`    👉 Checking Result #${i+1}...`);
                         await results[i].click();
                         await page.waitForTimeout(4000);
                         if (await verifyPhoneNumber(page, mobile)) {
@@ -298,7 +257,6 @@ async function refreshImages(stateName) {
                         continue;
                     }
                 } else {
-                    console.log(`  🔍 Direct result. Verifying...`);
                     if (!(await verifyPhoneNumber(page, mobile))) {
                         console.log(`  ❌ MISMATCH: Skipping.`);
                         refreshRegistry[mobile] = Date.now();
@@ -323,7 +281,7 @@ async function refreshImages(stateName) {
                     updateBatch.push({
                         id: p.id,
                         name: p.businessName,
-                        state: stateName, // 🚀 FOR ROUTING
+                        state: stateName,
                         profilePhotoUrl: freshHeroUrl,
                         portfolioUrls: portfolioString
                     });
@@ -351,7 +309,7 @@ async function refreshImages(stateName) {
 }
 
 async function main() {
-    await fetchRoutingTable(); // 🚀 LOAD SATELLITE URLS
+    await fetchRoutingTable();
     const allFolders = fs.readdirSync(__dirname).filter(f => f.endsWith('_grids') && fs.lstatSync(path.join(__dirname, f)).isDirectory());
 
     if (TARGET_STATE) {
