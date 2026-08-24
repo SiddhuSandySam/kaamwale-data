@@ -4,7 +4,7 @@ const path = require('path');
 const axios = require('axios');
 
 /**
- * REFRESHER CONFIGURATION (Fully Aligned with your Multi-Worker Setup)
+ * REFRESHER CONFIGURATION (V99 - MONTHLY AUTO-RESET ENGINE)
  */
 const args = process.argv.slice(2);
 const WORKER_ID = args[0] !== undefined ? parseInt(args[0]) : 0;
@@ -25,11 +25,21 @@ function writeLog(msg) {
     fs.appendFileSync(LOG_FILE, logMsg);
 }
 
-// Global Buffers
 let sheetBuffer = [];
 let stateUrls = {};
 let refreshRegistry = {};
-let progress = { stateIndex: 0, offset: 0 };
+let progress = { stateIndex: 0, offset: 0, lastResetMonth: new Date().getMonth() };
+
+// 🚀 MONTHLY RESET LOGIC
+function checkAndReset() {
+    const currentMonth = new Date().getMonth();
+    if (progress.lastResetMonth !== currentMonth) {
+        writeLog(`🚨 [RESET] New month detected! Resetting progress and registry...`);
+        progress = { stateIndex: 0, offset: 0, lastResetMonth: currentMonth };
+        refreshRegistry = {};
+        saveState();
+    }
+}
 
 // Load Existing Data
 if (fs.existsSync(REFRESH_REGISTRY_FILE)) {
@@ -39,6 +49,8 @@ if (fs.existsSync(PROGRESS_FILE)) {
     try { progress = JSON.parse(fs.readFileSync(PROGRESS_FILE)); } catch(e) {}
 }
 
+checkAndReset(); // Initial check
+
 function saveState() {
     fs.writeFileSync(REFRESH_REGISTRY_FILE, JSON.stringify(refreshRegistry, null, 2));
     fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
@@ -47,21 +59,32 @@ function saveState() {
 async function flushBuffer(stateName) {
     if (sheetBuffer.length === 0) return;
     const targetUrl = stateUrls[stateName] || HUB_URL;
-    writeLog(`🚀 SYNCING BATCH: Sending ${sheetBuffer.length} accurate updates to [${stateName}]...`);
-    try {
-        const payload = { type: "BATCH_IMAGE_UPDATE", state: stateName, updates: sheetBuffer };
-        const resp = await axios.post(targetUrl, payload, { timeout: 120000 });
-        if (String(resp.data).includes("Success")) {
-            writeLog(`✅ BATCH SUCCESS for [${stateName}].`);
-            sheetBuffer = [];
-        } else { writeLog(`❌ HUB REJECTED: ${resp.data}`); }
-    } catch (e) { writeLog(`❌ SYNC ERROR: ${e.message}`); }
+    let success = false;
+    while (!success) {
+        writeLog(`🚀 [SYNC] Sending batch of ${sheetBuffer.length} to [${stateName}]...`);
+        try {
+            // 🛡️ ONLY TARGET PHOTO FIELDS - NO OTHER DATA IMPACTED
+            const payload = { type: "BATCH_IMAGE_UPDATE", state: stateName, updates: sheetBuffer };
+            const resp = await axios.post(targetUrl, payload, { timeout: 120000 });
+            if (String(resp.data).includes("Success")) {
+                writeLog(`✅ [SUCCESS] Batch sync completed.`);
+                sheetBuffer = [];
+                success = true;
+            } else {
+                writeLog(`🔄 [RETRY] Server Busy. Retrying in 20s...`);
+                await new Promise(r => setTimeout(r, 20000));
+            }
+        } catch (e) {
+            writeLog(`🔄 [RETRY] Network Error: ${e.message}. Retrying in 40s...`);
+            await new Promise(r => setTimeout(r, 40000));
+        }
+    }
 }
 
 async function isBroken(url) {
     if (!url || !url.includes('googleusercontent.com')) return false;
     try {
-        const resp = await axios.head(url, { timeout: 5000 });
+        const resp = await axios.head(url, { timeout: 8000 });
         return resp.status !== 200;
     } catch (e) { return e.response && e.response.status === 403; }
 }
@@ -72,10 +95,9 @@ async function extractPortfolio(page) {
         if (photoGalleryBtn) {
             await photoGalleryBtn.click();
             await page.waitForTimeout(4000);
-            // Deep Scroll to get fresh links
             await page.evaluate(async () => {
                 const gallery = document.querySelector('div[role="main"], div[role="grid"], .m67q60');
-                if (gallery) { for (let i = 0; i < 5; i++) { gallery.scrollBy(0, 1500); await new Promise(r => setTimeout(r, 600)); } }
+                if (gallery) { for (let i = 0; i < 5; i++) { gallery.scrollBy(0, 1500); await new Promise(r => setTimeout(r, 500)); } }
             });
             await page.waitForTimeout(2000);
         }
@@ -93,7 +115,10 @@ async function extractPortfolio(page) {
 }
 
 async function runWorker() {
-    writeLog(`🚀 Image Refresher Worker ${WORKER_ID}/${TOTAL_WORKERS} Started.`);
+    writeLog(`\n===============================================`);
+    writeLog(`🚀 RAPIDHELP REFRESHER | Worker: ${WORKER_ID}/${TOTAL_WORKERS}`);
+    writeLog(`===============================================\n`);
+
     const browser = await chromium.launch({ headless: false, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
 
@@ -107,7 +132,7 @@ async function runWorker() {
             if (TARGET_STATE_FILTER && stateName !== TARGET_STATE_FILTER) continue;
 
             const stateUrl = stateUrls[stateName];
-            writeLog(`\n🏙️ SCANNING STATE: ${stateName}`);
+            writeLog(`\n🏙️ [STATE START] Processing: ${stateName}`);
 
             let currentOffset = (sIdx === progress.stateIndex) ? progress.offset : 0;
             let limit = 500;
@@ -124,19 +149,18 @@ async function runWorker() {
                     const dbPhone = String(p.id).replace('shadow_', '');
                     const lastRef = refreshRegistry[p.id] || 0;
 
-                    // Step 1: Check broken photo and weekly cooldown
+                    // CHECK COOLDOWN AND BROKEN STATUS
                     if (Date.now() - lastRef > SEVEN_DAYS_MS && await isBroken(p.profilePhotoUrl)) {
-                        writeLog(`🔍 REFRESH NEEDED: ${p.businessName} (${dbPhone})`);
+                        writeLog(`🔍 [SCAN] ${p.businessName} (${dbPhone})`);
 
                         await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(p.businessName + ", " + p.fullAddress)}`, { timeout: 60000 });
                         await page.waitForTimeout(4000);
 
-                        // Step 2: Accurate Phone Verification
                         const mapsPhoneRaw = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
                         const cleanMapsPhone = mapsPhoneRaw.replace(/[^0-9]/g, '').slice(-10);
 
                         if (cleanMapsPhone === dbPhone) {
-                            writeLog(`✅ Phone Match! Extracting images for ${p.businessName}...`);
+                            writeLog(`✅ [MATCH] Extracting for ${p.businessName}...`);
                             let portfolio = await extractPortfolio(page);
                             if (portfolio.length > 0) {
                                 sheetBuffer.push({
@@ -148,10 +172,9 @@ async function runWorker() {
                                 if (sheetBuffer.length >= BATCH_LIMIT) await flushBuffer(stateName);
                             }
                         } else {
-                            writeLog(`⚠️ SKIP: Phone Mismatch (Maps: ${cleanMapsPhone} vs DB: ${dbPhone})`);
+                            writeLog(`⚠️ [SKIP] Phone Mismatch: Maps[${cleanMapsPhone}] vs DB[${dbPhone}]`);
                         }
                         saveState();
-                        await page.waitForTimeout(1000);
                     }
                 }
                 currentOffset += limit;
@@ -163,8 +186,8 @@ async function runWorker() {
             progress.offset = 0;
             saveState();
         }
-    } catch (e) { writeLog(`❌ FATAL ERROR: ${e.message}`); }
-    finally { await browser.close(); writeLog("🏁 Refresh Worker Finished."); }
+    } catch (e) { writeLog(`❌ [FATAL] Critical Error: ${e.message}`); }
+    finally { await browser.close(); writeLog("🏁 [FINISHED] All states done for this month."); }
 }
 
 runWorker();
