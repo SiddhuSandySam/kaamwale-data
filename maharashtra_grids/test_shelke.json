@@ -1,0 +1,38 @@
+[
+  {
+    "id": "shadow_8007005398",
+    "businessName": "Shelke Plumbing",
+    "primaryCategoryId": "cat_home",
+    "subcategory": "Plumber",
+    "experienceYears": 4,
+    "serviceMode": "Local",
+    "city": "Navi Mumbai",
+    "locality": "Vashi-Turbhe gaw vashi Turbhe gaw",
+    "state": "Maharashtra",
+    "startingPrice": 0,
+    "priceUnit": "Discuss on Call",
+    "whatsappNumber": "8007005398",
+    "callNumber": "8007005398",
+    "aboutDescription": "Professional Plumber services available in Navi Mumbai. High-quality work guaranteed by local experts.",
+    "isApproved": true,
+    "isVerified": false,
+    "rating": 0.0,
+    "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWkl7zeHwdzAMFeJ8lNFHID3hlr_O6N8lWfZ69I8QbwvImaBjVpTn4864vwDdz45CpEBL2U5P_sjbDubqmok3qF6gDT_33CghNE_4s518zUrVJ8E12gDFWsfvtoBDE0Hy4vRhzBQ=w400-h400-k-no",
+    "recommendationCount": 0,
+    "portfolioUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWkl7zeHwdzAMFeJ8lNFHID3hlr_O6N8lWfZ69I8QbwvImaBjVpTn4864vwDdz45CpEBL2U5P_sjbDubqmok3qF6gDT_33CghNE_4s518zUrVJ8E12gDFWsfvtoBDE0Hy4vRhzBQ=w1000-h1000",
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlSLSUpzt46ii4hBWmOyyw0Tgfpe4RaC5g-WL6Xd6-yB-udWWDng0aXkllGIBXk7cQLwMNtiQU2fF7AdxnubkCUk9p3knGORNXVNojPriJwpE0U_DofMnDL0Cgo2TxzNw6vm3hsxOeA_GdA=w1000-h1000"
+    ],
+    "searchKeywords": ["Shelke Plumbing", "Navi Mumbai", "Plumber"],
+    "lastSeen": 1784600739505,
+    "callCount": 0,
+    "fullAddress": "32F3+4XG Vashi-Turbhe gaw vashi Turbhe gaw, Sector 24 room n A14, Navi Mumbai, Maharashtra 400703",
+    "isNumberHidden": false,
+    "referredBy": "SYSTEM_SCRAPER",
+    "referralBonusPaid": false,
+    "fcmToken": "",
+    "notificationsEnabled": true,
+    "latitude": 19.0694127,
+    "longitude": 73.0156284
+  }
+]

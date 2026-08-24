@@ -201,7 +201,7 @@ async function refreshImages(stateName) {
     const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' });
     const page = await context.newPage();
 
-    const files = fs.readdirSync(gridDir).filter(f => f.endsWith('.json'));
+    const files = ["test_final.json"];
     let providerGlobalIndex = 0;
 
     for (const file of files) {
@@ -227,16 +227,7 @@ async function refreshImages(stateName) {
                 continue;
             }
 
-            let broken = await isUrlBroken(p.profilePhotoUrl);
-            if (!broken && Array.isArray(p.portfolioUrls) && p.portfolioUrls.length > 0) {
-                for (let i = 0; i < Math.min(p.portfolioUrls.length, 3); i++) {
-                    if (await isUrlBroken(p.portfolioUrls[i])) {
-                        console.log(`  🔍 [CHECK] Portfolio item broken. Refreshing...`);
-                        broken = true;
-                        break;
-                    }
-                }
-            }
+            let broken = true; // 🚀 FORCE REFRESH FOR TEST
 
             if (!broken) {
                 console.log(`✅ Provider: ${cleanName} | 📱 ${mobile} | Status: ALL OK`);
