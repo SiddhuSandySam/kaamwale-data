@@ -155,14 +155,16 @@ async function refreshImages(stateName) {
             const mobile = p.id.split('_')[1] || "N/A";
             let cleanName = p.businessName.split('|')[0].split(',')[0].trim();
 
-            // 🛡️ 1. CHECK STATUS (Profile + Portfolio Sample)
+            // 🛡️ 1. SMART CHECK: If even ONE is broken, refresh the whole provider
             let broken = await isUrlBroken(p.profilePhotoUrl);
             if (!broken && Array.isArray(p.portfolioUrls) && p.portfolioUrls.length > 0) {
-                // Also check a random image from portfolio to be sure
-                const sampleUrl = p.portfolioUrls[Math.floor(Math.random() * p.portfolioUrls.length)];
-                if (await isUrlBroken(sampleUrl)) {
-                    console.log(`  🔍 [CHECK] Portfolio image broken. Refreshing full set...`);
-                    broken = true;
+                // Check first 3 portfolio images as samples
+                for (let i = 0; i < Math.min(p.portfolioUrls.length, 3); i++) {
+                    if (await isUrlBroken(p.portfolioUrls[i])) {
+                        console.log(`  🔍 [CHECK] Portfolio item #${i+1} broken. Refreshing all...`);
+                        broken = true;
+                        break;
+                    }
                 }
             }
 
@@ -171,7 +173,7 @@ async function refreshImages(stateName) {
                 continue;
             }
 
-            console.log(`\n🚨 Provider: ${cleanName} | 📱 ${mobile} | Status: REFRESH NEEDED`);
+            console.log(`\n🚨 Provider: ${cleanName} | 📱 ${mobile} | Status: REFRESH NEEDED (Token Expired)`);
 
             // 🛡️ 2. SEARCH ON MAPS
             const query = `${cleanName}, ${p.fullAddress || (p.locality + ", " + p.city)}`;
@@ -220,8 +222,10 @@ async function refreshImages(stateName) {
                     const oldPortfolioString = Array.isArray(p.portfolioUrls) ? p.portfolioUrls.join(',') : p.portfolioUrls;
 
                     if (freshHeroUrl !== p.profilePhotoUrl || portfolioString !== oldPortfolioString) {
-                        console.log(`  ✨ SUCCESS: New URL fetched!`);
-                        console.log(`     🔗 New Hero: ${freshHeroUrl}`);
+                        console.log(`  ✨ SUCCESS: Found ${portfolio.length} fresh URLs!`);
+                        console.log(`     🔗 Profile Photo: ${freshHeroUrl}`);
+                        console.log(`     📂 Portfolio List:`);
+                        portfolio.forEach((url, idx) => console.log(`        [${idx+1}] ${url}`));
 
                         updateBatch.push({ id: p.id, name: p.businessName, profilePhotoUrl: freshHeroUrl, portfolioUrls: portfolioString });
                         p.profilePhotoUrl = freshHeroUrl;
@@ -230,10 +234,10 @@ async function refreshImages(stateName) {
 
                         if (updateBatch.length >= BATCH_SIZE) await flushBatch();
                     } else {
-                        console.log(`  ➖ URL already latest in local storage.`);
+                        console.log(`  ➖ Scraped URLs are identical to local. No update needed.`);
                     }
                 } else {
-                    console.log(`  ⚠️ WARNING: No images available on Google Maps for this provider.`);
+                    console.log(`  ⚠️ WARNING: Google Maps has NO images for this provider.`);
                 }
 
                 await page.waitForTimeout(1000);
