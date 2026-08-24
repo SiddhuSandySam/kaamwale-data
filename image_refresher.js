@@ -214,7 +214,7 @@ async function refreshImages(stateName) {
 
                     if (freshHeroUrl !== p.profilePhotoUrl || portfolioString !== oldPortfolioString) {
                         console.log(`  ✨ SUCCESS: New URL fetched!`);
-                        console.log(`     🔗 New Hero: ${freshHeroUrl.substring(0, 70)}...`);
+                        console.log(`     🔗 New Hero: ${freshHeroUrl}`);
 
                         updateBatch.push({ id: p.id, name: p.businessName, profilePhotoUrl: freshHeroUrl, portfolioUrls: portfolioString });
                         p.profilePhotoUrl = freshHeroUrl;
