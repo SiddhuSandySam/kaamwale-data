@@ -17,21 +17,35 @@ async function isUrlBroken(url) {
     if (!url || url.startsWith('data:')) return true;
     try {
         const response = await axios.get(url, { timeout: 5000, responseType: 'stream' });
-        response.data.destroy(); // Fast check
-        return response.status >= 400;
+        response.data.destroy();
+        if (response.status >= 400) {
+            console.log(`  🔍 [CHECK] URL Status: ${response.status} (Broken)`);
+            return true;
+        }
+        return false;
     } catch (e) {
-        return true; // 403, 404, etc.
+        console.log(`  🔍 [CHECK] URL Error: ${e.response?.status || 'Timeout/Network'} (Refresh Needed)`);
+        return true;
     }
 }
 
 async function verifyPhoneNumber(page, targetMobile) {
     try {
         const phoneBtn = await page.waitForSelector('button[data-item-id^="phone"]', { timeout: 5000 });
-        if (!phoneBtn) return false;
+        if (!phoneBtn) {
+            console.log("  ⚠️ [VERIFY] Phone button not found on page.");
+            return false;
+        }
         const phoneText = await phoneBtn.innerText();
         const cleanPhone = phoneText.replace(/[^0-9]/g, '').slice(-10);
-        return cleanPhone === targetMobile.slice(-10);
+        const match = cleanPhone === targetMobile.slice(-10);
+
+        if (!match) console.log(`  ❌ [MISMATCH] Map: ${cleanPhone} vs Target: ${targetMobile}`);
+        else console.log(`  ✅ [MATCH] Phone numbers verified: ${cleanPhone}`);
+
+        return match;
     } catch (e) {
+        console.log(`  ⚠️ [VERIFY] Could not extract phone: ${e.message}`);
         return false;
     }
 }
@@ -74,14 +88,17 @@ async function flushBatch() {
     if (updateBatch.length === 0) return;
     try {
         const payload = { type: "BATCH_IMAGE_UPDATE", updates: updateBatch };
+        console.log(`  📤 [HUB] Pushing ${updateBatch.length} updates to Master Engine...`);
         const response = await axios.post(HUB_URL, payload);
+        console.log(`  📥 [HUB] Response: ${response.data}`);
+
         if (response.data.includes("Success")) {
             totalUpdatedCount += updateBatch.length;
             updatedRecordsSummary.push(...updateBatch.map(u => ({ id: u.id, name: u.name })));
             updateBatch = [];
             if (totalUpdatedCount % PUSH_INTERVAL === 0) await gitPush(totalUpdatedCount);
         }
-    } catch (err) { console.error(`  ❌ HUB ERROR: ${err.message}`); }
+    } catch (err) { console.error(`  ❌ [HUB] ERROR: ${err.message}`); }
 }
 
 async function extractPortfolio(page) {

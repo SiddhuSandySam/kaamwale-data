@@ -43,8 +43,10 @@ jobs:
           # 2. Commit them
           git commit -m "Automated progress sync from Firebase [skip ci]" || echo "No changes to sync"
           
-          # 3. 🛡️ DISCARD any other junk (like package-lock.json) to keep working tree clean
+          # 3. 🛡️ DISCARD any other junk (like package-lock.json)
+          echo "🧹 Cleaning working tree..."
           git checkout -- .
+          git status
           
           # 4. Ultimate resilient push with autostash
           for i in {1..10}; do

@@ -70,10 +70,12 @@ async function loadProgress() {
                     (cloudProgress.stateIndex === progress.stateIndex && cloudProgress.categoryIndex === progress.categoryIndex && cloudProgress.cityIndex > progress.cityIndex);
 
                 if (isCloudAhead) {
+                    console.log(`Worker ${WORKER_ID} | INFO | 🚀 Cloud Progress JUMP:`);
+                    console.log(`   FROM: [State:${progress.stateIndex}, Cat:${progress.categoryIndex}, City:${progress.cityIndex}]`);
+                    console.log(`   TO  : [State:${cloudProgress.stateIndex}, Cat:${cloudProgress.categoryIndex}, City:${cloudProgress.cityIndex}]`);
                     progress = cloudProgress;
-                    console.log(`Worker ${WORKER_ID} | INFO | 🚀 Cloud Progress is ahead. Jumping to State: ${progress.stateIndex}, Cat: ${progress.categoryIndex}, City: ${progress.cityIndex}`);
                 } else {
-                    console.log(`Worker ${WORKER_ID} | INFO | Firebase Progress synced (Local is ahead or equal).`);
+                    console.log(`Worker ${WORKER_ID} | INFO | Firebase Progress synced (Local is already at or ahead).`);
                 }
             }
         } catch (e) {
