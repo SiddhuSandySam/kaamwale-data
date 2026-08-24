@@ -12,6 +12,22 @@ const { execSync } = require('child_process');
 
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
 
+// 🚀 STATE ROUTING TABLE
+let stateUrls = {};
+
+async function fetchRoutingTable() {
+    try {
+        console.log("🌐 Fetching Routing Table from Main Hub...");
+        const response = await axios.get(`${HUB_URL}?type=app_data&nocache=true`, { timeout: 30000 });
+        if (response.data && response.data.stateUrls) {
+            stateUrls = response.data.stateUrls;
+            console.log(`✅ Routing Table Loaded. Active States: ${Object.keys(stateUrls).length}`);
+        }
+    } catch (e) {
+        console.error(`❌ FAILED to load Routing Table: ${e.message}`);
+    }
+}
+
 // 🚀 WORKER CONFIG
 const args = process.argv.slice(2);
 const WORKER_ID = args[0] !== undefined ? parseInt(args[0]) : 0;
@@ -91,18 +107,30 @@ async function gitPush(count) {
 async function flushBatch() {
     if (updateBatch.length === 0) return;
     try {
-        const payload = { type: "BATCH_IMAGE_UPDATE", updates: updateBatch };
-        console.log(`  📤 [HUB] Pushing ${updateBatch.length} updates to Master Engine...`);
-        const response = await axios.post(HUB_URL, payload);
-        const resMsg = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-        console.log(`  📥 [HUB] Response: ${resMsg}`);
+        // Group updates by state
+        const grouped = {};
+        updateBatch.forEach(u => {
+            const s = u.state || "Unknown";
+            if (!grouped[s]) grouped[s] = [];
+            grouped[s].push(u);
+        });
 
-        if (resMsg.includes("Success")) {
-            totalUpdatedCount += updateBatch.length;
-            updatedRecordsSummary.push(...updateBatch.map(u => ({ id: u.id, name: u.name })));
-            updateBatch = [];
-            if (totalUpdatedCount % PUSH_INTERVAL === 0) await gitPush(totalUpdatedCount);
+        for (const stateName of Object.keys(grouped)) {
+            const updates = grouped[stateName];
+            const targetHub = stateUrls[stateName] || HUB_URL; // Fallback to main hub
+
+            console.log(`  📤 [HUB] Pushing ${updates.length} updates to [${stateName}] Engine...`);
+            const response = await axios.post(targetHub, { type: "BATCH_IMAGE_UPDATE", updates: updates });
+            const resMsg = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+            console.log(`  📥 [HUB] Response from [${stateName}]: ${resMsg}`);
+
+            if (resMsg.includes("Success")) {
+                totalUpdatedCount += updates.length;
+                updatedRecordsSummary.push(...updates.map(u => ({ id: u.id, name: u.name, state: stateName })));
+            }
         }
+        updateBatch = [];
+        if (totalUpdatedCount % PUSH_INTERVAL === 0) await gitPush(totalUpdatedCount);
     } catch (err) { console.error(`  ❌ [HUB] ERROR: ${err.message}`); }
 }
 
@@ -292,7 +320,13 @@ async function refreshImages(stateName) {
                     console.log(`     📂 Portfolio List:`);
                     portfolio.forEach((url, idx) => console.log(`        [${idx+1}] ${url}`));
 
-                    updateBatch.push({ id: p.id, name: p.businessName, profilePhotoUrl: freshHeroUrl, portfolioUrls: portfolioString });
+                    updateBatch.push({
+                        id: p.id,
+                        name: p.businessName,
+                        state: stateName, // 🚀 FOR ROUTING
+                        profilePhotoUrl: freshHeroUrl,
+                        portfolioUrls: portfolioString
+                    });
                     p.profilePhotoUrl = freshHeroUrl;
                     p.portfolioUrls = portfolio;
                     fileChanged = true;
@@ -317,6 +351,7 @@ async function refreshImages(stateName) {
 }
 
 async function main() {
+    await fetchRoutingTable(); // 🚀 LOAD SATELLITE URLS
     const allFolders = fs.readdirSync(__dirname).filter(f => f.endsWith('_grids') && fs.lstatSync(path.join(__dirname, f)).isDirectory());
 
     if (TARGET_STATE) {
