@@ -29,6 +29,9 @@ jobs:
       - name: Run Sync Script
         run: node sync_firebase_to_git.js
 
+      - name: Cleanup Credentials
+        run: rm -f serviceAccountKey.json
+
       - name: Commit and Push Changes
         run: |
           git config --global user.name "RapidHelp-Bot"
