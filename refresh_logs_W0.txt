@@ -1,0 +1,4 @@
+[W0] [25/8/2026, 1:30:20 am] 🚀 Worker 0/2 Started.
+[W0] [25/8/2026, 1:30:28 am] 
+--- State Start: Maharashtra ---
+[W0] [25/8/2026, 1:30:28 am] Fatal: browser.newPage: Target page, context or browser has been closed
