@@ -31,21 +31,18 @@ async function isUrlBroken(url) {
 
 async function verifyPhoneNumber(page, targetMobile) {
     try {
-        const phoneBtn = await page.waitForSelector('button[data-item-id^="phone"]', { timeout: 5000 });
-        if (!phoneBtn) {
-            console.log("  ⚠️ [VERIFY] Phone button not found on page.");
-            return false;
-        }
+        const phoneBtn = await page.waitForSelector('button[data-item-id^="phone"]', { timeout: 10000 });
+        if (!phoneBtn) return false;
+
         const phoneText = await phoneBtn.innerText();
         const cleanPhone = phoneText.replace(/[^0-9]/g, '').slice(-10);
         const match = cleanPhone === targetMobile.slice(-10);
 
-        if (!match) console.log(`  ❌ [MISMATCH] Map: ${cleanPhone} vs Target: ${targetMobile}`);
-        else console.log(`  ✅ [MATCH] Phone numbers verified: ${cleanPhone}`);
+        if (!match) console.log(`      ❌ [VERIFY] Map Phone: ${cleanPhone} != Target: ${targetMobile}`);
+        else console.log(`      ✅ [VERIFY] Phone Match!`);
 
         return match;
     } catch (e) {
-        console.log(`  ⚠️ [VERIFY] Could not extract phone: ${e.message}`);
         return false;
     }
 }
@@ -158,20 +155,28 @@ async function refreshImages(stateName) {
             const mobile = p.id.split('_')[1] || "N/A";
             let cleanName = p.businessName.split('|')[0].split(',')[0].trim();
 
-            // 🛡️ 1. CHECK STATUS FIRST
-            const broken = await isUrlBroken(p.profilePhotoUrl);
+            // 🛡️ 1. CHECK STATUS (Profile + Portfolio Sample)
+            let broken = await isUrlBroken(p.profilePhotoUrl);
+            if (!broken && Array.isArray(p.portfolioUrls) && p.portfolioUrls.length > 0) {
+                // Also check a random image from portfolio to be sure
+                const sampleUrl = p.portfolioUrls[Math.floor(Math.random() * p.portfolioUrls.length)];
+                if (await isUrlBroken(sampleUrl)) {
+                    console.log(`  🔍 [CHECK] Portfolio image broken. Refreshing full set...`);
+                    broken = true;
+                }
+            }
 
             if (!broken) {
-                console.log(`\n✅ Provider: ${cleanName} | 📱 ${mobile} | Status: URL OK (Skipping)`);
+                console.log(`✅ Provider: ${cleanName} | 📱 ${mobile} | Status: ALL OK`);
                 continue;
             }
 
-            console.log(`\n🚨 Provider: ${cleanName} | 📱 ${mobile} | Status: BROKEN (Refreshing...)`);
+            console.log(`\n🚨 Provider: ${cleanName} | 📱 ${mobile} | Status: REFRESH NEEDED`);
 
             // 🛡️ 2. SEARCH ON MAPS
             const query = `${cleanName}, ${p.fullAddress || (p.locality + ", " + p.city)}`;
             try {
-                process.stdout.write(`  🔍 Searching Maps for: ${cleanName}... `);
+                process.stdout.write(`  🔍 Searching Maps... `);
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
                 console.log("Done.");
 
@@ -182,22 +187,24 @@ async function refreshImages(stateName) {
                 // 🛡️ 3. VERIFY & SELECT
                 const results = await page.$$('a.hfpxzc, div.m67q60 button');
                 if (results.length > 0) {
-                    console.log(`  🖱️ Multiple results (${results.length}). Verifying phone...`);
+                    console.log(`  🖱️ Found ${results.length} results. Checking each...`);
                     let matched = false;
-                    for (let res of results) {
-                        await res.click();
-                        await page.waitForTimeout(2500);
+                    for (let i = 0; i < Math.min(results.length, 5); i++) {
+                        console.log(`    👉 Checking Result #${i+1}...`);
+                        await results[i].click();
+                        await page.waitForTimeout(3000);
                         if (await verifyPhoneNumber(page, mobile)) {
                             matched = true; break;
                         }
                     }
                     if (!matched) {
-                        console.log(`  ❌ MISMATCH: Correct provider not found. Skipping.`);
+                        console.log(`  ❌ MISMATCH: No matching provider in search results. Skipping.`);
                         continue;
                     }
                 } else {
+                    console.log(`  🔍 Direct result. Verifying...`);
                     if (!(await verifyPhoneNumber(page, mobile))) {
-                        console.log(`  ❌ MISMATCH: Direct result doesn't match mobile. Skipping.`);
+                        console.log(`  ❌ MISMATCH: Provider mobile doesn't match page. Skipping.`);
                         continue;
                     }
                 }
