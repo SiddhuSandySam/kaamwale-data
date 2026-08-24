@@ -12,6 +12,31 @@ const { execSync } = require('child_process');
 
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
 
+// 🚀 WORKER CONFIG
+const args = process.argv.slice(2);
+const WORKER_ID = args[0] !== undefined ? parseInt(args[0]) : 0;
+const TOTAL_WORKERS = args[1] !== undefined ? parseInt(args[1]) : 1;
+const TARGET_STATE = args[2] || null;
+
+const BATCH_SIZE = 10;
+const PUSH_INTERVAL = 50;
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000; // 🚀 1 Month TTL
+
+let updateBatch = [];
+let totalUpdatedCount = 0;
+let updatedRecordsSummary = [];
+
+// 🚀 REGISTRY HELPERS
+const REGISTRY_FILE = path.join(__dirname, `refresher_registry_W${WORKER_ID}.json`);
+let refreshRegistry = {};
+if (fs.existsSync(REGISTRY_FILE)) {
+    try { refreshRegistry = JSON.parse(fs.readFileSync(REGISTRY_FILE)); } catch (e) { refreshRegistry = {}; }
+}
+
+function saveRegistry() {
+    fs.writeFileSync(REGISTRY_FILE, JSON.stringify(refreshRegistry, null, 2));
+}
+
 // 🚀 UTILITIES
 async function isUrlBroken(url) {
     if (!url || url.startsWith('data:')) return true;
@@ -131,7 +156,7 @@ async function extractPortfolio(page) {
 
 async function refreshImages(stateName) {
     console.log(`\n===============================================`);
-    console.log(`🔄 REFRESH SESSION: ${stateName}`);
+    console.log(`🔄 REFRESH SESSION [W${WORKER_ID}/${TOTAL_WORKERS}]: ${stateName}`);
     console.log(`===============================================`);
 
     const folderName = `${stateName.toLowerCase().replace(/ /g, '_')}_grids`;
@@ -143,6 +168,7 @@ async function refreshImages(stateName) {
     const page = await context.newPage();
 
     const files = fs.readdirSync(gridDir).filter(f => f.endsWith('.json'));
+    let providerGlobalIndex = 0;
 
     for (const file of files) {
         const filePath = path.join(gridDir, file);
@@ -152,13 +178,26 @@ async function refreshImages(stateName) {
         for (let p of providers) {
             if (!p.id.startsWith('shadow_')) continue;
 
+            // 🚀 DYNAMIC SPLIT: Only process assigned providers
+            const myTurn = (providerGlobalIndex % TOTAL_WORKERS === WORKER_ID);
+            providerGlobalIndex++;
+            if (!myTurn) continue;
+
             const mobile = p.id.split('_')[1] || "N/A";
             let cleanName = p.businessName.split('|')[0].split(',')[0].trim();
 
-            // 🛡️ 1. SMART CHECK: If even ONE is broken, refresh the whole provider
+            // 🛡️ 1. QUICK REGISTRY SKIP (1 Month TTL)
+            const lastChecked = refreshRegistry[mobile] || 0;
+            const needsCheck = (Date.now() - lastChecked > THIRTY_DAYS_MS);
+
+            if (!needsCheck) {
+                console.log(`  ⏭️ [FAST SKIP] ${cleanName} (${mobile}) - Checked recently.`);
+                continue;
+            }
+
+            // 🛡️ 2. SMART CHECK: If even ONE is broken, refresh the whole provider
             let broken = await isUrlBroken(p.profilePhotoUrl);
             if (!broken && Array.isArray(p.portfolioUrls) && p.portfolioUrls.length > 0) {
-                // Check first 3 portfolio images as samples
                 for (let i = 0; i < Math.min(p.portfolioUrls.length, 3); i++) {
                     if (await isUrlBroken(p.portfolioUrls[i])) {
                         console.log(`  🔍 [CHECK] Portfolio item #${i+1} broken. Refreshing all...`);
@@ -170,12 +209,14 @@ async function refreshImages(stateName) {
 
             if (!broken) {
                 console.log(`✅ Provider: ${cleanName} | 📱 ${mobile} | Status: ALL OK`);
+                refreshRegistry[mobile] = Date.now(); // Mark as checked today
+                saveRegistry();
                 continue;
             }
 
             console.log(`\n🚨 Provider: ${cleanName} | 📱 ${mobile} | Status: REFRESH NEEDED (Token Expired)`);
 
-            // 🛡️ 2. SEARCH ON MAPS
+            // 🛡️ 3. SEARCH ON MAPS
             const query = `${cleanName}, ${p.fullAddress || (p.locality + ", " + p.city)}`;
             try {
                 process.stdout.write(`  🔍 Searching Maps... `);
@@ -186,7 +227,7 @@ async function refreshImages(stateName) {
                 const consent = await page.$('button[aria-label*="Accept"], button[aria-label*="Agree"], button[aria-label*="स्वीकार"]');
                 if (consent) { await consent.click(); await page.waitForTimeout(2000); }
 
-                // 🛡️ 3. VERIFY & SELECT
+                // 🛡️ 4. VERIFY & SELECT
                 const results = await page.$$('a.hfpxzc, div.m67q60 button');
                 if (results.length > 0) {
                     console.log(`  🖱️ Found ${results.length} results. Checking each...`);
@@ -201,17 +242,21 @@ async function refreshImages(stateName) {
                     }
                     if (!matched) {
                         console.log(`  ❌ MISMATCH: No matching provider in search results. Skipping.`);
+                        refreshRegistry[mobile] = Date.now(); // Still mark to avoid retrying junk
+                        saveRegistry();
                         continue;
                     }
                 } else {
                     console.log(`  🔍 Direct result. Verifying...`);
                     if (!(await verifyPhoneNumber(page, mobile))) {
                         console.log(`  ❌ MISMATCH: Provider mobile doesn't match page. Skipping.`);
+                        refreshRegistry[mobile] = Date.now();
+                        saveRegistry();
                         continue;
                     }
                 }
 
-                // 📸 4. SCRAPE NEW IMAGES
+                // 📸 5. SCRAPE NEW IMAGES
                 process.stdout.write(`  📸 Extracting Portfolio... `);
                 let portfolio = await extractPortfolio(page);
                 console.log(`${portfolio.length} images found.`);
@@ -232,12 +277,19 @@ async function refreshImages(stateName) {
                         p.portfolioUrls = portfolio;
                         fileChanged = true;
 
+                        refreshRegistry[mobile] = Date.now(); // Mark as updated
+                        saveRegistry();
+
                         if (updateBatch.length >= BATCH_SIZE) await flushBatch();
                     } else {
                         console.log(`  ➖ Scraped URLs are identical to local. No update needed.`);
+                        refreshRegistry[mobile] = Date.now();
+                        saveRegistry();
                     }
                 } else {
                     console.log(`  ⚠️ WARNING: Google Maps has NO images for this provider.`);
+                    refreshRegistry[mobile] = Date.now();
+                    saveRegistry();
                 }
 
                 await page.waitForTimeout(1000);
@@ -258,6 +310,7 @@ async function main() {
             await refreshImages(stateName);
         }
     }
+    saveRegistry(); // Final save
     await gitPush("Final");
     console.log(`\n🏁 REFRESH COMPLETE. Total Updated: ${totalUpdatedCount}`);
     if (updatedRecordsSummary.length > 0) console.table(updatedRecordsSummary);
