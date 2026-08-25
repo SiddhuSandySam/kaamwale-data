@@ -2,8 +2,8 @@ name: RapidHelp Image Refresher
 
 on:
   schedule:
-    - cron: '0 0 * * 0' # 🚀 Every Sunday at Midnight
-  workflow_dispatch: # 🚀 Manual Trigger
+    - cron: '0 */6 * * *' # 🚀 Every 6 hours to clear the queue
+  workflow_dispatch: 
     inputs:
       state:
         description: 'Target State (e.g. Maharashtra) or leave empty for ALL'

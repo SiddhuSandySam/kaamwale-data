@@ -1,21 +1,10 @@
 const { chromium } = require('playwright');
 const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
 
 /**
- * SMART ON-DEMAND REFRESHER (V101 - GITHUB ENGINE)
- * Only processes providers reported by users in RefreshQueue sheet.
+ * ON-DEMAND REFRESHER V2 (FREE GOOGLE SHEET QUEUE MODE)
  */
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
-const LOG_FILE = path.join(__dirname, `refresh_logs_github.txt`);
-
-function writeLog(msg) {
-    const timestamp = new Date().toLocaleString();
-    const logMsg = `[${timestamp}] ${msg}\n`;
-    console.log(msg);
-    fs.appendFileSync(LOG_FILE, logMsg);
-}
 
 async function extractPortfolio(page) {
     try {
@@ -25,16 +14,15 @@ async function extractPortfolio(page) {
             await page.waitForTimeout(4000);
             await page.evaluate(async () => {
                 const gallery = document.querySelector('div[role="main"], div[role="grid"], .m67q60');
-                if (gallery) { for (let i = 0; i < 4; i++) { gallery.scrollBy(0, 1500); await new Promise(r => setTimeout(r, 500)); } }
+                if (gallery) { for (let i = 0; i < 3; i++) { gallery.scrollBy(0, 1500); await new Promise(r => setTimeout(r, 500)); } }
             });
             await page.waitForTimeout(2000);
         }
         return await page.evaluate(() => {
             const links = new Set();
-            document.querySelectorAll('img, div[style*="background-image"]').forEach(el => {
-                let src = el.tagName === 'IMG' ? el.src : (el.style.backgroundImage.match(/url\(["']?([^"']+)["']?\)/) || [])[1];
-                if (src && src.includes('googleusercontent.com') && !src.includes('/a/')) {
-                    links.add(src.split('=')[0].split('/s')[0]);
+            document.querySelectorAll('img').forEach(el => {
+                if (el.src && el.src.includes('googleusercontent.com') && !el.src.includes('/a/')) {
+                    links.add(el.src.split('=')[0].split('/s')[0]);
                 }
             });
             return Array.from(links).map(b => `${b}=s1000`).slice(0, 15);
@@ -42,23 +30,23 @@ async function extractPortfolio(page) {
     } catch (e) { return []; }
 }
 
-async function runWorker() {
-    writeLog("📡 Checking RefreshQueue from Hub...");
+async function runRefresher() {
+    console.log("📡 Fetching Pending Tasks from Hub...");
     try {
         const resp = await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" });
         const tasks = resp.data;
 
         if (!Array.isArray(tasks) || tasks.length === 0) {
-            writeLog("✅ Queue is empty. Nothing to refresh. Shutting down...");
+            console.log("✅ Queue is empty. No work to do.");
             return;
         }
 
-        writeLog(`🚀 Found ${tasks.length} tasks in Queue. Starting Browser...`);
-        const browser = await chromium.launch({ headless: false, args: ['--no-sandbox'] });
+        console.log(`🚀 Found ${tasks.length} tasks. Starting Browser...`);
+        const browser = await chromium.launch({ headless: false });
         const page = await browser.newPage();
 
         for (const task of tasks) {
-            writeLog(`\n🔍 TARGET: ${task.name} (${task.id})`);
+            console.log(`\n🔍 Working on: ${task.name} (${task.id})`);
             const dbPhone = String(task.id).replace('shadow_', '');
 
             try {
@@ -69,7 +57,7 @@ async function runWorker() {
                 const cleanMapsPhone = mapsPhoneRaw.replace(/[^0-9]/g, '').slice(-10);
 
                 if (cleanMapsPhone === dbPhone) {
-                    writeLog(`✅ Phone Match: ${dbPhone}. Fetching photos...`);
+                    console.log(`✅ Phone Matched: ${dbPhone}. Extracting photos...`);
                     let portfolio = await extractPortfolio(page);
                     if (portfolio.length > 0) {
                         const syncPayload = {
@@ -84,20 +72,21 @@ async function runWorker() {
 
                         const syncResp = await axios.post(HUB_URL, syncPayload);
                         if (String(syncResp.data).includes("Success")) {
-                            writeLog(`🎉 UPDATED IN SHEET! Marking done...`);
+                            console.log(`🎉 Sheet Updated! Marking task as DONE...`);
                             await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", row: task.row });
                         }
                     }
                 } else {
-                    writeLog(`⚠️ SKIP: Phone Mismatch (Maps: ${cleanMapsPhone} vs DB: ${dbPhone})`);
-                    // We mark it as processed to clear from queue even if mismatch
+                    console.log(`⚠️ Skip: Phone mismatch (${cleanMapsPhone} vs ${dbPhone})`);
+                    // Even if mismatch, we mark it done or remove it to clear queue
                     await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", row: task.row });
                 }
-            } catch (err) { writeLog(`❌ Error for ${task.name}: ${err.message}`); }
+            } catch (err) { console.log(`❌ Error: ${err.message}`); }
         }
+
         await browser.close();
-        writeLog("\n🏁 All tasks in queue processed.");
-    } catch (e) { writeLog(`❌ Failed to connect to Hub: ${e.message}`); }
+        console.log("\n🏁 All tasks processed.");
+    } catch (e) { console.error(`Failed to fetch queue: ${e.message}`); }
 }
 
-runWorker();
+runRefresher();
