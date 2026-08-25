@@ -1,54 +1,53 @@
 const { chromium } = require('playwright');
 const axios = require('axios');
 
-/**
- * ULTRA-ROBUST ON-DEMAND REFRESHER (V102 - MANUAL TEST MODE)
- * High Precision Logging + Multi-Selector Phone Matching
- */
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
 
 function writeLog(msg) {
-    const timestamp = new Date().toLocaleString();
-    console.log(`[${timestamp}] ${msg}`);
+    console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
 }
 
 async function extractPhone(page) {
-    const selectors = [
-        'button[data-item-id^="phone"]',
-        'button[aria-label*="Phone"]',
-        'button[aria-label*="फोन"]',
-        '.CsEnBe[aria-label*="Phone"]'
-    ];
+    const selectors = ['button[data-item-id^="phone"]', 'button[aria-label*="Phone"]', '.CsEnBe[aria-label*="Phone"]', 'a[href^="tel:"]'];
     for (let sel of selectors) {
         try {
-            const text = await page.$eval(sel, el => el.innerText || el.getAttribute('aria-label') || "");
-            if (text) {
-                const clean = text.replace(/[^0-9]/g, '').slice(-10);
-                if (clean.length === 10) return clean;
-            }
+            const text = await page.$eval(sel, el => el.innerText || el.getAttribute('aria-label') || el.getAttribute('href') || "");
+            const clean = text.replace(/[^0-9]/g, '');
+            if (clean.length >= 8) return clean;
         } catch (e) {}
     }
-    return "";
+    return "NOT_FOUND";
 }
 
 async function extractPortfolio(page) {
     try {
-        const photoGalleryBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
-        if (photoGalleryBtn) {
-            await photoGalleryBtn.click();
-            await page.waitForTimeout(5000);
+        await page.waitForTimeout(4000);
+        // Try multiple ways to find the photo gallery
+        const photoBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
+
+        if (photoBtn) {
+            writeLog("🖱️ Clicking photo gallery...");
+            await photoBtn.click({ force: true });
+            await page.waitForTimeout(6000);
+
             await page.evaluate(async () => {
                 const gallery = document.querySelector('div[role="main"], div[role="grid"], .m67q60');
-                if (gallery) { for (let i = 0; i < 4; i++) { gallery.scrollBy(0, 1500); await new Promise(r => setTimeout(r, 600)); } }
+                if (gallery) {
+                    for(let i=0; i<3; i++) {
+                        gallery.scrollBy(0, 1500);
+                        await new Promise(r => setTimeout(r, 800));
+                    }
+                }
             });
-            await page.waitForTimeout(2000);
+            await page.waitForTimeout(3000);
         }
+
         return await page.evaluate(() => {
             const links = new Set();
-            document.querySelectorAll('img, div[style*="background-image"]').forEach(el => {
-                let src = el.tagName === 'IMG' ? el.src : (el.style.backgroundImage.match(/url\(["']?([^"']+)["']?\)/) || [])[1];
-                if (src && src.includes('googleusercontent.com') && !src.includes('/a/')) {
-                    links.add(src.split('=')[0].split('/s')[0]);
+            document.querySelectorAll('img').forEach(el => {
+                if (el.src && el.src.includes('googleusercontent.com') && !el.src.includes('/a/')) {
+                    const base = el.src.split('=')[0].split('/s')[0];
+                    links.add(base);
                 }
             });
             return Array.from(links).map(b => `${b}=s1000`).slice(0, 15);
@@ -56,63 +55,60 @@ async function extractPortfolio(page) {
     } catch (e) { return []; }
 }
 
-async function sendRequestWithRetry(payload, label, retries = 3) {
-    for (let i = 0; i < retries; i++) {
-        try {
-            writeLog(`📡 [SYNC] Sending ${label} (Attempt ${i + 1})...`);
-            const resp = await axios.post(HUB_URL, payload, { timeout: 120000 });
-            writeLog(`📩 [RESPONSE] ${JSON.stringify(resp.data)}`);
-            return resp.data;
-        } catch (e) {
-            writeLog(`⚠️ [ERROR] ${e.message}. Retrying in 10s...`);
-            if (i === retries - 1) throw e;
-            await new Promise(r => setTimeout(r, 10000));
-        }
-    }
-}
-
 async function runRefresher() {
-    writeLog("🚀 MANUAL REFRESH START...");
+    writeLog("🚀 STARTING AUTO-CLICKER MODE...");
     try {
-        const tasks = await sendRequestWithRetry({ type: "GET_REFRESH_QUEUE" }, "Fetch Tasks");
-
-        if (!Array.isArray(tasks) || tasks.length === 0) {
-            writeLog("✅ Queue is empty.");
-            return;
-        }
+        const tasks = (await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" })).data;
+        if (!Array.isArray(tasks) || tasks.length === 0) return writeLog("✅ Queue Empty.");
 
         const browser = await chromium.launch({ headless: false });
-        const page = await browser.newPage();
+        const context = await browser.newContext();
+        const page = await context.newPage();
 
         for (const task of tasks) {
-            writeLog(`\n--- TARGET: ${task.name} ---`);
+            writeLog(`\n🎯 TARGET: ${task.name}`);
             const dbPhone = String(task.id).replace('shadow_', '');
 
             try {
-                await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(task.name + ", " + task.addr)}`);
+                await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(task.name + ", " + task.addr)}`, { timeout: 60000 });
                 await page.waitForTimeout(5000);
 
-                const mapsPhone = await extractPhone(page);
-                writeLog(`📱 Maps: [${mapsPhone}] | DB: [${dbPhone}]`);
+                // 🚀 CHECK FOR LIST AND CLICK
+                const results = await page.$$('a.hfpxzc');
+                if (results.length > 0) {
+                    writeLog(`🖱️ List detected (${results.length} items). Clicking first result...`);
+                    await results[0].click();
+                    await page.waitForTimeout(5000); // Wait for profile to open
+                }
 
-                if (mapsPhone === dbPhone) {
-                    writeLog("✅ Match! Fetching photos...");
+                const mapsPhone = await extractPhone(page);
+                writeLog(`📱 Verification: Maps[${mapsPhone}] | DB[${dbPhone}]`);
+
+                const isMatch = (mapsPhone !== "NOT_FOUND") && (mapsPhone.includes(dbPhone) || dbPhone.includes(mapsPhone));
+
+                if (isMatch || mapsPhone === "NOT_FOUND") {
+                    if (mapsPhone === "NOT_FOUND") writeLog("⚠️ Number not found, trying photos anyway...");
+                    else writeLog("✅ Phone Matched!");
+
                     let portfolio = await extractPortfolio(page);
                     if (portfolio.length > 0) {
-                        const syncPayload = {
+                        writeLog(`📸 FOUND ${portfolio.length} images.`);
+                        const newUrl = portfolio[0].split('=')[0] + '=w500-h500-k-no';
+
+                        const res = (await axios.post(HUB_URL, {
                             type: "BATCH_IMAGE_UPDATE",
                             state: task.state,
-                            updates: [{ id: String(task.id), profilePhotoUrl: portfolio[0].split('=')[0] + '=w500-h500-k-no', portfolioUrls: portfolio.join(',') }]
-                        };
-                        const res = await sendRequestWithRetry(syncPayload, `Sync ${task.name}`);
+                            updates: [{ id: task.id, profilePhotoUrl: newUrl, portfolioUrls: portfolio.join(',') }]
+                        })).data;
+
                         if (String(res).includes("Success")) {
-                            writeLog(`🎉 Done!`);
-                            await sendRequestWithRetry({ type: "MARK_REFRESH_DONE", row: task.row }, "Mark DONE");
+                            writeLog(`🎉 SUCCESS: Sheet Updated.`);
+                            await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                         }
-                    }
+                    } else { writeLog("⚠️ NO PHOTOS found."); }
                 } else {
-                    writeLog(`❌ Skip: Mismatch.`);
-                    await sendRequestWithRetry({ type: "MARK_REFRESH_DONE", row: task.row }, "Cleanup");
+                    writeLog(`❌ MISMATCH: Number different. Cleaning task.`);
+                    await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                 }
             } catch (err) { writeLog(`❌ Error: ${err.message}`); }
         }
