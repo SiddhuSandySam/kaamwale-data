@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * ULTRA-ROBUST MULTI-WORKER REFRESHER (V104 - PRODUCTION)
- * List Detection + Flexible Match + Heavy Gallery Extraction
+ * ULTRA-ROBUST MULTI-WORKER REFRESHER (V105 - ENHANCED GALLERY)
+ * Deep Scroll + 30 Images Limit + Multi-Worker Queue
  */
 const args = process.argv.slice(2);
 const WORKER_ID = args[0] !== undefined ? parseInt(args[0]) : 0;
@@ -36,19 +36,21 @@ async function extractPortfolio(page) {
         const photoBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
 
         if (photoBtn) {
-            writeLog("🖱️ Opening gallery...");
+            writeLog("🖱️ Opening full gallery...");
             await photoBtn.click({ force: true });
             await page.waitForTimeout(6000);
+
+            // 🚀 DEEP SCROLLING: Scroll 6 times to get at least 30-40 images
             await page.evaluate(async () => {
                 const gallery = document.querySelector('div[role="main"], div[role="grid"], .m67q60');
                 if (gallery) {
-                    for(let i=0; i<4; i++) {
-                        gallery.scrollBy(0, 1500);
+                    for(let i=0; i<6; i++) {
+                        gallery.scrollBy(0, 2000);
                         await new Promise(r => setTimeout(r, 600));
                     }
                 }
             });
-            await page.waitForTimeout(2000);
+            await page.waitForTimeout(3000);
         }
 
         return await page.evaluate(() => {
@@ -59,9 +61,23 @@ async function extractPortfolio(page) {
                     links.add(base);
                 }
             });
-            return Array.from(links).map(b => `${b}=s1000`).slice(0, 15);
+            // 🚀 INCREASED LIMIT: Taking up to 30 unique images
+            return Array.from(links).map(b => `${b}=s1000`).slice(0, 30);
         });
     } catch (e) { return []; }
+}
+
+async function sendRequestWithRetry(payload, label, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const resp = await axios.post(HUB_URL, payload, { timeout: 120000 });
+            return resp.data;
+        } catch (e) {
+            writeLog(`⚠️ [ERROR] ${label} failed: ${e.message}. Retrying...`);
+            if (i === retries - 1) throw e;
+            await new Promise(r => setTimeout(r, 10000));
+        }
+    }
 }
 
 async function runWorker() {
@@ -98,7 +114,7 @@ async function runWorker() {
                 const isMatch = (mapsPhone !== "NOT_FOUND") && (mapsPhone.includes(dbPhone) || dbPhone.includes(mapsPhone));
 
                 if (isMatch || mapsPhone === "NOT_FOUND") {
-                    writeLog(`✅ Phone Check OK (Maps: ${mapsPhone}). Extracting...`);
+                    writeLog(`✅ Phone Match OK. Extracting heavy gallery...`);
                     let portfolio = await extractPortfolio(page);
 
                     if (portfolio.length > 0) {
@@ -110,7 +126,7 @@ async function runWorker() {
                         })).data;
 
                         if (String(res).includes("Success")) {
-                            writeLog(`🎉 Updated! Cleaning up queue.`);
+                            writeLog(`🎉 Updated with ${portfolio.length} images!`);
                             await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                         }
                     } else { writeLog("⚠️ No Photos."); }
