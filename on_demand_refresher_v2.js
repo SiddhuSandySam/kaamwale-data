@@ -1,10 +1,15 @@
 const { chromium } = require('playwright');
 const axios = require('axios');
 
+/**
+ * ULTRA-ROBUST ON-DEMAND REFRESHER (V107 - STRICT MATCHING)
+ * High Precision Logging + Multi-Selector Phone Matching
+ */
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
 
 function writeLog(msg) {
-    console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
+    const timestamp = new Date().toLocaleString();
+    console.log(`[${timestamp}] ${msg}`);
 }
 
 async function extractPhone(page) {
@@ -22,25 +27,19 @@ async function extractPhone(page) {
 async function extractPortfolio(page) {
     try {
         await page.waitForTimeout(3000);
-
-        // 🚀 Target "Photos" button specifically
         const photoBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
 
         if (photoBtn) {
             writeLog("🖱️ Entering Full Photo Gallery...");
             await photoBtn.click({ force: true });
-            await page.waitForTimeout(5000);
+            await page.waitForTimeout(6000);
 
-            // 🚀 SMART SCROLLER: Finds the correct scrollable div for photos
             await page.evaluate(async () => {
                 const findScrollable = () => {
                     const elements = document.querySelectorAll('div[role="main"], div[role="grid"], div[aria-label*="Photos"], .m67q60');
-                    for (let el of elements) {
-                        if (el.scrollHeight > el.clientHeight) return el;
-                    }
-                    return document.querySelector('div[tabindex="0"]'); // Fallback
+                    for (let el of elements) { if (el.scrollHeight > el.clientHeight) return el; }
+                    return document.querySelector('div[tabindex="0"]');
                 };
-
                 const scrollArea = findScrollable();
                 if (scrollArea) {
                     for(let i=0; i<8; i++) {
@@ -52,19 +51,14 @@ async function extractPortfolio(page) {
             await page.waitForTimeout(3000);
         }
 
-        // 🚀 ULTRA EXTRACTION: Get img src AND background-images
         return await page.evaluate(() => {
             const links = new Set();
-
-            // 1. Standard images
             document.querySelectorAll('img').forEach(el => {
-                const src = el.src || "";
-                if (src.includes('googleusercontent.com') && !src.includes('/a/') && !src.includes('shared-v1')) {
-                    links.add(src.split('=')[0].split('/s')[0]);
+                if (el.src && el.src.includes('googleusercontent.com') && !el.src.includes('/a/') && !el.src.includes('shared-v1')) {
+                    const base = el.src.split('=')[0].split('/s')[0];
+                    links.add(base);
                 }
             });
-
-            // 2. Background images (Google uses these a lot now)
             document.querySelectorAll('div[style*="background-image"]').forEach(el => {
                 const bg = el.style.backgroundImage;
                 const match = bg.match(/url\(["']?([^"']+)["']?\)/);
@@ -72,20 +66,20 @@ async function extractPortfolio(page) {
                     links.add(match[1].split('=')[0].split('/s')[0]);
                 }
             });
-
             return Array.from(links).map(b => `${b}=s1000`).slice(0, 30);
         });
     } catch (e) { return []; }
 }
 
 async function runRefresher() {
-    writeLog("🚀 STARTING GALLERY BEAST MODE...");
+    writeLog("🚀 STARTING ON-DEMAND REFRESH (STRICT MATCH MODE)...");
     try {
         const tasks = (await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" })).data;
         if (!Array.isArray(tasks) || tasks.length === 0) return writeLog("✅ Queue Empty.");
 
         const browser = await chromium.launch({ headless: false });
-        const page = await browser.newPage();
+        const context = await browser.newContext();
+        const page = await context.newPage();
 
         for (const task of tasks) {
             writeLog(`\n🎯 TARGET: ${task.name}`);
@@ -97,7 +91,7 @@ async function runRefresher() {
 
                 const results = await page.$$('a.hfpxzc');
                 if (results.length > 0) {
-                    writeLog(`🖱️ List detected. Selecting top result...`);
+                    writeLog(`🖱️ List detected. Clicking top result...`);
                     await results[0].click();
                     await page.waitForTimeout(5000);
                 }
@@ -107,13 +101,11 @@ async function runRefresher() {
 
                 const isMatch = (mapsPhone !== "NOT_FOUND") && (mapsPhone.includes(dbPhone) || dbPhone.includes(mapsPhone));
 
-                if (isMatch || mapsPhone === "NOT_FOUND") {
-                    if (mapsPhone === "NOT_FOUND") writeLog("⚠️ Number not found, trying photos anyway...");
-                    else writeLog("✅ Phone Matched!");
-
+                if (isMatch) {
+                    writeLog("✅ Phone Matched! Extracting photos...");
                     let portfolio = await extractPortfolio(page);
                     if (portfolio.length > 0) {
-                        writeLog(`📸 BOOM! Found ${portfolio.length} images.`);
+                        writeLog(`📸 Found ${portfolio.length} images.`);
                         const newUrl = portfolio[0].split('=')[0] + '=w500-h500-k-no';
 
                         const res = (await axios.post(HUB_URL, {
@@ -126,9 +118,12 @@ async function runRefresher() {
                             writeLog(`🎉 SUCCESS: Sheet Updated.`);
                             await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                         }
-                    } else { writeLog("⚠️ NO PHOTOS found even in beast mode."); }
+                    } else {
+                        writeLog("⚠️ NO PHOTOS found.");
+                        await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
+                    }
                 } else {
-                    writeLog(`❌ MISMATCH: Number different.`);
+                    writeLog(`❌ SKIP: Phone mismatch or NOT_FOUND. Cleaning task.`);
                     await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                 }
             } catch (err) { writeLog(`❌ Error: ${err.message}`); }
