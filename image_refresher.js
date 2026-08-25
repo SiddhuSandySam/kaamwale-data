@@ -18,7 +18,7 @@ async function extractPhone(page) {
     const selectors = ['button[data-item-id^="phone"]', 'button[aria-label*="Phone"]', '.CsEnBe[aria-label*="Phone"]', 'a[href^="tel:"]'];
     for (let sel of selectors) {
         try {
-            const text = await page.$eval(sel, el => el.innerText || el.getAttribute('aria-label') || el.getAttribute('href') || "");
+            const text = await page.$eval(sel, el => el.innerText || el.getAttribute('aria-label') || "");
             const clean = text.replace(/[^0-9]/g, '');
             if (clean.length >= 8) return clean;
         } catch (e) {}
@@ -70,29 +70,22 @@ async function extractPortfolio(page) {
 
 async function syncBatchToHub(updates, ids) {
     if (updates.length === 0) return;
-    writeLog(`Syncing batch of ${updates.length} to Hub...`);
     try {
-        const res = (await axios.post(HUB_URL, {
-            type: "BATCH_IMAGE_UPDATE",
-            updates: updates
-        }, { timeout: 120000 })).data;
-
+        const res = (await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: updates }, { timeout: 120000 })).data;
         if (String(res).includes("Success")) {
-            writeLog(`Batch Sync Success. Deleting tasks from queue...`);
             await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: ids });
+            writeLog(`Batch Success: ${ids.length} items.`);
         }
-    } catch (e) { writeLog(`Batch Sync Error: ${e.message}`); }
+    } catch (e) { writeLog(`Sync Error: ${e.message}`); }
 }
 
 async function runWorker() {
-    writeLog(`Worker Started. Partition: ${WORKER_ID}/${TOTAL_WORKERS}`);
+    writeLog(`Worker ${WORKER_ID} Started.`);
     try {
-        const allTasks = (await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" }, { timeout: 60000 })).data;
-        if (!Array.isArray(allTasks) || allTasks.length === 0) return writeLog("Queue empty.");
+        const allTasks = (await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" })).data;
+        if (!Array.isArray(allTasks) || allTasks.length === 0) return;
 
         const myTasks = allTasks.filter((_, index) => index % TOTAL_WORKERS === WORKER_ID);
-        if (myTasks.length === 0) return writeLog("No tasks assigned.");
-
         const browser = await chromium.launch({ headless: false, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
 
@@ -109,9 +102,12 @@ async function runWorker() {
                 if (results.length > 0) { await results[0].click(); await page.waitForTimeout(5000); }
 
                 const mapsPhone = await extractPhone(page);
-                const isMatch = (mapsPhone !== "NOT_FOUND") && (mapsPhone.includes(dbPhone) || dbPhone.includes(mapsPhone));
+                const mapsName = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "");
 
-                if (isMatch || mapsPhone === "NOT_FOUND") {
+                const phoneMatch = (mapsPhone !== "NOT_FOUND") && (mapsPhone.includes(dbPhone) || dbPhone.includes(mapsPhone));
+                const nameMatch = mapsName.toLowerCase().includes(task.name.toLowerCase().substring(0, 5));
+
+                if (phoneMatch || nameMatch) {
                     let portfolio = await extractPortfolio(page);
                     if (portfolio.length > 0) {
                         pendingUpdates.push({
