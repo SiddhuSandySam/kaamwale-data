@@ -21,49 +21,71 @@ async function extractPhone(page) {
 
 async function extractPortfolio(page) {
     try {
-        await page.waitForTimeout(4000);
-        // Try multiple ways to find the photo gallery
+        await page.waitForTimeout(3000);
+
+        // 🚀 Target "Photos" button specifically
         const photoBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
 
         if (photoBtn) {
-            writeLog("🖱️ Clicking photo gallery...");
+            writeLog("🖱️ Entering Full Photo Gallery...");
             await photoBtn.click({ force: true });
-            await page.waitForTimeout(6000);
+            await page.waitForTimeout(5000);
 
+            // 🚀 SMART SCROLLER: Finds the correct scrollable div for photos
             await page.evaluate(async () => {
-                const gallery = document.querySelector('div[role="main"], div[role="grid"], .m67q60');
-                if (gallery) {
-                    for(let i=0; i<3; i++) {
-                        gallery.scrollBy(0, 1500);
-                        await new Promise(r => setTimeout(r, 800));
+                const findScrollable = () => {
+                    const elements = document.querySelectorAll('div[role="main"], div[role="grid"], div[aria-label*="Photos"], .m67q60');
+                    for (let el of elements) {
+                        if (el.scrollHeight > el.clientHeight) return el;
+                    }
+                    return document.querySelector('div[tabindex="0"]'); // Fallback
+                };
+
+                const scrollArea = findScrollable();
+                if (scrollArea) {
+                    for(let i=0; i<8; i++) {
+                        scrollArea.scrollBy(0, 2000);
+                        await new Promise(r => setTimeout(r, 700));
                     }
                 }
             });
             await page.waitForTimeout(3000);
         }
 
+        // 🚀 ULTRA EXTRACTION: Get img src AND background-images
         return await page.evaluate(() => {
             const links = new Set();
+
+            // 1. Standard images
             document.querySelectorAll('img').forEach(el => {
-                if (el.src && el.src.includes('googleusercontent.com') && !el.src.includes('/a/')) {
-                    const base = el.src.split('=')[0].split('/s')[0];
-                    links.add(base);
+                const src = el.src || "";
+                if (src.includes('googleusercontent.com') && !src.includes('/a/') && !src.includes('shared-v1')) {
+                    links.add(src.split('=')[0].split('/s')[0]);
                 }
             });
-            return Array.from(links).map(b => `${b}=s1000`).slice(0, 15);
+
+            // 2. Background images (Google uses these a lot now)
+            document.querySelectorAll('div[style*="background-image"]').forEach(el => {
+                const bg = el.style.backgroundImage;
+                const match = bg.match(/url\(["']?([^"']+)["']?\)/);
+                if (match && match[1].includes('googleusercontent.com')) {
+                    links.add(match[1].split('=')[0].split('/s')[0]);
+                }
+            });
+
+            return Array.from(links).map(b => `${b}=s1000`).slice(0, 30);
         });
     } catch (e) { return []; }
 }
 
 async function runRefresher() {
-    writeLog("🚀 STARTING AUTO-CLICKER MODE...");
+    writeLog("🚀 STARTING GALLERY BEAST MODE...");
     try {
         const tasks = (await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" })).data;
         if (!Array.isArray(tasks) || tasks.length === 0) return writeLog("✅ Queue Empty.");
 
         const browser = await chromium.launch({ headless: false });
-        const context = await browser.newContext();
-        const page = await context.newPage();
+        const page = await browser.newPage();
 
         for (const task of tasks) {
             writeLog(`\n🎯 TARGET: ${task.name}`);
@@ -73,12 +95,11 @@ async function runRefresher() {
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(task.name + ", " + task.addr)}`, { timeout: 60000 });
                 await page.waitForTimeout(5000);
 
-                // 🚀 CHECK FOR LIST AND CLICK
                 const results = await page.$$('a.hfpxzc');
                 if (results.length > 0) {
-                    writeLog(`🖱️ List detected (${results.length} items). Clicking first result...`);
+                    writeLog(`🖱️ List detected. Selecting top result...`);
                     await results[0].click();
-                    await page.waitForTimeout(5000); // Wait for profile to open
+                    await page.waitForTimeout(5000);
                 }
 
                 const mapsPhone = await extractPhone(page);
@@ -92,7 +113,7 @@ async function runRefresher() {
 
                     let portfolio = await extractPortfolio(page);
                     if (portfolio.length > 0) {
-                        writeLog(`📸 FOUND ${portfolio.length} images.`);
+                        writeLog(`📸 BOOM! Found ${portfolio.length} images.`);
                         const newUrl = portfolio[0].split('=')[0] + '=w500-h500-k-no';
 
                         const res = (await axios.post(HUB_URL, {
@@ -105,9 +126,9 @@ async function runRefresher() {
                             writeLog(`🎉 SUCCESS: Sheet Updated.`);
                             await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                         }
-                    } else { writeLog("⚠️ NO PHOTOS found."); }
+                    } else { writeLog("⚠️ NO PHOTOS found even in beast mode."); }
                 } else {
-                    writeLog(`❌ MISMATCH: Number different. Cleaning task.`);
+                    writeLog(`❌ MISMATCH: Number different.`);
                     await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                 }
             } catch (err) { writeLog(`❌ Error: ${err.message}`); }
