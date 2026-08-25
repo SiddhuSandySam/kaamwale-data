@@ -102,12 +102,10 @@ async function runWorker() {
                 if (results.length > 0) { await results[0].click(); await page.waitForTimeout(5000); }
 
                 const mapsPhone = await extractPhone(page);
-                const mapsName = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "");
-
                 const phoneMatch = (mapsPhone !== "NOT_FOUND") && (mapsPhone.includes(dbPhone) || dbPhone.includes(mapsPhone));
-                const nameMatch = mapsName.toLowerCase().includes(task.name.toLowerCase().substring(0, 5));
 
-                if (phoneMatch || nameMatch) {
+                if (phoneMatch) {
+                    writeLog(`✅ Phone Matched! Maps[${mapsPhone}] vs DB[${dbPhone}].`);
                     let portfolio = await extractPortfolio(page);
                     if (portfolio.length > 0) {
                         pendingUpdates.push({
@@ -125,6 +123,7 @@ async function runWorker() {
                         await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                     }
                 } else {
+                    writeLog(`❌ SKIP: Phone mismatch (Maps: ${mapsPhone} vs DB: ${dbPhone}).`);
                     await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                 }
             } catch (err) { writeLog(`Error: ${err.message}`); }
