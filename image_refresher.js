@@ -48,9 +48,14 @@ async function extractPortfolio(page) {
         const photoBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
         if (photoBtn) {
             await photoBtn.click({ force: true });
-            await page.waitForTimeout(5000);
+            await page.waitForTimeout(6000);
             await page.evaluate(async () => {
-                const scrollArea = document.querySelector('div[role="main"], div[role="grid"], .m67q60');
+                const findScrollable = () => {
+                    const elements = document.querySelectorAll('div[role="main"], div[role="grid"], div[aria-label*="Photos"], .m67q60');
+                    for (let el of elements) { if (el.scrollHeight > el.clientHeight) return el; }
+                    return document.querySelector('div[tabindex="0"]');
+                };
+                const scrollArea = findScrollable();
                 if (scrollArea) {
                     for(let i=0; i<8; i++) {
                         scrollArea.scrollBy(0, 2000);
@@ -58,12 +63,19 @@ async function extractPortfolio(page) {
                     }
                 }
             });
-            await page.waitForTimeout(2000);
+            await page.waitForTimeout(3000);
         }
         return await page.evaluate(() => {
             const links = new Set();
             document.querySelectorAll('img').forEach(el => {
                 if (el.src?.includes('googleusercontent.com')) links.add(el.src.split('=')[0].split('/s')[0]);
+            });
+            document.querySelectorAll('div[style*="background-image"]').forEach(el => {
+                const bg = el.style.backgroundImage;
+                const match = bg.match(/url\(["']?([^"']+)["']?\)/);
+                if (match && match[1].includes('googleusercontent.com')) {
+                    links.add(match[1].split('=')[0].split('/s')[0]);
+                }
             });
             return Array.from(links).map(b => `${b}=s1000`).slice(0, 30);
         });
@@ -74,30 +86,30 @@ async function runWorker() {
     writeLog(`Worker ${WORKER_ID} Started.`);
     try {
         const allTasks = (await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" })).data;
-        if (!Array.isArray(allTasks) || allTasks.length === 0) return writeLog("No tasks.");
+        if (!Array.isArray(allTasks) || allTasks.length === 0) return writeLog("Queue Empty.");
 
         const myTasks = allTasks.filter((_, index) => index % TOTAL_WORKERS === WORKER_ID);
-        const browser = await chromium.launch({ headless: false });
+        const browser = await chromium.launch({ headless: true }); // Server run
         const page = await browser.newPage();
 
         let pendingUpdates = [];
         let completedIds = [];
 
         for (const task of myTasks) {
-            writeLog(`Target: ${task.name}`);
+            writeLog(`Processing: ${task.name}`);
             const dbPhone = String(task.id).replace('shadow_', '');
 
             try {
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(task.name + ", " + task.addr)}`, { timeout: 60000 });
-                await page.waitForTimeout(4000);
+                await page.waitForTimeout(5000);
 
                 const results = await page.$$('a.hfpxzc');
-                if (results.length > 0) { await results[0].click(); await page.waitForTimeout(4000); }
+                if (results.length > 0) { await results[0].click(); await page.waitForTimeout(5000); }
 
                 if (await checkClosed(page)) {
-                    writeLog(`🗑️ DELETING: ${task.name} is PERMANENTLY CLOSED.`);
-                    await axios.post(HUB_URL, { type: "DELETE_ENTRIES", id: task.id, state: task.state });
-                    await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
+                    writeLog(`🗑️ DELETING: ${task.name} is CLOSED.`);
+                    await axios.post(HUB_URL, { type: "DELETE_ENTRIES", ids: [task.id], state: task.state });
+                    await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: [task.id] });
                     continue;
                 }
 
@@ -106,7 +118,7 @@ async function runWorker() {
 
                 if (isMatch) {
                     const keywords = await extractKeywords(page);
-                    const portfolio = await extractPortfolio(page);
+                    let portfolio = await extractPortfolio(page);
                     if (portfolio.length > 0) {
                         pendingUpdates.push({
                             id: task.id,
@@ -120,17 +132,17 @@ async function runWorker() {
                         if (pendingUpdates.length >= 10) {
                             await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: pendingUpdates });
                             await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: completedIds });
-                            writeLog(`✅ Batch Sync Complete.`);
+                            writeLog(`✅ Batch Sync Success.`);
                             pendingUpdates = []; completedIds = [];
                         }
                     } else {
-                        await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
+                        await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: [task.id] });
                     }
                 } else {
                     writeLog(`❌ SKIP: Mismatch.`);
-                    await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
+                    await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: [task.id] });
                 }
-            } catch (err) { writeLog(`Error: ${err.message}`); }
+            } catch (err) { writeLog(`❌ Error: ${err.message}`); }
         }
         if (pendingUpdates.length > 0) {
             await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: pendingUpdates });
