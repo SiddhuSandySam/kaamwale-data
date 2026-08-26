@@ -351,7 +351,7 @@
   "Goa|Sancoale": 16,
   "Goa|Vaddem": 3,
   "Goa|Pali": 1,
-  "Goa|Velsao": 1,
+  "Goa|Velsao": 2,
   "Goa|Santa Cruz": 8,
   "Goa|Sanctum Adwalpalkar": 1,
   "Goa|Mehta": 1,
@@ -390,7 +390,7 @@
   "Goa|Zuarinagar": 6,
   "Goa|Marna": 1,
   "Goa|Kurtarkar Regency": 1,
-  "Goa|Swatantra Path": 2,
+  "Goa|Swatantra Path": 3,
   "Goa|Alto Dabolim": 1,
   "Goa|Borim": 2,
   "Goa|next to Bhosale Cafe": 1,
@@ -558,7 +558,7 @@
   "Goa|Naika vaddo": 2,
   "Goa|Cashew Nuts": 3,
   "Goa|Umtav Vado": 1,
-  "Goa|Maria Rosa": 1,
+  "Goa|Maria Rosa": 3,
   "Goa|Kurtarkar Nagari": 3,
   "Goa|Prabhu Nagar": 2,
   "Goa|Haveli": 1,
@@ -618,5 +618,8 @@
   "Goa|coop": 1,
   "Goa|next to Karnataka Bank": 1,
   "Goa|Driver Hill": 1,
-  "Goa|Mundvel": 1
+  "Goa|Mundvel": 1,
+  "Goa|Marquis Vaddo": 1,
+  "Goa|Warkhandem": 1,
+  "Goa|Cuelim": 1
 }
