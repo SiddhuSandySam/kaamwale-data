@@ -78,6 +78,13 @@ async function runWorker() {
 
         for (const task of myTasks) {
             const dbPhone = String(task.id).replace('shadow_', '');
+
+            // 🚀 SAFETY GUARD: Skip if state is missing
+            if (!task.state || task.state === "null") {
+                writeLog(`⚠️ SKIPPING: No state info for ${task.name} (${task.id}). Hub update impossible.`);
+                continue;
+            }
+
             writeLog(`\n🔍 SCANNING: ${task.name} (${dbPhone}) in ${task.addr}`);
 
             try {
