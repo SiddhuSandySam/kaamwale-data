@@ -453,7 +453,7 @@
   "Bihar|Sangat": 2,
   "Bihar|New Atwarpur": 1,
   "Bihar|Bander Bagicha": 2,
-  "Bihar|Digha Ghat": 2,
+  "Bihar|Digha Ghat": 3,
   "Bihar|Buddha Colony": 1,
   "Bihar|Sudama Palace": 1,
   "Bihar|AG Colony": 2,
@@ -464,8 +464,8 @@
   "Bihar|Sadipur": 2,
   "Bihar|Qadir Ganj": 2,
   "Bihar|teacher colony": 1,
-  "Bihar|near Power Grid": 2,
-  "Bihar|RJ G": 1,
+  "Bihar|near Power Grid": 6,
+  "Bihar|RJ G": 2,
   "Bihar|Prabhat Colony": 1,
   "Bihar|Lohia Nagar": 1,
   "Bihar|Railway Colony": 1,
@@ -530,5 +530,12 @@
   "Bihar|Gour": 1,
   "Bihar|Baghra": 2,
   "Bihar|owsier more": 1,
-  "Bihar|Shiauuta": 1
+  "Bihar|Shiauuta": 1,
+  "Bihar|New Tarachak": 1,
+  "Bihar|Rahimpur": 1,
+  "Bihar|Dharahra": 2,
+  "Bihar|Milan pally": 1,
+  "Bihar|Bhatabari": 1,
+  "Bihar|Kaalpeer": 1,
+  "Bihar|Mori Bache": 1
 }
