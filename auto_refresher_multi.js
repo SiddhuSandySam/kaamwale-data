@@ -4,18 +4,15 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 /**
- * WORKER CONFIGURATION
+ * 🎯 ON-DEMAND IMAGE REFRESHER (STRICT QUEUE MODE)
+ * Only processes what's in 'RefreshQueue' sheet.
  */
 const args = process.argv.slice(2);
 const WORKER_ID = args[0] !== undefined ? parseInt(args[0]) : 0;
 const TOTAL_WORKERS = args[1] !== undefined ? parseInt(args[1]) : 1;
 
 const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7pjLoQRMlnmN6vps8QvgHf3oxEA6eSuSNg0KmsBxYAcsPKeg/exec";
-const REFRESH_REGISTRY_FILE = path.join(__dirname, `refresh_registry_W${WORKER_ID}.json`);
-const PROGRESS_FILE = path.join(__dirname, `progress_refresh_W${WORKER_ID}.json`);
 const LOG_FILE = path.join(__dirname, `refresh_logs_W${WORKER_ID}.txt`);
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-const BATCH_LIMIT = 30;
 
 function writeLog(msg) {
     const timestamp = new Date().toLocaleString();
@@ -24,46 +21,7 @@ function writeLog(msg) {
     fs.appendFileSync(LOG_FILE, logMsg);
 }
 
-let sheetBuffer = [];
 let stateUrls = {};
-let refreshRegistry = {};
-let progress = { stateIndex: 0, offset: 0 };
-
-if (fs.existsSync(REFRESH_REGISTRY_FILE)) {
-    try { refreshRegistry = JSON.parse(fs.readFileSync(REFRESH_REGISTRY_FILE)); } catch(e) {}
-}
-if (fs.existsSync(PROGRESS_FILE)) {
-    try { progress = JSON.parse(fs.readFileSync(PROGRESS_FILE)); } catch(e) {}
-}
-
-function saveState() {
-    fs.writeFileSync(REFRESH_REGISTRY_FILE, JSON.stringify(refreshRegistry, null, 2));
-    fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
-}
-
-async function flushBuffer(stateName) {
-    if (sheetBuffer.length === 0) return;
-    const targetUrl = stateUrls[stateName] || HUB_URL;
-    writeLog(`🚀 SYNCING BATCH: ${sheetBuffer.length} updates to [${stateName}]...`);
-    try {
-        const payload = { type: "BATCH_IMAGE_UPDATE", updates: sheetBuffer };
-        const resp = await axios.post(targetUrl, payload, { timeout: 120000 });
-        if (String(resp.data).includes("Success")) {
-            writeLog(`✅ BATCH SUCCESS: ${sheetBuffer.length} records updated.`);
-            sheetBuffer = [];
-        } else {
-            writeLog(`⚠️ SERVER BUSY: ${resp.data}.`);
-        }
-    } catch (e) { writeLog(`❌ SYNC ERROR: ${e.message}`); }
-}
-
-async function isBroken(url) {
-    if (!url || !url.includes('googleusercontent.com')) return true;
-    try {
-        const resp = await axios.head(url, { timeout: 5000 });
-        return resp.status !== 200;
-    } catch (e) { return true; }
-}
 
 async function extractPortfolio(page) {
     try {
@@ -74,8 +32,9 @@ async function extractPortfolio(page) {
         return await page.evaluate(() => {
             const links = new Set();
             document.querySelectorAll('img').forEach(img => {
-                if (img.src && img.src.includes('googleusercontent.com') && !img.src.includes('/a/')) {
-                    links.add(img.src.split('=')[0].split('/s')[0]);
+                const src = img.src || "";
+                if (src.includes('googleusercontent.com') && !src.includes('/a/')) {
+                    links.add(src.split('=')[0].split('/s')[0]);
                 }
             });
             return Array.from(links).map(b => `${b}=s1000`).slice(0, 15);
@@ -83,105 +42,117 @@ async function extractPortfolio(page) {
     } catch (e) { return []; }
 }
 
-async function checkPhoneAndRefresh(page, p, dbPhone, stateName) {
+async function markAsDone(id) {
     try {
-        await page.waitForSelector('button[data-item-id^="phone"]', { timeout: 10000 }).catch(() => {});
+        await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: id });
+        writeLog(`🧹 QUEUE CLEANED: ${id} removed.`);
+    } catch (e) { writeLog(`⚠️ Queue removal failed for ${id}: ${e.message}`); }
+}
+
+async function runWorker() {
+    writeLog(`🚀 Worker Starting... (Partition: ${WORKER_ID}/${TOTAL_WORKERS})`);
+
+    try {
+        // 1. Load Routing Table (State URLs) Once
+        writeLog("📥 Fetching routing table...");
+        const hubResp = await axios.get(`${HUB_URL}?type=app_data&nocache=true`);
+        stateUrls = hubResp.data.stateUrls || {};
+
+        // 2. Fetch Active Tasks from Queue
+        writeLog("📥 Fetching tasks from RefreshQueue...");
+        const queueResp = await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" });
+        const allTasks = Array.isArray(queueResp.data) ? queueResp.data : [];
+
+        // 3. Filter for this worker
+        const myTasks = allTasks.filter((task, index) => index % TOTAL_WORKERS === WORKER_ID);
+        writeLog(`📋 Task Distribution: My Work = ${myTasks.length} / Total = ${allTasks.length}`);
+
+        if (myTasks.length === 0) {
+            writeLog("✅ QUEUE EMPTY. No actions needed. Worker exiting.");
+            return;
+        }
+
+        const browser = await chromium.launch({ headless: false });
+        const context = await browser.newContext();
+        const page = await context.newPage();
+
+        for (const task of myTasks) {
+            const dbPhone = String(task.id).replace('shadow_', '');
+            writeLog(`\n🔍 SCANNING: ${task.name} (${dbPhone}) in ${task.addr}`);
+
+            try {
+                await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(task.name + ", " + task.addr)}`, { timeout: 60000 });
+
+                const status = await Promise.race([
+                    page.waitForSelector('a.hfpxzc', { timeout: 12000 }).then(() => "LIST").catch(() => null),
+                    page.waitForSelector('button[data-item-id^="phone"]', { timeout: 12000 }).then(() => "SINGLE").catch(() => null)
+                ]);
+
+                let matched = false;
+                if (status === "SINGLE") {
+                    matched = await checkAndSync(page, task, dbPhone);
+                } else if (status === "LIST") {
+                    writeLog(`📋 List View Found. Checking top 5 results...`);
+                    const listings = await page.$$('a.hfpxzc');
+                    for (let j = 0; j < Math.min(listings.length, 5); j++) {
+                        await listings[j].click();
+                        await page.waitForTimeout(2500); // Wait for info panel to slide in
+                        if (await checkAndSync(page, task, dbPhone)) {
+                            matched = true; break;
+                        }
+                    }
+                }
+
+                if (matched) {
+                    await markAsDone(task.id);
+                } else {
+                    writeLog(`❌ FAILED: Phone number mismatch or profile not found for ${task.name}`);
+                }
+            } catch (err) {
+                writeLog(`⚠️ Error processing ${task.name}: ${err.message}`);
+            }
+        }
+        await browser.close();
+        writeLog("\n🏁 WORKER JOB COMPLETED.");
+    } catch (e) {
+        writeLog(`❌ FATAL ERROR: ${e.message}`);
+    }
+}
+
+async function checkAndSync(page, task, dbPhone) {
+    try {
+        await page.waitForSelector('button[data-item-id^="phone"]', { timeout: 5000 }).catch(() => {});
         const mapsPhone = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
         const cleanMapsPhone = mapsPhone.replace(/[^0-9]/g, '').slice(-10);
 
         if (cleanMapsPhone === dbPhone) {
-            let portfolio = await extractPortfolio(page);
+            const portfolio = await extractPortfolio(page);
             if (portfolio.length > 0) {
-                sheetBuffer.push({
-                    id: String(p.id),
+                const payload = {
+                    type: "IMAGE_UPDATE",
+                    id: task.id,
+                    state: task.state,
                     profilePhotoUrl: portfolio[0].split('=')[0] + '=w500-h500-k-no',
                     portfolioUrls: portfolio.join(',')
-                });
-                refreshRegistry[p.id] = Date.now();
-                writeLog(`✅ SUCCESS: ${p.businessName} matched and updated.`);
-                return true;
+                };
+
+                const targetUrl = stateUrls[task.state] || HUB_URL;
+                const resp = await axios.post(targetUrl, payload, { timeout: 30000 });
+
+                if (String(resp.data).includes("Success")) {
+                    writeLog(`✅ SYNC SUCCESS: Images updated for ${task.name}`);
+                    return true;
+                } else {
+                    writeLog(`⚠️ HUB REJECTED: ${resp.data}`);
+                }
             } else {
-                writeLog(`⚠️ SKIP: ${p.businessName} matched but no photos found.`);
+                writeLog(`⚠️ NO PHOTOS: Found profile but no images for ${task.name}`);
             }
         } else {
-            writeLog(`❌ MISMATCH: ${p.businessName} (Found: ${cleanMapsPhone || "None"}, Expected: ${dbPhone})`);
+            writeLog(`❌ PHONE MISMATCH: Found ${cleanMapsPhone || "none"} (Expected ${dbPhone})`);
         }
-    } catch (e) { writeLog(`⚠️ ERROR checking profile: ${e.message}`); }
+    } catch (e) { writeLog(`⚠️ Sync check failed: ${e.message}`); }
     return false;
-}
-
-async function runWorker() {
-    writeLog(`🚀 SMART WORKER STARTING | Partition: ${WORKER_ID}/${TOTAL_WORKERS}`);
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext();
-    const page = await context.newPage();
-
-    try {
-        const hubResp = await axios.get(`${HUB_URL}?type=app_data&nocache=true`);
-        stateUrls = hubResp.data.stateUrls;
-        const states = Object.keys(stateUrls);
-
-        for (let sIdx = progress.stateIndex; sIdx < states.length; sIdx++) {
-            const stateName = states[sIdx]; progress.stateIndex = sIdx;
-            const stateUrl = stateUrls[stateName];
-            writeLog(`\n🏙️ STATE: ${stateName}`);
-
-            let currentOffset = progress.offset;
-            let limit = 200;
-
-            while (true) {
-                const resp = await axios.get(`${stateUrl}?type=providers&offset=${currentOffset}&limit=${limit}`).catch(() => ({data: []}));
-                const providers = resp.data;
-                if (!Array.isArray(providers) || providers.length === 0) break;
-
-                for (let i = 0; i < providers.length; i++) {
-                    if ((currentOffset + i) % TOTAL_WORKERS !== WORKER_ID) continue;
-
-                    const p = providers[i];
-                    const dbPhone = String(p.id).replace('shadow_', '');
-                    const lastRef = refreshRegistry[p.id] || 0;
-
-                    if (Date.now() - lastRef > SEVEN_DAYS_MS || await isBroken(p.profilePhotoUrl)) {
-                        writeLog(`🔍 PROCESSING: ${p.businessName} (${dbPhone})`);
-                        await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(p.businessName + ", " + p.fullAddress)}`, { timeout: 60000 });
-
-                        const status = await Promise.race([
-                            page.waitForSelector('a.hfpxzc', { timeout: 10000 }).then(() => "LIST").catch(() => null),
-                            page.waitForSelector('button[data-item-id^="phone"]', { timeout: 10000 }).then(() => "SINGLE").catch(() => null)
-                        ]);
-
-                        if (status === "SINGLE") {
-                            await checkPhoneAndRefresh(page, p, dbPhone, stateName);
-                        } else if (status === "LIST") {
-                            writeLog(`📋 LIST VIEW: Checking top 5 results for ${p.businessName}...`);
-                            const listings = await page.$$('a.hfpxzc');
-                            let matched = false;
-                            for (let j = 0; j < Math.min(listings.length, 5); j++) {
-                                await listings[j].click();
-                                await page.waitForTimeout(2000); // Wait for panel update
-                                if (await checkPhoneAndRefresh(page, p, dbPhone, stateName)) {
-                                    matched = true;
-                                    break;
-                                }
-                            }
-                            if (!matched) writeLog(`❌ NO MATCH FOUND in list for ${p.businessName}`);
-                        } else {
-                            writeLog(`❓ NOT FOUND: Google Maps couldn't find ${p.businessName}`);
-                        }
-
-                        if (sheetBuffer.length >= BATCH_LIMIT) await flushBuffer(stateName);
-                        saveState();
-                    }
-                }
-                currentOffset += limit; progress.offset = currentOffset;
-                saveState();
-            }
-            await flushBuffer(stateName);
-            progress.offset = 0;
-            saveState();
-        }
-    } catch (e) { writeLog(`❌ FATAL: ${e.message}`); }
-    finally { await browser.close(); writeLog("🏁 WORKER FINISHED."); }
 }
 
 runWorker();
