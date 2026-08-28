@@ -355,44 +355,54 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
             }
             detectedLocality = foundLocality || detectedCity;
 
-            // 🚀 AUTO-DISCOVERY: Suggest new cities or areas if not in config
+            // 🚀 EXPANDED AUTO-DISCOVERY: खऱ्या अर्थाने गावं आणि परिसर शोधणे
             try {
-                // Look at both the detected city and locality (index -1 and -2)
-                const candidates = [detectedCity, detectedLocality];
+                const JUNK_KEYWORDS = [
+                    'building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block',
+                    'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'station', 'bus stop', 'society',
+                    'apt', 'apartment', 'villa', 'tower', 'beside', 'behind', 'temple', 'hospital', 'school', 'church',
+                    'masjid', 'gate', 'mall', 'market', 'complex', 'center', 'centre', 'chowk', 'circle', 'bypass', 'yard',
+                    'ward', 'street', 'gali', 'sector', 'khasra'
+                ];
 
-                candidates.forEach(name => {
-                    if (!name || name === "N/A") return;
+                // आपण स्टेटच्या आधीचे ४ भाग तपासूया (उदा. [वाडा], [गाव], [तालुका], [जिल्हा])
+                for (let offset = 1; offset <= 4; offset++) {
+                    const idx = stateIdx - offset;
+                    if (idx < 0) break;
 
-                    // 🛡️ CLEAN NAME: Remove pincodes (numbers) and special characters
-                    const cleanName = name.replace(/[0-9]/g, '').replace(/[\+\#\-\/\&]/g, '').trim();
+                    const rawName = addressParts[idx].trim();
+                    const nameLower = rawName.toLowerCase();
 
-                    if (cleanName.length < 3) return;
+                    // 🛡️ FILTERS: Junk शब्द किंवा प्लस कोड असल्यास वगळा
+                    const isPlusCode = rawName.includes('+');
+                    const isJunkCode = /^[0-9\-\/\&\s\.\#]+$/.test(rawName) || (rawName.length <= 5 && /[0-9]/.test(rawName));
+                    const hasJunkWords = JUNK_KEYWORDS.some(k => nameLower.includes(k));
 
-                    const isExisting = config.states.some(s =>
-                        s.name.toLowerCase().includes(state.toLowerCase()) &&
-                        s.cities.some(c => c.toLowerCase() === cleanName.toLowerCase())
-                    );
+                    if (!isPlusCode && !isJunkCode && !hasJunkWords && rawName.length > 2) {
+                        // नावातून पिनकोड किंवा नंबर काढून टाका
+                        const cleanName = rawName.replace(/[0-9]/g, '').replace(/[\+\#\-\/\&]/g, '').trim();
+                        if (cleanName.length < 3) continue;
 
-                    if (!isExisting) {
-                        console.log(`Worker ${WORKER_ID} | DISCOVERY | 💡 NEW AREA DETECTED: [${cleanName}] in [${state}]`);
-                        const discoveryFile = path.join(__dirname, `discovered_W${WORKER_ID}.json`);
-                        let discoveries = {};
+                        const isExisting = config.states.some(s =>
+                            s.name.toLowerCase().includes(state.toLowerCase()) &&
+                            s.cities.some(c => c.toLowerCase() === cleanName.toLowerCase())
+                        );
 
-                        if (fs.existsSync(discoveryFile)) {
-                            try {
-                                discoveries = JSON.parse(fs.readFileSync(discoveryFile));
-                            } catch (parseErr) { discoveries = {}; }
+                        if (!isExisting) {
+                            console.log(`Worker ${WORKER_ID} | DISCOVERY | 💡 NEW AREA: [${cleanName}] in [${state}]`);
+                            const discoveryFile = path.join(__dirname, `discovered_W${WORKER_ID}.json`);
+                            let discoveries = {};
+                            if (fs.existsSync(discoveryFile)) {
+                                try { discoveries = JSON.parse(fs.readFileSync(discoveryFile)); } catch (e) { discoveries = {}; }
+                            }
+                            const key = `${state}|${cleanName}`;
+                            discoveries[key] = (discoveries[key] || 0) + 1;
+                            fs.writeFileSync(discoveryFile, JSON.stringify(discoveries, null, 2));
                         }
-
-                        const key = `${state}|${cleanName}`;
-                        discoveries[key] = (discoveries[key] || 0) + 1;
-
-                        fs.writeFileSync(discoveryFile, JSON.stringify(discoveries, null, 2));
-                        // console.log(`Worker ${WORKER_ID} | DISCOVERY | Logged: ${cleanName} (Confidence: ${discoveries[key]})`);
                     }
-                });
+                }
             } catch (e) {
-                console.error(`Worker ${WORKER_ID} | DISCOVERY | ❌ Error writing discovery file: ${e.message}`);
+                console.error(`Worker ${WORKER_ID} | DISCOVERY | ❌ Error: ${e.message}`);
             }
         }
 
