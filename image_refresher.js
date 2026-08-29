@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * 🚀 HYBRID IMAGE REFRESHER & DATA REPAIR (V171 - FULL REPAIR ENGINE)
- * Purpose: Refresh images AND repair ALL missing/bad data fields in Sheet.
+ * 🚀 HYBRID IMAGE REFRESHER & REPAIR (V172 - BATCH 10 ENGINE)
+ * Purpose: Refresh, Repair, and Deactivate Closed leads in Batches of 10.
  */
 
 const args = process.argv.slice(2);
@@ -16,6 +16,9 @@ const HUB_URL = "https://script.google.com/macros/s/AKfycbwusItVLmzBrHG_kTXCno7p
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 
 const summary = { updated: [], discovered: [], deactivated: [] };
+let updateBatch = [];
+let discoveryBatch = [];
+let doneBatch = [];
 
 let config = { states: [] };
 if (fs.existsSync(CONFIG_FILE)) {
@@ -26,6 +29,26 @@ function writeLog(msg) {
     const timestamp = new Date().toLocaleString();
     console.log(`[W${WORKER_ID}] ${msg}`);
     fs.appendFileSync(path.join(__dirname, `refresh_logs_W${WORKER_ID}.txt`), `[${timestamp}] ${msg}\n`);
+}
+
+async function flushBatches() {
+    if (updateBatch.length > 0) {
+        writeLog(`📤 Flushing ${updateBatch.length} Updates to Hub...`);
+        const r = await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: updateBatch });
+        writeLog(`   📡 Update Response: ${r.data}`);
+        updateBatch = [];
+    }
+    if (discoveryBatch.length > 0) {
+        writeLog(`🌟 Flushing ${discoveryBatch.length} Discoveries to Hub...`);
+        const r = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: discoveryBatch });
+        writeLog(`   📡 Discovery Response: ${r.data}`);
+        discoveryBatch = [];
+    }
+    if (doneBatch.length > 0) {
+        writeLog(`🧹 Cleaning ${doneBatch.length} items from Queue...`);
+        await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: doneBatch });
+        doneBatch = [];
+    }
 }
 
 function processAddressDiscovery(fullAddress, state) {
@@ -49,7 +72,6 @@ function processAddressDiscovery(fullAddress, state) {
                 const key = `${state}|${clean}`;
                 discoveries[key] = (discoveries[key] || 0) + 1;
                 fs.writeFileSync(discoveryFile, JSON.stringify(discoveries, null, 2));
-                writeLog(`      🏙️ NEW AREA DISCOVERED: ${clean} in ${state}`);
             }
         }
     } catch (e) {}
@@ -75,21 +97,16 @@ async function extractPortfolio(page) {
         });
         const photoBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
         if (photoBtn) {
-            writeLog("      📂 Opening Gallery...");
             await photoBtn.click({ force: true }).catch(() => {});
             await page.waitForTimeout(5000);
-            for (let i = 0; i < 8; i++) {
-                await page.mouse.wheel(0, 1500);
-                await page.waitForTimeout(800);
-            }
+            for (let i = 0; i < 8; i++) { await page.mouse.wheel(0, 1500); await page.waitForTimeout(800); }
             await page.waitForTimeout(2000);
         }
         return await page.evaluate(() => {
             const links = new Set();
             document.querySelectorAll('img').forEach(el => {
                 if (el.src && el.src.includes('googleusercontent.com') && !el.src.includes('/a/')) {
-                    let base = el.src.split('=')[0];
-                    if (base.includes('/s')) base = base.split('/s')[0];
+                    let base = el.src.split('=')[0].split('/s')[0];
                     links.add(base + '=s1000');
                 }
             });
@@ -98,90 +115,8 @@ async function extractPortfolio(page) {
     } catch (e) { return []; }
 }
 
-async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCat, targetSub) {
-    try {
-        // 🚀 TEMPORARILY CLOSED FILTER
-        const isClosed = await page.evaluate(() => {
-            const t = document.body.innerText.toLowerCase();
-            return t.includes('temporarily closed') || t.includes('अस्थायी रूप से बंद');
-        });
-
-        if (isClosed && nameRaw.toLowerCase().includes(task.name.toLowerCase().substring(0,3))) {
-            writeLog(`🚫 DEACTIVATING: ${nameRaw} is Closed.`);
-            await axios.post(HUB_URL, { type: "DELETE_ENTRIES", id: task.id });
-            summary.deactivated.push(`${nameRaw} (${dbPhone})`);
-            return { status: "DEACTIVATED" };
-        }
-
-        const mapsPhone = await extractPhone(page);
-        const cleanMapsPhone = mapsPhone !== "NOT_FOUND" ? mapsPhone.replace(/[^0-9]/g, '').slice(-10) : "NOT_FOUND";
-        const isMatch = (cleanMapsPhone !== "NOT_FOUND") && (dbPhone.includes(cleanMapsPhone) || cleanMapsPhone.includes(dbPhone));
-
-        const url = page.url();
-        let lat = 0, lon = 0;
-        const pm = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
-        const fm = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-        if (pm) { lat = parseFloat(pm[1]); lon = parseFloat(pm[2]); }
-        else if (fm) { lat = parseFloat(fm[1]); lon = parseFloat(fm[2]); }
-
-        const addrRaw = await page.$eval('button[data-item-id="address"]', el => el.innerText).catch(() => "N/A");
-        const cleanAddr = addrRaw.replace('\n', '').replace('', '').trim();
-
-        const keywords = await page.evaluate(() => {
-            const cat = document.querySelector('button[jsaction="pane.rating.category"]')?.innerText || "";
-            const tags = Array.from(document.querySelectorAll('.YR19ub')).map(el => el.innerText).join(",");
-            return (cat + "," + tags).split(',').map(s => s.trim()).filter(s => s.length > 2).join(",");
-        });
-        const portfolio = await extractPortfolio(page);
-
-        if (isMatch) {
-            writeLog(`✅ MATCH: Deep Repairing ${nameRaw}...`);
-            processAddressDiscovery(cleanAddr, task.state);
-            summary.updated.push(`${nameRaw} (${dbPhone})`);
-            return {
-                status: "UPDATE",
-                data: {
-                    id: task.id, state: task.state,
-                    profilePhotoUrl: portfolio[0] ? portfolio[0].replace('=s1000', '=w500-h500-k-no') : "",
-                    portfolioUrls: portfolio.join(','),
-                    searchKeywords: keywords || nameRaw,
-                    primaryCategoryId: targetCat, subcategory: targetSub,
-                    latitude: lat, longitude: lon, fullAddress: cleanAddr,
-                    city: targetCity, locality: targetCity,
-                    experienceYears: Math.floor(Math.random() * 5) + 3,
-                    serviceMode: "Local", startingPrice: 0, priceUnit: "Discuss on Call",
-                    aboutDescription: `Professional ${targetSub} services in ${targetCity}. High-quality work guaranteed by local experts.`
-                }
-            };
-        } else if (cleanMapsPhone.length === 10 && lat !== 0 && portfolio.length > 0) {
-            writeLog(`💡 DISCOVERY: Found ${nameRaw} (${cleanMapsPhone})`);
-            processAddressDiscovery(cleanAddr, task.state);
-            summary.discovered.push(`${nameRaw} (${cleanMapsPhone})`);
-            return {
-                status: "DISCOVERY",
-                data: {
-                    id: `shadow_${cleanMapsPhone}`, businessName: nameRaw,
-                    primaryCategoryId: targetCat, subcategory: targetSub,
-                    experienceYears: 3, serviceMode: "Local",
-                    city: targetCity, locality: targetCity, state: task.state,
-                    startingPrice: 0, priceUnit: "Discuss on Call",
-                    whatsappNumber: cleanMapsPhone, callNumber: cleanMapsPhone,
-                    aboutDescription: `Professional ${targetSub} services in ${targetCity}.`,
-                    isApproved: true, isVerified: false, rating: 0.0,
-                    profilePhotoUrl: portfolio[0] ? portfolio[0].replace('=s1000', '=w500-h500-k-no') : "",
-                    portfolioUrls: portfolio.join(','),
-                    searchKeywords: keywords || nameRaw, lastSeen: Date.now(),
-                    latitude: lat, longitude: lon, fullAddress: cleanAddr,
-                    referredBy: "V171_REPAIR_ENGINE"
-                }
-            };
-        }
-        return { status: "NONE" };
-    } catch (e) { return { status: "ERROR" }; }
-}
-
 async function runWorker() {
-    writeLog(`🚀 Refresher V171 Starting (Headless: FALSE)`);
+    writeLog(`🚀 Batch Refresher V172 Starting (Headless: FALSE)`);
     try {
         const queueResp = await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" });
         const allTasks = Array.isArray(queueResp.data) ? queueResp.data : [];
@@ -192,7 +127,9 @@ async function runWorker() {
         const page = await browser.newPage();
 
         for (const task of myTasks) {
-            if (!task.city || !task.categoryId || !task.subcategory) continue;
+            if (!task.city || !task.categoryId || !task.subcategory) {
+                doneBatch.push(task.id); continue;
+            }
             const dbPhone = String(task.id).replace('shadow_', '');
             const searchQuery = `${task.subcategory} in ${task.city}, ${task.state}`;
 
@@ -208,40 +145,83 @@ async function runWorker() {
                 let found = false;
                 if (status === "SINGLE") {
                     const name = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "Unknown");
-                    const res = await processProfile(page, task, dbPhone, name, task.city, task.categoryId, task.subcategory);
-                    if (res.status === "UPDATE" || res.status === "DEACTIVATED") {
-                        if (res.status === "UPDATE") await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: [res.data] });
-                        await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
-                        found = true;
-                    }
+                    const res = await processProfile(page, task, dbPhone, name);
+                    if (res) found = true;
                 } else if (status === "LIST") {
                     const listings = await page.$$('a.hfpxzc');
                     for (let i = 0; i < Math.min(listings.length, 8); i++) {
                         const items = await page.$$('a.hfpxzc');
                         if (!items[i]) break;
                         const nameRaw = await items[i].getAttribute('aria-label').catch(() => "Unknown");
-
                         await items[i].click({ force: true });
                         await page.waitForTimeout(3000);
-                        const res = await processProfile(page, task, dbPhone, nameRaw, task.city, task.categoryId, task.subcategory);
-                        if (res.status === "UPDATE" || res.status === "DEACTIVATED") {
-                            if (res.status === "UPDATE") await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: [res.data] });
-                            await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
-                            found = true; break;
-                        } else if (res.status === "DISCOVERY") {
-                            await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: [res.data] });
-                        }
+                        const res = await processProfile(page, task, dbPhone, nameRaw);
+                        if (res) { found = true; break; }
                         const back = await page.$('button[aria-label*="Back"], button[aria-label*="मागे"]');
                         if (back) { await back.click(); await page.waitForTimeout(1500); }
                     }
                 }
-                if (!found) await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
-            } catch (err) {}
+
+                doneBatch.push(task.id);
+                if (updateBatch.length >= 10 || discoveryBatch.length >= 10 || doneBatch.length >= 10) await flushBatches();
+
+            } catch (err) { writeLog(`❌ Task Error: ${err.message}`); }
         }
+        await flushBatches();
         await browser.close();
 
-        console.log("\n📊 FINAL SUMMARY REPORT (V171)");
+        console.log("\n📊 FINAL SUMMARY REPORT (V172)");
         console.log(`✅ UPDATED: ${summary.updated.length}\n🌟 DISCOVERED: ${summary.discovered.length}\n🚫 DEACTIVATED: ${summary.deactivated.length}`);
     } catch (e) { writeLog(`🔥 Error: ${e.message}`); }
 }
+
+async function processProfile(page, task, dbPhone, nameRaw) {
+    try {
+        const isClosed = await page.evaluate(() => document.body.innerText.toLowerCase().includes('temporarily closed'));
+        if (isClosed && nameRaw.toLowerCase().includes(task.name.toLowerCase().substring(0,3))) {
+            await axios.post(HUB_URL, { type: "DELETE_ENTRIES", id: task.id });
+            summary.deactivated.push(`${nameRaw} (${dbPhone})`);
+            return true;
+        }
+
+        const mapsPhone = await extractPhone(page);
+        const cleanMapsPhone = mapsPhone !== "NOT_FOUND" ? mapsPhone.replace(/[^0-9]/g, '').slice(-10) : "NOT_FOUND";
+        const isMatch = (cleanMapsPhone !== "NOT_FOUND") && (dbPhone.includes(cleanMapsPhone) || cleanMapsPhone.includes(dbPhone));
+
+        const url = page.url();
+        let lat = 0, lon = 0;
+        const pm = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+        const fm = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (pm) { lat = parseFloat(pm[1]); lon = parseFloat(pm[2]); }
+        else if (fm) { lat = parseFloat(fm[1]); lon = parseFloat(fm[2]); }
+
+        const addrRaw = await page.$eval('button[data-item-id="address"]', el => el.innerText).catch(() => "N/A");
+        const cleanAddr = addrRaw.replace('\n', '').replace('', '').trim();
+        const portfolio = await extractPortfolio(page);
+
+        if (isMatch) {
+            writeLog(`✅ MATCH: Repairing ${nameRaw}...`);
+            processAddressDiscovery(cleanAddr, task.state);
+            updateBatch.push({
+                id: task.id, state: task.state, profilePhotoUrl: portfolio[0] || "", portfolioUrls: portfolio.join(','),
+                primaryCategoryId: task.categoryId, subcategory: task.subcategory,
+                latitude: lat, longitude: lon, fullAddress: cleanAddr, city: task.city, locality: task.city,
+                aboutDescription: `Professional ${task.subcategory} services in ${task.city}. High-quality work guaranteed.`
+            });
+            summary.updated.push(`${nameRaw} (${dbPhone})`);
+            return true;
+        } else if (cleanMapsPhone.length === 10 && lat !== 0 && portfolio.length > 0) {
+            discoveryBatch.push({
+                id: `shadow_${cleanMapsPhone}`, businessName: nameRaw, primaryCategoryId: task.categoryId, subcategory: task.subcategory,
+                experienceYears: 3, serviceMode: "Local", city: task.city, locality: task.city, state: task.state,
+                whatsappNumber: cleanMapsPhone, callNumber: cleanMapsPhone, isApproved: true,
+                profilePhotoUrl: portfolio[0] || "", portfolioUrls: portfolio.join(','),
+                lastSeen: Date.now(), latitude: lat, longitude: lon, fullAddress: cleanAddr, referredBy: "V172_BATCH"
+            });
+            summary.discovered.push(`${nameRaw} (${cleanMapsPhone})`);
+        }
+        return false;
+    } catch (e) { return false; }
+}
+
 runWorker();
