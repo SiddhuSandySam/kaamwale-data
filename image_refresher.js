@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * 🚀 HYBRID IMAGE REFRESHER & DATA REPAIR (V170 - RESTORED & RIGID)
- * Features: processAddressDiscovery, Full Repair, Closed Filter, Headless False.
+ * 🚀 HYBRID IMAGE REFRESHER & DATA REPAIR (V171 - FULL REPAIR ENGINE)
+ * Purpose: Refresh images AND repair ALL missing/bad data fields in Sheet.
  */
 
 const args = process.argv.slice(2);
@@ -75,6 +75,7 @@ async function extractPortfolio(page) {
         });
         const photoBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
         if (photoBtn) {
+            writeLog("      📂 Opening Gallery...");
             await photoBtn.click({ force: true }).catch(() => {});
             await page.waitForTimeout(5000);
             for (let i = 0; i < 8; i++) {
@@ -134,7 +135,7 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
         const portfolio = await extractPortfolio(page);
 
         if (isMatch) {
-            writeLog(`✅ MATCH: Repairing ${nameRaw}...`);
+            writeLog(`✅ MATCH: Deep Repairing ${nameRaw}...`);
             processAddressDiscovery(cleanAddr, task.state);
             summary.updated.push(`${nameRaw} (${dbPhone})`);
             return {
@@ -145,7 +146,11 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
                     portfolioUrls: portfolio.join(','),
                     searchKeywords: keywords || nameRaw,
                     primaryCategoryId: targetCat, subcategory: targetSub,
-                    latitude: lat, longitude: lon, fullAddress: cleanAddr
+                    latitude: lat, longitude: lon, fullAddress: cleanAddr,
+                    city: targetCity, locality: targetCity,
+                    experienceYears: Math.floor(Math.random() * 5) + 3,
+                    serviceMode: "Local", startingPrice: 0, priceUnit: "Discuss on Call",
+                    aboutDescription: `Professional ${targetSub} services in ${targetCity}. High-quality work guaranteed by local experts.`
                 }
             };
         } else if (cleanMapsPhone.length === 10 && lat !== 0 && portfolio.length > 0) {
@@ -161,12 +166,13 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
                     city: targetCity, locality: targetCity, state: task.state,
                     startingPrice: 0, priceUnit: "Discuss on Call",
                     whatsappNumber: cleanMapsPhone, callNumber: cleanMapsPhone,
+                    aboutDescription: `Professional ${targetSub} services in ${targetCity}.`,
                     isApproved: true, isVerified: false, rating: 0.0,
                     profilePhotoUrl: portfolio[0] ? portfolio[0].replace('=s1000', '=w500-h500-k-no') : "",
                     portfolioUrls: portfolio.join(','),
                     searchKeywords: keywords || nameRaw, lastSeen: Date.now(),
                     latitude: lat, longitude: lon, fullAddress: cleanAddr,
-                    referredBy: "V170_REPAIR_ENGINE"
+                    referredBy: "V171_REPAIR_ENGINE"
                 }
             };
         }
@@ -175,7 +181,7 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
 }
 
 async function runWorker() {
-    writeLog(`🚀 Refresher V170 Starting (Headless: FALSE)`);
+    writeLog(`🚀 Refresher V171 Starting (Headless: FALSE)`);
     try {
         const queueResp = await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" });
         const allTasks = Array.isArray(queueResp.data) ? queueResp.data : [];
@@ -234,7 +240,7 @@ async function runWorker() {
         }
         await browser.close();
 
-        console.log("\n📊 FINAL SUMMARY REPORT");
+        console.log("\n📊 FINAL SUMMARY REPORT (V171)");
         console.log(`✅ UPDATED: ${summary.updated.length}\n🌟 DISCOVERED: ${summary.discovered.length}\n🚫 DEACTIVATED: ${summary.deactivated.length}`);
     } catch (e) { writeLog(`🔥 Error: ${e.message}`); }
 }
