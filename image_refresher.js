@@ -130,13 +130,13 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
             return { status: "SKIP_STATE" };
         }
 
-        await page.waitForTimeout(1000);
         const urlCoords = page.url().match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || page.url().match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
         let lat = urlCoords ? parseFloat(urlCoords[1]) : 0;
         let lon = urlCoords ? parseFloat(urlCoords[2]) : 0;
+        writeLog(`      📍 Coordinates: ${lat}, ${lon}`);
 
         if (isMatch) {
-            writeLog(`      ✅ TARGET MATCH! (${cleanMapsPhone})`);
+            writeLog(`      ✅ TARGET MATCH! (Phone: ${cleanMapsPhone})`);
             const keywords = await page.evaluate(() => {
                 const cat = document.querySelector('button[jsaction="pane.rating.category"]')?.innerText || "";
                 const tags = Array.from(document.querySelectorAll('.YR19ub')).map(el => el.innerText).join(",");
@@ -242,7 +242,8 @@ async function runWorker() {
                     const name = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "Unknown");
                     const res = await processProfile(page, task, dbPhone, name, targetCity, targetCat, targetSub);
                     if (res.status === "UPDATE") {
-                        await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: [res.data] });
+                        const updResp = await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: [res.data] });
+                        writeLog(`      📡 Update Sync: ${updResp.data}`);
                         await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                         targetFound = true;
                     }
@@ -267,7 +268,8 @@ async function runWorker() {
 
                         const res = await processProfile(page, task, dbPhone, nameRaw, targetCity, targetCat, targetSub);
                         if (res.status === "UPDATE") {
-                            await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: [res.data] });
+                            const updResp = await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: [res.data] });
+                            writeLog(`      📡 Update Sync: ${updResp.data}`);
                             await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                             targetFound = true;
                         } else if (res.status === "DISCOVERY") {
