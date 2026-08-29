@@ -2,3 +2,142 @@
 [W0] [25/8/2026, 1:30:28 am] 
 --- State Start: Maharashtra ---
 [W0] [25/8/2026, 1:30:28 am] Fatal: browser.newPage: Target page, context or browser has been closed
+[W0] [30/8/2026, 1:37:48 am] 🚀 Hybrid Refresher Starting... (Worker: 0)
+[W0] [30/8/2026, 1:37:50 am] 📋 Task Queue: 12 assigned.
+[W0] [30/8/2026, 1:37:51 am] 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[W0] [30/8/2026, 1:37:51 am] 🔍 TASK: pandit ji for pooja in ulwe | Phone: 8422983322
+[W0] [30/8/2026, 1:37:51 am] 🔎 Search Query: Pandit in Navi Mumbai, Maharashtra
+[W0] [30/8/2026, 1:37:58 am] 📋 List View detected. Scanning top 12...
+[W0] [30/8/2026, 1:37:58 am]    [1] Checking: Nav Durga Astrologer in Navi Mumbai | Pandit for Puja in Nerul, Navi Mumbai | Vastu Consultant in Nerul, Navi Mumbai
+[W0] [30/8/2026, 1:37:59 am]       📍 Coordinates: 19.041339, 73.0126326
+[W0] [30/8/2026, 1:37:59 am]       💡 DISCOVERY! Found Nav Durga Astrologer in Navi Mumbai | Pandit for Puja in Nerul, Navi Mumbai | Vastu Consultant in Nerul, Navi Mumbai (9773557718)
+[W0] [30/8/2026, 1:37:59 am]       📸 Scraping Portfolio...
+[W0] [30/8/2026, 1:38:00 am]       📂 Opening Gallery...
+[W0] [30/8/2026, 1:38:14 am]       🏙️ NEW AREA DISCOVERED: Ganesh krupa CHS in Maharashtra
+[W0] [30/8/2026, 1:38:14 am]       🏙️ NEW AREA DISCOVERED: Juinagar in Maharashtra
+[W0] [30/8/2026, 1:38:14 am] 🌟 SENDING DISCOVERY PAYLOAD:
+{
+  "type": "BATCH_PROVIDER_SYNC",
+  "providers": [
+    {
+      "id": "shadow_9773557718",
+      "businessName": "Nav Durga Astrologer in Navi Mumbai | Pandit for Puja in Nerul, Navi Mumbai | Vastu Consultant in Nerul, Navi Mumbai",
+      "primaryCategoryId": "cat_spiritual",
+      "subcategory": "Pandit",
+      "experienceYears": 6,
+      "serviceMode": "Local",
+      "city": "Navi Mumbai",
+      "locality": "Navi Mumbai",
+      "state": "Maharashtra",
+      "startingPrice": 0,
+      "priceUnit": "Discuss on Call",
+      "whatsappNumber": "9773557718",
+      "callNumber": "9773557718",
+      "aboutDescription": "Professional Pandit services in Navi Mumbai.",
+      "isApproved": true,
+      "isVerified": false,
+      "rating": 0,
+      "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnqkqc6Q0JAZjhfYwESJ_90LdLvUo6ncTrZ7yffywJYCI69XqNqhBJV7V6snT2_xIdxeq_0kw-9IDoyIRdbcvCg3aB8OYPdz1_afbrXxwYFvZBgVNNxYITpUbmBhh4C6WFSEVp4=w500-h500-k-no",
+      "recommendationCount": 0,
+      "portfolioUrls": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnqkqc6Q0JAZjhfYwESJ_90LdLvUo6ncTrZ7yffywJYCI69XqNqhBJV7V6snT2_xIdxeq_0kw-9IDoyIRdbcvCg3aB8OYPdz1_afbrXxwYFvZBgVNNxYITpUbmBhh4C6WFSEVp4=s1000,https://lh3.googleusercontent.com/gps-cs-s/AHRPTWmhbDlsa7NaOnbU9jE_6WWFKfeUX9Wz99OtMsAbXghNkuWJ4W3L5F9E6g1hh58iHO8FhJS4FLe97bI_atgGxskamrDZCgp9ey_66woif8OYibKa48ygODfR5TCgxff0dgnEORiujSGtIs5i=s1000,https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnmIYMWSgIEh7rITyY13dthSG0al9CcASSkNXHp0Cqy7e966TpPqoII5DoZddq960qOw8yX3MLbF2sfNhu1UMRIo-XzBXUlvs2zy6Qn1dg2m59-uMLxV8QZQ1WonpNbt1XCop9w6xqiCG1v=s1000",
+      "searchKeywords": "Nav Durga Astrologer in Navi Mumbai | Pandit for Puja in Nerul, Navi Mumbai | Vastu Consultant in Nerul, Navi Mumbai",
+      "lastSeen": 1788034094101,
+      "callCount": 0,
+      "fullAddress": "A 204, Ganesh krupa CHS, sarsole sector 6 Nerul, w, Juinagar, Navi Mumbai, Maharashtra 400706",
+      "isNumberHidden": false,
+      "referredBy": "HYBRID_REFRESHER_V165",
+      "latitude": 19.041339,
+      "longitude": 73.0126326
+    }
+  ]
+}
+[W0] [30/8/2026, 1:39:04 am]       📡 Discovery Sync: Maharashtra: Success
+[W0] [30/8/2026, 1:39:06 am]    [2] Checking: Bhadrakali astrologer in Nerul Navi Mumbai Pandit for puja & kundli, horoscope, palmistry, vastu in Navi Mumbai
+[W0] [30/8/2026, 1:39:07 am]       📍 Coordinates: 19.0374771, 73.0172896
+[W0] [30/8/2026, 1:39:07 am]       💡 DISCOVERY! Found Bhadrakali astrologer in Nerul Navi Mumbai Pandit for puja & kundli, horoscope, palmistry, vastu in Navi Mumbai (9082364196)
+[W0] [30/8/2026, 1:39:07 am]       📸 Scraping Portfolio...
+[W0] [30/8/2026, 1:39:08 am]       📂 Opening Gallery...
+[W0] [30/8/2026, 1:39:21 am]       🏙️ NEW AREA DISCOVERED: Shree Dairy in Maharashtra
+[W0] [30/8/2026, 1:39:21 am]       🏙️ NEW AREA DISCOVERED: opposite Perfect choice in Maharashtra
+[W0] [30/8/2026, 1:39:21 am] 🌟 SENDING DISCOVERY PAYLOAD:
+{
+  "type": "BATCH_PROVIDER_SYNC",
+  "providers": [
+    {
+      "id": "shadow_9082364196",
+      "businessName": "Bhadrakali astrologer in Nerul Navi Mumbai Pandit for puja & kundli, horoscope, palmistry, vastu in Navi Mumbai",
+      "primaryCategoryId": "cat_spiritual",
+      "subcategory": "Pandit",
+      "experienceYears": 2,
+      "serviceMode": "Local",
+      "city": "Navi Mumbai",
+      "locality": "Navi Mumbai",
+      "state": "Maharashtra",
+      "startingPrice": 0,
+      "priceUnit": "Discuss on Call",
+      "whatsappNumber": "9082364196",
+      "callNumber": "9082364196",
+      "aboutDescription": "Professional Pandit services in Navi Mumbai.",
+      "isApproved": true,
+      "isVerified": false,
+      "rating": 0,
+      "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWn03iljN04xjnAJV9xqtor31fhcXCMThxHNfs9gN-HFy3_WwlCCKcPoke4gAjhZ3XG203GnXuPhIsa55D79iCfNffwAKjV9Vomb9_zAB-K3EwyIZEVbtIbZeuAsgNWj5TLHIcm0=w500-h500-k-no",
+      "recommendationCount": 0,
+      "portfolioUrls": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWn03iljN04xjnAJV9xqtor31fhcXCMThxHNfs9gN-HFy3_WwlCCKcPoke4gAjhZ3XG203GnXuPhIsa55D79iCfNffwAKjV9Vomb9_zAB-K3EwyIZEVbtIbZeuAsgNWj5TLHIcm0=s1000,https://lh3.googleusercontent.com/gps-cs-s/AHRPTWlGP2eoayLXq8Sk8qjAVhmtmaXd5YXY1ZnsIFRfJxhMhADsH_i3FTZV2YV2dsVcMXBN0vTHtZ9NGcOx7NrvhzcNl74Ne1DO2D8KbeiW3u6TGSJwsGGkGBuMrxGJkoWlRmFx3mN8=s1000,https://lh3.googleusercontent.com/gps-cs-s/AHRPTWn3F7r4OOat2X3wcEfu8Pw3Lfa4CnQb266OFPK_eSt3yKprKxb7H1BAt3miQ6GUxRGDGy0BRvvQ3TGoelFA9JRHzpzDjzjt3MEBME7mowzoT2qpXFfPSI2d-qL70uXjpa3zgf6efQ=s1000,https://lh3.googleusercontent.com/gps-cs-s/AHRPTWkRroYGp1nFzZqJjM4mFqKT-5qhk6ecPzsgKVEwo3r6BAlTTfwl5MFX0TMAkTuLuehOPUbnYJuOfdQPxk1VXrfhdve1tP3qjSSVr5mWUI0xeHfNHGqa6hRYQzBL6LTOdtxufJ8z=s1000",
+      "searchKeywords": "Bhadrakali astrologer in Nerul Navi Mumbai Pandit for puja & kundli, horoscope, palmistry, vastu in Navi Mumbai",
+      "lastSeen": 1788034161985,
+      "callCount": 0,
+      "fullAddress": "first floor, Shree Dairy, NL1B 18/6 sector 10 nerul west Sai baba hotal, road, opposite Perfect choice, Navi Mumbai, Maharashtra 400706",
+      "isNumberHidden": false,
+      "referredBy": "HYBRID_REFRESHER_V165",
+      "latitude": 19.0374771,
+      "longitude": 73.0172896
+    }
+  ]
+}
+[W0] [30/8/2026, 1:40:16 am]       📡 Discovery Sync: Maharashtra: Success
+[W0] [30/8/2026, 1:40:18 am]    [3] Checking: Sindhi Pandit in Mumbai
+[W0] [30/8/2026, 1:40:20 am]       📍 Coordinates: 19.0468929, 73.0103638
+[W0] [30/8/2026, 1:40:20 am]       💡 DISCOVERY! Found Sindhi Pandit in Mumbai (9322289255)
+[W0] [30/8/2026, 1:40:20 am]       📸 Scraping Portfolio...
+[W0] [30/8/2026, 1:40:20 am]       📂 Opening Gallery...
+[W0] [30/8/2026, 1:40:34 am]       🏙️ NEW AREA DISCOVERED: Sagar Sangam CHS in Maharashtra
+[W0] [30/8/2026, 1:40:34 am]       🏙️ NEW AREA DISCOVERED: West in Maharashtra
+[W0] [30/8/2026, 1:40:34 am]       🏙️ NEW AREA DISCOVERED: Nerul in Maharashtra
+[W0] [30/8/2026, 1:40:34 am] 🌟 SENDING DISCOVERY PAYLOAD:
+{
+  "type": "BATCH_PROVIDER_SYNC",
+  "providers": [
+    {
+      "id": "shadow_9322289255",
+      "businessName": "Sindhi Pandit in Mumbai",
+      "primaryCategoryId": "cat_spiritual",
+      "subcategory": "Pandit",
+      "experienceYears": 4,
+      "serviceMode": "Local",
+      "city": "Navi Mumbai",
+      "locality": "Navi Mumbai",
+      "state": "Maharashtra",
+      "startingPrice": 0,
+      "priceUnit": "Discuss on Call",
+      "whatsappNumber": "9322289255",
+      "callNumber": "9322289255",
+      "aboutDescription": "Professional Pandit services in Navi Mumbai.",
+      "isApproved": true,
+      "isVerified": false,
+      "rating": 0,
+      "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnOej0mC1ininNDbzOcWD8sRL2uNlNbqSPh7Xh5nE4qtSzi01flEK4OaOOGOVAUft_7nSKauWe57dieV2uaPFve2fXK9f9X5DbYfHSKsJ2VwsWbjCVXeX0RtswPY03YNknTdYw=w500-h500-k-no",
+      "recommendationCount": 0,
+      "portfolioUrls": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnOej0mC1ininNDbzOcWD8sRL2uNlNbqSPh7Xh5nE4qtSzi01flEK4OaOOGOVAUft_7nSKauWe57dieV2uaPFve2fXK9f9X5DbYfHSKsJ2VwsWbjCVXeX0RtswPY03YNknTdYw=s1000,https://lh3.googleusercontent.com/gps-cs-s/AHRPTWn03iljN04xjnAJV9xqtor31fhcXCMThxHNfs9gN-HFy3_WwlCCKcPoke4gAjhZ3XG203GnXuPhIsa55D79iCfNffwAKjV9Vomb9_zAB-K3EwyIZEVbtIbZeuAsgNWj5TLHIcm0=s1000,https://lh3.googleusercontent.com/gps-cs-s/AHRPTWkjY5nz-aKNuo1h59fppWrd1kzAyziTOIT8h7gBsTWsgME74rLTC8ZvUxpZLExZWcc_fxdlKlkjaSP_ywdP1slxQZF1-h8-5Yh3Ie00GLiizObjp0JeolOhhuQe8j_okbQk0JDR=s1000,https://lh3.googleusercontent.com/gps-cs-s/AHRPTWkMt64scxdtqG5bYj5mAXGjGuUfTTB4TNEyU7hFItjnLDrQ8gnEkY_9-NFYm55c_76EjGf8oXVNXHdtJneICQhZXFX2nJQ0ctFpV-AxIdkMNrKOKCjS6klp2J_T_OxMYWedj_Jp6w=s1000,https://lh3.googleusercontent.com/gps-cs-s/AHRPTWn06Vji-9yClF-Fs7cJ9rcZr5OUw3cNTJQ_-GeMy8nsr76nTdv6R2wc8owKGWHD0cAFIaEGpbZDUfXq-dVRHWhDtIjbhAx1n1AdSNInGCFO74dQiU33YA3wKwKBZ0X6dpwtlQQ=s1000",
+      "searchKeywords": "Sindhi Pandit in Mumbai",
+      "lastSeen": 1788034234092,
+      "callCount": 0,
+      "fullAddress": "Sagar Sangam CHS, D29, West, Sector 4, Nerul, Navi Mumbai, Maharashtra 400706",
+      "isNumberHidden": false,
+      "referredBy": "HYBRID_REFRESHER_V165",
+      "latitude": 19.0468929,
+      "longitude": 73.0103638
+    }
+  ]
+}
