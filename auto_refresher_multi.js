@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * 🚀 AUTO REFRESHER MULTI-WORKER (V172 - BATCH 10 ENGINE)
- * Purpose: Process RefreshQueue with same logic as image_refresher.
+ * 🚀 AUTO REFRESHER MULTI-WORKER (V173 - MAXIMUM LOGGING EDITION)
+ * Features: Batch 10, Address Discovery, Full Repair, Verbose Logs.
  */
 
 const args = process.argv.slice(2);
@@ -20,26 +20,36 @@ let doneBatch = [];
 
 function writeLog(msg) {
     const timestamp = new Date().toLocaleString();
-    console.log(`[W${WORKER_ID}] ${msg}`);
+    console.log(`[W${WORKER_ID}] [${timestamp}] ${msg}`);
     fs.appendFileSync(path.join(__dirname, `refresh_logs_W${WORKER_ID}.txt`), `[${timestamp}] ${msg}\n`);
 }
 
 async function flushBatches() {
+    writeLog("⚡ STARTING BATCH FLUSH...");
     if (updateBatch.length > 0) {
-        writeLog(`📤 Flushing ${updateBatch.length} Updates...`);
-        await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: updateBatch });
-        updateBatch = [];
+        writeLog(`📤 Sending ${updateBatch.length} UPDATES...`);
+        try {
+            const r = await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: updateBatch });
+            writeLog(`   ✅ Hub Update Response: ${JSON.stringify(r.data)}`);
+            updateBatch = [];
+        } catch (e) { writeLog(`   ❌ Update Flush Error: ${e.message}`); }
     }
     if (discoveryBatch.length > 0) {
-        writeLog(`🌟 Flushing ${discoveryBatch.length} Discoveries...`);
-        await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: discoveryBatch });
-        discoveryBatch = [];
+        writeLog(`🌟 Sending ${discoveryBatch.length} DISCOVERIES...`);
+        try {
+            const r = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: discoveryBatch });
+            writeLog(`   ✅ Hub Discovery Response: ${JSON.stringify(r.data)}`);
+            discoveryBatch = [];
+        } catch (e) { writeLog(`   ❌ Discovery Flush Error: ${e.message}`); }
     }
     if (doneBatch.length > 0) {
         writeLog(`🧹 Cleaning ${doneBatch.length} items from Queue...`);
-        await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: doneBatch });
-        doneBatch = [];
+        try {
+            await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: doneBatch });
+            doneBatch = [];
+        } catch (e) {}
     }
+    writeLog("⚡ BATCH FLUSH COMPLETED.");
 }
 
 async function extractPhone(page) {
@@ -73,7 +83,7 @@ async function extractPortfolio(page) {
 }
 
 async function runWorker() {
-    writeLog(`🚀 Auto Refresher V172 Starting (Batch 10 Mode)`);
+    writeLog(`🚀 Auto Refresher V173 Starting... (Worker: ${WORKER_ID})`);
     try {
         const queueResp = await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" });
         const allTasks = Array.isArray(queueResp.data) ? queueResp.data : [];
@@ -88,6 +98,7 @@ async function runWorker() {
             const dbPhone = String(task.id).replace('shadow_', '');
             const searchQuery = `${task.subcategory} in ${task.city}, ${task.state}`;
 
+            writeLog(`\n━━━━━━━━━━━━━━ TASK: ${task.name} ━━━━━━━━━━━━━━`);
             try {
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}`);
                 await page.waitForTimeout(5000);
@@ -102,25 +113,30 @@ async function runWorker() {
                 } else if (status === "LIST") {
                     const listings = await page.$$('a.hfpxzc');
                     for (let i = 0; i < Math.min(listings.length, 5); i++) {
-                        await listings[i].click();
+                        const items = await page.$$('a.hfpxzc');
+                        if (!items[i]) break;
+                        await items[i].click();
                         await page.waitForTimeout(3000);
                         if (await processProfile(page, task, dbPhone, "Unknown")) break;
+                        const back = await page.$('button[aria-label*="Back"]');
+                        if (back) { await back.click(); await page.waitForTimeout(1500); }
                     }
                 }
                 doneBatch.push(task.id);
                 if (doneBatch.length >= 10) await flushBatches();
-            } catch (err) {}
+            } catch (err) { writeLog(`❌ Task Error: ${err.message}`); }
         }
         await flushBatches();
         await browser.close();
-        writeLog("🏁 Finished.");
-    } catch (e) { writeLog(`🔥 Error: ${e.message}`); }
+        writeLog("🏁 Auto Refresher Finished.");
+    } catch (e) { writeLog(`🔥 Fatal Error: ${e.message}`); }
 }
 
 async function processProfile(page, task, dbPhone, nameRaw) {
     try {
         const mapsPhone = await extractPhone(page);
         const cleanMapsPhone = mapsPhone.replace(/[^0-9]/g, '').slice(-10);
+        writeLog(`   📱 Maps Phone: ${cleanMapsPhone} | Expected: ${dbPhone}`);
         if (cleanMapsPhone !== dbPhone) return false;
 
         const portfolio = await extractPortfolio(page);
@@ -132,8 +148,10 @@ async function processProfile(page, task, dbPhone, nameRaw) {
         updateBatch.push({
             id: task.id, state: task.state, profilePhotoUrl: portfolio[0] || "", portfolioUrls: portfolio.join(','),
             primaryCategoryId: task.categoryId, subcategory: task.subcategory,
-            latitude: lat, longitude: lon, city: task.city, locality: task.city
+            latitude: lat, longitude: lon, city: task.city, locality: task.city,
+            aboutDescription: `Professional ${task.subcategory} services in ${task.city}.`
         });
+        writeLog(`   📦 Added to Batch (${updateBatch.length}/10)`);
         summary.updated.push(`${task.name} (${dbPhone})`);
         return true;
     } catch (e) { return false; }
