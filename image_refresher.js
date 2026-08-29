@@ -246,7 +246,8 @@ async function runWorker() {
                         writeLog(`📤 SENDING UPDATE PAYLOAD:\n${JSON.stringify(payload, null, 2)}`);
                         const updResp = await axios.post(HUB_URL, payload);
                         writeLog(`      📡 Update Sync: ${updResp.data}`);
-                        await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
+                        const doneResp = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
+                        writeLog(`      🧹 Queue Cleanup: ${doneResp.data}`);
                         targetFound = true;
                     }
                 } else if (status === "LIST") {
@@ -274,7 +275,8 @@ async function runWorker() {
                             writeLog(`📤 SENDING UPDATE PAYLOAD:\n${JSON.stringify(payload, null, 2)}`);
                             const updResp = await axios.post(HUB_URL, payload);
                             writeLog(`      📡 Update Sync: ${updResp.data}`);
-                            await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
+                            const doneResp = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
+                            writeLog(`      🧹 Queue Cleanup: ${doneResp.data}`);
                             targetFound = true;
                         } else if (res.status === "DISCOVERY") {
                             const payload = { type: "BATCH_PROVIDER_SYNC", providers: [res.data] };
@@ -292,7 +294,8 @@ async function runWorker() {
 
                 if (!targetFound) {
                     writeLog(`❌ Target not found in search.`);
-                    await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
+                    const doneResp = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
+                    writeLog(`      🧹 Queue Cleanup: ${doneResp.data}`);
                 }
 
             } catch (err) { writeLog(`❌ Task Error: ${err.message}`); }
