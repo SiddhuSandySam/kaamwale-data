@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * 🚀 HYBRID IMAGE REFRESHER & DATA REPAIR (V169 - SMART FILTER & SUMMARY)
- * Purpose: Refresh, Repair, and Deactivate Closed leads.
+ * 🚀 HYBRID IMAGE REFRESHER & DATA REPAIR (V170 - RESTORED & RIGID)
+ * Features: processAddressDiscovery, Full Repair, Closed Filter, Headless False.
  */
 
 const args = process.argv.slice(2);
@@ -17,12 +17,42 @@ const CONFIG_FILE = path.join(__dirname, 'config.json');
 
 const summary = { updated: [], discovered: [], deactivated: [] };
 
+let config = { states: [] };
+if (fs.existsSync(CONFIG_FILE)) {
+    try { config = JSON.parse(fs.readFileSync(CONFIG_FILE)); } catch (e) {}
+}
+
 function writeLog(msg) {
     const timestamp = new Date().toLocaleString();
-    const logMsg = `[W${WORKER_ID}] [${timestamp}] ${msg}\n`;
     console.log(`[W${WORKER_ID}] ${msg}`);
-    const LOG_FILE = path.join(__dirname, `refresh_logs_W${WORKER_ID}.txt`);
-    fs.appendFileSync(LOG_FILE, logMsg);
+    fs.appendFileSync(path.join(__dirname, `refresh_logs_W${WORKER_ID}.txt`), `[${timestamp}] ${msg}\n`);
+}
+
+function processAddressDiscovery(fullAddress, state) {
+    try {
+        const parts = fullAddress.split(',').map(p => p.trim());
+        const JUNK = ['building', 'shop', 'floor', 'plot', 'near', 'road', 'sector', 'street'];
+        for (let i = 0; i < Math.min(parts.length, 5); i++) {
+            const raw = parts[i];
+            const lower = raw.toLowerCase();
+            if (raw.includes('+') || JUNK.some(k => lower.includes(k)) || raw.length < 3) continue;
+            const clean = raw.replace(/[0-9]/g, '').trim();
+            if (clean.length < 3) continue;
+            const isExisting = config.states.some(s =>
+                s.name.toLowerCase().includes(state.toLowerCase()) &&
+                s.cities.some(c => c.toLowerCase() === clean.toLowerCase())
+            );
+            if (!isExisting) {
+                const discoveryFile = path.join(__dirname, `discovered_W${WORKER_ID}.json`);
+                let discoveries = {};
+                if (fs.existsSync(discoveryFile)) { try { discoveries = JSON.parse(fs.readFileSync(discoveryFile)); } catch (e) {} }
+                const key = `${state}|${clean}`;
+                discoveries[key] = (discoveries[key] || 0) + 1;
+                fs.writeFileSync(discoveryFile, JSON.stringify(discoveries, null, 2));
+                writeLog(`      🏙️ NEW AREA DISCOVERED: ${clean} in ${state}`);
+            }
+        }
+    } catch (e) {}
 }
 
 async function extractPhone(page) {
@@ -39,7 +69,6 @@ async function extractPhone(page) {
 
 async function extractPortfolio(page) {
     try {
-        if (page.isClosed()) return [];
         await page.evaluate(async () => {
             const panel = document.querySelector('div[role="main"], div[role="dialog"]');
             if (panel) { panel.scrollBy(0, 600); await new Promise(r => setTimeout(r, 400)); }
@@ -70,14 +99,14 @@ async function extractPortfolio(page) {
 
 async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCat, targetSub) {
     try {
-        // 🚀 CHECK FOR TEMPORARILY CLOSED
+        // 🚀 TEMPORARILY CLOSED FILTER
         const isClosed = await page.evaluate(() => {
-            const text = document.body.innerText.toLowerCase();
-            return text.includes('temporarily closed') || text.includes('अस्थायी रूप से बंद');
+            const t = document.body.innerText.toLowerCase();
+            return t.includes('temporarily closed') || t.includes('अस्थायी रूप से बंद');
         });
 
-        if (isClosed) {
-            writeLog(`🚫 DEACTIVATING: ${nameRaw} is Temporarily Closed.`);
+        if (isClosed && nameRaw.toLowerCase().includes(task.name.toLowerCase().substring(0,3))) {
+            writeLog(`🚫 DEACTIVATING: ${nameRaw} is Closed.`);
             await axios.post(HUB_URL, { type: "DELETE_ENTRIES", id: task.id });
             summary.deactivated.push(`${nameRaw} (${dbPhone})`);
             return { status: "DEACTIVATED" };
@@ -89,10 +118,13 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
 
         const url = page.url();
         let lat = 0, lon = 0;
-        const preciseMatch = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
-        const fallbackMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-        if (preciseMatch) { lat = parseFloat(preciseMatch[1]); lon = parseFloat(preciseMatch[2]); }
-        else if (fallbackMatch) { lat = parseFloat(fallbackMatch[1]); lon = parseFloat(fallbackMatch[2]); }
+        const pm = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+        const fm = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (pm) { lat = parseFloat(pm[1]); lon = parseFloat(pm[2]); }
+        else if (fm) { lat = parseFloat(fm[1]); lon = parseFloat(fm[2]); }
+
+        const addrRaw = await page.$eval('button[data-item-id="address"]', el => el.innerText).catch(() => "N/A");
+        const cleanAddr = addrRaw.replace('\n', '').replace('', '').trim();
 
         const keywords = await page.evaluate(() => {
             const cat = document.querySelector('button[jsaction="pane.rating.category"]')?.innerText || "";
@@ -102,6 +134,8 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
         const portfolio = await extractPortfolio(page);
 
         if (isMatch) {
+            writeLog(`✅ MATCH: Repairing ${nameRaw}...`);
+            processAddressDiscovery(cleanAddr, task.state);
             summary.updated.push(`${nameRaw} (${dbPhone})`);
             return {
                 status: "UPDATE",
@@ -111,19 +145,19 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
                     portfolioUrls: portfolio.join(','),
                     searchKeywords: keywords || nameRaw,
                     primaryCategoryId: targetCat, subcategory: targetSub,
-                    latitude: lat, longitude: lon, city: targetCity, locality: targetCity,
-                    experienceYears: Math.floor(Math.random() * 5) + 3,
-                    serviceMode: "Local", startingPrice: 0, priceUnit: "Discuss on Call"
+                    latitude: lat, longitude: lon, fullAddress: cleanAddr
                 }
             };
-        } else if (cleanMapsPhone !== "NOT_FOUND" && cleanMapsPhone.length === 10 && lat !== 0 && portfolio.length > 0) {
+        } else if (cleanMapsPhone.length === 10 && lat !== 0 && portfolio.length > 0) {
+            writeLog(`💡 DISCOVERY: Found ${nameRaw} (${cleanMapsPhone})`);
+            processAddressDiscovery(cleanAddr, task.state);
             summary.discovered.push(`${nameRaw} (${cleanMapsPhone})`);
             return {
                 status: "DISCOVERY",
                 data: {
                     id: `shadow_${cleanMapsPhone}`, businessName: nameRaw,
                     primaryCategoryId: targetCat, subcategory: targetSub,
-                    experienceYears: Math.floor(Math.random() * 5) + 2, serviceMode: "Local",
+                    experienceYears: 3, serviceMode: "Local",
                     city: targetCity, locality: targetCity, state: task.state,
                     startingPrice: 0, priceUnit: "Discuss on Call",
                     whatsappNumber: cleanMapsPhone, callNumber: cleanMapsPhone,
@@ -131,7 +165,8 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
                     profilePhotoUrl: portfolio[0] ? portfolio[0].replace('=s1000', '=w500-h500-k-no') : "",
                     portfolioUrls: portfolio.join(','),
                     searchKeywords: keywords || nameRaw, lastSeen: Date.now(),
-                    latitude: lat, longitude: lon, referredBy: "HYBRID_REFRESHER_V169"
+                    latitude: lat, longitude: lon, fullAddress: cleanAddr,
+                    referredBy: "V170_REPAIR_ENGINE"
                 }
             };
         }
@@ -140,7 +175,7 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
 }
 
 async function runWorker() {
-    writeLog(`🚀 Hybrid Refresher Starting (Worker: ${WORKER_ID})`);
+    writeLog(`🚀 Refresher V170 Starting (Headless: FALSE)`);
     try {
         const queueResp = await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" });
         const allTasks = Array.isArray(queueResp.data) ? queueResp.data : [];
@@ -148,14 +183,14 @@ async function runWorker() {
         const myTasks = allTasks.filter((_, index) => index % TOTAL_WORKERS === WORKER_ID);
 
         const browser = await chromium.launch({ headless: false });
-        const context = await browser.newContext();
-        const page = await context.newPage();
+        const page = await browser.newPage();
 
         for (const task of myTasks) {
             if (!task.city || !task.categoryId || !task.subcategory) continue;
             const dbPhone = String(task.id).replace('shadow_', '');
             const searchQuery = `${task.subcategory} in ${task.city}, ${task.state}`;
 
+            writeLog(`🔍 SEARCH: ${searchQuery} for ${task.name}`);
             try {
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}`, { timeout: 60000 });
                 await page.waitForTimeout(5000);
@@ -164,67 +199,43 @@ async function runWorker() {
                     page.waitForSelector('h1.DUwDvf', { timeout: 15000 }).then(() => "SINGLE").catch(() => null)
                 ]);
 
-                let targetFound = false;
+                let found = false;
                 if (status === "SINGLE") {
                     const name = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "Unknown");
                     const res = await processProfile(page, task, dbPhone, name, task.city, task.categoryId, task.subcategory);
                     if (res.status === "UPDATE" || res.status === "DEACTIVATED") {
                         if (res.status === "UPDATE") await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: [res.data] });
                         await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
-                        targetFound = true;
+                        found = true;
                     }
                 } else if (status === "LIST") {
                     const listings = await page.$$('a.hfpxzc');
-                    for (let i = 0; i < Math.min(listings.length, 12); i++) {
-                        const currentListings = await page.$$('a.hfpxzc');
-                        if (i >= currentListings.length) break;
-                        const listing = currentListings[i];
-                        const nameRaw = await listing.getAttribute('aria-label').catch(() => "Unknown");
+                    for (let i = 0; i < Math.min(listings.length, 8); i++) {
+                        const items = await page.$$('a.hfpxzc');
+                        if (!items[i]) break;
+                        const nameRaw = await items[i].getAttribute('aria-label').catch(() => "Unknown");
 
-                        // Check for 'Temporarily closed' in list view text
-                        const isClosedInList = await listing.evaluate(el => {
-                            const parent = el.closest('.Nv2Ybe');
-                            return parent ? parent.innerText.toLowerCase().includes('temporarily closed') : false;
-                        });
-
-                        if (isClosedInList && nameRaw.toLowerCase().includes(task.name.toLowerCase().substring(0,5))) {
-                            writeLog(`🚫 DEACTIVATING (List View): ${nameRaw}`);
-                            await axios.post(HUB_URL, { type: "DELETE_ENTRIES", id: task.id });
-                            await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
-                            summary.deactivated.push(`${nameRaw} (${dbPhone})`);
-                            targetFound = true; break;
-                        }
-
-                        await listing.click({ force: true });
+                        await items[i].click({ force: true });
                         await page.waitForTimeout(3000);
                         const res = await processProfile(page, task, dbPhone, nameRaw, task.city, task.categoryId, task.subcategory);
                         if (res.status === "UPDATE" || res.status === "DEACTIVATED") {
                             if (res.status === "UPDATE") await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: [res.data] });
                             await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
-                            targetFound = true; break;
+                            found = true; break;
                         } else if (res.status === "DISCOVERY") {
                             await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: [res.data] });
                         }
-                        const backBtn = await page.$('button[aria-label*="Back"], button[aria-label*="मागे"]');
-                        if (backBtn) { await backBtn.click(); await page.waitForTimeout(2000); }
+                        const back = await page.$('button[aria-label*="Back"], button[aria-label*="मागे"]');
+                        if (back) { await back.click(); await page.waitForTimeout(1500); }
                     }
                 }
-                if (!targetFound) await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
+                if (!found) await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
             } catch (err) {}
         }
         await browser.close();
 
-        console.log("\n" + "=".repeat(50));
-        console.log("📊 EXECUTION SUMMARY REPORT");
-        console.log("=".repeat(50));
-        console.log(`✅ UPDATED (${summary.updated.length}):`);
-        summary.updated.forEach(s => console.log(`   - ${s}`));
-        console.log(`🌟 DISCOVERED (${summary.discovered.length}):`);
-        summary.discovered.forEach(s => console.log(`   - ${s}`));
-        console.log(`🚫 DEACTIVATED (${summary.deactivated.length}):`);
-        summary.deactivated.forEach(s => console.log(`   - ${s}`));
-        console.log("=".repeat(50) + "\n");
-
-    } catch (e) { writeLog(`🔥 Fatal Error: ${e.message}`); }
+        console.log("\n📊 FINAL SUMMARY REPORT");
+        console.log(`✅ UPDATED: ${summary.updated.length}\n🌟 DISCOVERED: ${summary.discovered.length}\n🚫 DEACTIVATED: ${summary.deactivated.length}`);
+    } catch (e) { writeLog(`🔥 Error: ${e.message}`); }
 }
 runWorker();

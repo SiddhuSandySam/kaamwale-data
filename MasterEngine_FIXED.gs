@@ -1,24 +1,8 @@
 /**
- * RAPIDHELP MASTER ENGINE (V71 - DATA REPAIR EDITION)
- * 🚀 PERFORMANCE: TextFinder + Batch I/O.
- * 🛡️ REPAIR: Now repairs bad/missing fields (Category, Coords, Price) during Image Update.
- * 🛡️ DEDUPE: Column A based ID tracking with 10-digit phone normalization.
- * Author: Sandesh Koli (RapidHelp)
+ * RAPIDHELP MASTER ENGINE (V72 - FULL REPAIR & DISCOVERY)
+ * 🛡️ REPAIR: Fixes Category, Subcat, GPS (30,31), and Missing Fields.
+ * 🛡️ DEDUPE: 10-digit phone normalization.
  */
-
-var CACHE_TTL = 900;
-var _lrCache = { val: 0, time: 0 };
-
-function getLastRowCached(sheet) {
-  if (!sheet) return 0;
-  var now = Date.now();
-  if (now - _lrCache.time < 5000 && _lrCache.val > 0) return _lrCache.val;
-  try {
-    var lr = sheet.getLastRow();
-    _lrCache = { val: lr, time: now };
-    return lr;
-  } catch (e) { return 0; }
-}
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
@@ -27,8 +11,7 @@ function doPost(e) {
     var data = JSON.parse(e.postData.contents);
     var type = (data.type || "").toUpperCase();
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (!ss) return ContentService.createTextOutput("Error: No SS");
-    var sheet = ss.getSheetByName("Providers") || ss.getSheetByName("Sheet1") || ss.getSheets()[0];
+    var sheet = ss.getSheetByName("Providers") || ss.getSheets()[0];
 
     if (type === "BATCH_PROVIDER_SYNC" || type === "PROVIDER_SYNC") {
       var providers = data.providers || [data];
@@ -41,10 +24,9 @@ function doPost(e) {
         for (var i = 0; i < dataMatrix.length; i++) {
           var rowId = String(dataMatrix[i][0]).trim();
           var rowCall = String(dataMatrix[i][12]).trim();
-          var rNum = i + 2;
-          if (rowId) idMap[rowId] = rNum;
+          if (rowId) idMap[rowId] = i + 2;
           var p = rowCall.replace(/[^0-9]/g, '').slice(-10);
-          if (p.length === 10) phoneMap[p] = rNum;
+          if (p.length === 10) phoneMap[p] = i + 2;
         }
       }
 
@@ -75,66 +57,49 @@ function doPost(e) {
         }
       });
 
-      if (updates.length > 0) { updates.forEach(function(u) { sheet.getRange(u.row, 1, 1, 31).setValues([u.data]); }); }
-      if (rowsToAdd.length > 0) { sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAdd.length, 31).setValues(rowsToAdd); }
+      if (updates.length > 0) updates.forEach(function(u) { sheet.getRange(u.row, 1, 1, 31).setValues([u.data]); });
+      if (rowsToAdd.length > 0) sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAdd.length, 31).setValues(rowsToAdd);
       return ContentService.createTextOutput("Success");
     }
 
-    if (type === "BATCH_IMAGE_UPDATE") {
-      var updates = data.updates || [];
+    if (type === "BATCH_IMAGE_UPDATE" || type === "IMAGE_UPDATE") {
+      var updates = data.updates || [data];
       var lastRow = sheet.getLastRow();
-      if (lastRow <= 1) return ContentService.createTextOutput("Error: No Data");
-
-      var idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-      var idRowMap = {};
-      for (var i = 0; i < idValues.length; i++) { idRowMap[idValues[i][0].toString().trim()] = i + 2; }
-
+      var idValues = sheet.getRange(1, 1, lastRow, 1).getValues().flat().map(String);
       var count = 0;
+
       updates.forEach(function(upd) {
-        var rowNum = idRowMap[upd.id.toString().trim()];
-        if (rowNum) {
-          // --- 🚀 REPAIR LOGIC: Update EVERYTHING found ---
+        var rowNum = idValues.indexOf(String(upd.id).trim()) + 1;
+        if (rowNum > 1) {
+          // --- 🚀 DEEP REPAIR ---
           if (upd.profilePhotoUrl) sheet.getRange(rowNum, 18).setValue(upd.profilePhotoUrl);
           if (upd.portfolioUrls) sheet.getRange(rowNum, 20).setValue(upd.portfolioUrls);
           if (upd.searchKeywords) sheet.getRange(rowNum, 21).setValue(upd.searchKeywords);
-
-          // Fix Category & GPS (Columns 3, 4, 30, 31)
           if (upd.primaryCategoryId) sheet.getRange(rowNum, 3).setValue(upd.primaryCategoryId);
           if (upd.subcategory) sheet.getRange(rowNum, 4).setValue(upd.subcategory);
-          if (upd.latitude && upd.latitude > 5) sheet.getRange(rowNum, 30).setValue(upd.latitude);
-          if (upd.longitude && upd.longitude > 5) sheet.getRange(rowNum, 31).setValue(upd.longitude);
-
-          // Fix Missing Fields (5, 6, 10, 11, 14, 24)
-          if (upd.experienceYears) sheet.getRange(rowNum, 5).setValue(upd.experienceYears);
-          if (upd.serviceMode) sheet.getRange(rowNum, 6).setValue(upd.serviceMode);
-          if (upd.startingPrice !== undefined) sheet.getRange(rowNum, 10).setValue(upd.startingPrice);
-          if (upd.priceUnit) sheet.getRange(rowNum, 11).setValue(upd.priceUnit);
-          if (upd.aboutDescription) sheet.getRange(rowNum, 14).setValue(upd.aboutDescription);
+          if (upd.latitude) sheet.getRange(rowNum, 30).setValue(upd.latitude);
+          if (upd.longitude) sheet.getRange(rowNum, 31).setValue(upd.longitude);
           if (upd.fullAddress) sheet.getRange(rowNum, 24).setValue(upd.fullAddress);
-          if (upd.city) sheet.getRange(rowNum, 7).setValue(upd.city);
-          if (upd.locality) sheet.getRange(rowNum, 8).setValue(upd.locality);
-
           sheet.getRange(rowNum, 22).setValue(Date.now());
           count++;
         }
       });
-      return ContentService.createTextOutput("Success: " + count + " Records Repaired");
+      return ContentService.createTextOutput("Success: Repaired " + count);
     }
 
     if (type === "DELETE_ENTRIES") {
-      var idsToDelete = data.ids || [data.id];
-      var lastRow = sheet.getLastRow();
-      if (lastRow <= 1) return ContentService.createTextOutput("Success: No rows");
-      var idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-      var idRowMap = {};
-      for (var i = 0; i < idValues.length; i++) { idRowMap[String(idValues[i][0]).trim()] = i + 2; }
-      idsToDelete.forEach(function(id) {
-        var rowNum = idRowMap[String(id).trim()];
-        if (rowNum) { sheet.getRange(rowNum, 15).setValue(false); sheet.getRange(rowNum, 22).setValue(Date.now()); }
+      var ids = data.ids || [data.id];
+      var idValues = sheet.getRange(1, 1, sheet.getLastRow(), 1).getValues().flat().map(String);
+      ids.forEach(function(id) {
+        var rowNum = idValues.indexOf(String(id).trim()) + 1;
+        if (rowNum > 1) {
+          sheet.getRange(rowNum, 15).setValue(false); // isApproved = FALSE
+          sheet.getRange(rowNum, 22).setValue(Date.now());
+        }
       });
-      return ContentService.createTextOutput("Success");
+      return ContentService.createTextOutput("Deactivated");
     }
     return ContentService.createTextOutput("Done");
-  } catch (error) { return ContentService.createTextOutput("Error: " + error.toString()); }
+  } catch (e) { return ContentService.createTextOutput("Error: " + e.toString()); }
   finally { lock.releaseLock(); }
 }
