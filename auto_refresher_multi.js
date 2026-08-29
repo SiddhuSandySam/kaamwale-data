@@ -242,7 +242,9 @@ async function runWorker() {
                     const name = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "Unknown");
                     const res = await processProfile(page, task, dbPhone, name, targetCity, targetCat, targetSub);
                     if (res.status === "UPDATE") {
-                        const updResp = await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: [res.data] });
+                        const payload = { type: "BATCH_IMAGE_UPDATE", updates: [res.data] };
+                        writeLog(`📤 SENDING UPDATE PAYLOAD:\n${JSON.stringify(payload, null, 2)}`);
+                        const updResp = await axios.post(HUB_URL, payload);
                         writeLog(`      📡 Update Sync: ${updResp.data}`);
                         await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                         targetFound = true;
@@ -268,12 +270,16 @@ async function runWorker() {
 
                         const res = await processProfile(page, task, dbPhone, nameRaw, targetCity, targetCat, targetSub);
                         if (res.status === "UPDATE") {
-                            const updResp = await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: [res.data] });
+                            const payload = { type: "BATCH_IMAGE_UPDATE", updates: [res.data] };
+                            writeLog(`📤 SENDING UPDATE PAYLOAD:\n${JSON.stringify(payload, null, 2)}`);
+                            const updResp = await axios.post(HUB_URL, payload);
                             writeLog(`      📡 Update Sync: ${updResp.data}`);
                             await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                             targetFound = true;
                         } else if (res.status === "DISCOVERY") {
-                            const dResp = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: [res.data] });
+                            const payload = { type: "BATCH_PROVIDER_SYNC", providers: [res.data] };
+                            writeLog(`🌟 SENDING DISCOVERY PAYLOAD:\n${JSON.stringify(payload, null, 2)}`);
+                            const dResp = await axios.post(HUB_URL, payload);
                             writeLog(`      📡 Discovery Sync: ${dResp.data}`);
                         }
 
