@@ -68,16 +68,20 @@ async function extractPortfolio(page) {
         return await page.evaluate(() => {
             const links = new Set();
             document.querySelectorAll('img').forEach(el => {
-                if (el.src?.includes('googleusercontent.com')) links.add(el.src);
+                if (el.src?.includes('googleusercontent.com') && !el.src.includes('/a/')) {
+                    // Deduplicate by stripping size parameters
+                    links.add(el.src.split('=')[0].split('/s')[0]);
+                }
             });
             document.querySelectorAll('div[style*="background-image"]').forEach(el => {
                 const bg = el.style.backgroundImage;
                 const match = bg.match(/url\(["']?([^"']+)["']?\)/);
-                if (match && match[1].includes('googleusercontent.com')) {
-                    links.add(match[1]);
+                if (match && match[1].includes('googleusercontent.com') && !match[1].includes('/a/')) {
+                    links.add(match[1].split('=')[0].split('/s')[0]);
                 }
             });
-            return Array.from(links).slice(0, 30);
+            // Append s1000 for high quality
+            return Array.from(links).map(b => `${b}=s1000`).slice(0, 30);
         });
     } catch (e) { return []; }
 }

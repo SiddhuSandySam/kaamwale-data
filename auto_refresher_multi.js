@@ -29,15 +29,43 @@ async function extractPortfolio(page) {
             const panel = document.querySelector('div[role="main"], div[role="dialog"]');
             if (panel) { panel.scrollBy(0, 1000); await new Promise(r => setTimeout(r, 500)); }
         });
-        return await page.evaluate(() => {
-            const links = new Set();
-            document.querySelectorAll('img').forEach(img => {
-                const src = img.src || "";
-                if (src.includes('googleusercontent.com') && !src.includes('/a/')) {
-                    links.add(src);
+        const photoBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
+        if (photoBtn) {
+            await photoBtn.click({ force: true });
+            await page.waitForTimeout(6000);
+            await page.evaluate(async () => {
+                const findScrollable = () => {
+                    const elements = document.querySelectorAll('div[role="main"], div[role="grid"], div[aria-label*="Photos"], .m67q60');
+                    for (let el of elements) { if (el.scrollHeight > el.clientHeight) return el; }
+                    return document.querySelector('div[tabindex="0"]');
+                };
+                const scrollArea = findScrollable();
+                if (scrollArea) {
+                    for(let i=0; i<8; i++) {
+                        scrollArea.scrollBy(0, 2000);
+                        await new Promise(r => setTimeout(r, 700));
+                    }
                 }
             });
-            return Array.from(links).slice(0, 15);
+            await page.waitForTimeout(3000);
+        }
+        return await page.evaluate(() => {
+            const links = new Set();
+            document.querySelectorAll('img').forEach(el => {
+                if (el.src?.includes('googleusercontent.com') && !el.src.includes('/a/')) {
+                    // Deduplicate by stripping size parameters
+                    links.add(el.src.split('=')[0].split('/s')[0]);
+                }
+            });
+            document.querySelectorAll('div[style*="background-image"]').forEach(el => {
+                const bg = el.style.backgroundImage;
+                const match = bg.match(/url\(["']?([^"']+)["']?\)/);
+                if (match && match[1].includes('googleusercontent.com') && !match[1].includes('/a/')) {
+                    links.add(match[1].split('=')[0].split('/s')[0]);
+                }
+            });
+            // Append s1000 for high quality
+            return Array.from(links).map(b => `${b}=s1000`).slice(0, 20);
         });
     } catch (e) { return []; }
 }
@@ -128,10 +156,22 @@ async function runWorker() {
 async function checkAndSync(page, task, dbPhone) {
     try {
         await page.waitForSelector('button[data-item-id^="phone"]', { timeout: 5000 }).catch(() => {});
-        const mapsPhone = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
-        const cleanMapsPhone = mapsPhone.replace(/[^0-9]/g, '').slice(-10);
+        const extractPhone = async (p) => {
+            const selectors = ['button[data-item-id^="phone"]', 'button[aria-label*="Phone"]', '.CsEnBe[aria-label*="Phone"]', 'a[href^="tel:"]'];
+            for (let sel of selectors) {
+                try {
+                    const text = await p.$eval(sel, el => el.innerText || el.getAttribute('aria-label') || el.getAttribute('href') || "");
+                    const clean = text.replace(/[^0-9]/g, '');
+                    if (clean.length >= 8) return clean;
+                } catch (e) {}
+            }
+            return "NOT_FOUND";
+        };
 
-        if (cleanMapsPhone === dbPhone) {
+        const mapsPhone = await extractPhone(page);
+        const cleanMapsPhone = mapsPhone !== "NOT_FOUND" ? mapsPhone.replace(/[^0-9]/g, '').slice(-10) : "NOT_FOUND";
+
+        if (cleanMapsPhone === dbPhone || dbPhone.includes(cleanMapsPhone) || cleanMapsPhone.includes(dbPhone)) {
             writeLog(`✅ PHONE MATCH: Found ${cleanMapsPhone} on Maps. (Expected: ${dbPhone})`);
             const portfolio = await extractPortfolio(page);
             if (portfolio.length > 0) {
@@ -143,7 +183,7 @@ async function checkAndSync(page, task, dbPhone) {
                     id: task.id,
                     state: task.state,
                     profilePhotoUrl: portfolio[0].split('=')[0] + '=w500-h500-k-no',
-                    portfolioUrls: portfolio.join(',')
+                    portfolioUrls: portfolio.map(u => u.split('=')[0] + '=s1000').join(',')
                 };
 
                 const targetUrl = stateUrls[task.state] || HUB_URL;
