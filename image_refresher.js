@@ -130,10 +130,21 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
             return { status: "SKIP_STATE" };
         }
 
-        const urlCoords = page.url().match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || page.url().match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-        let lat = urlCoords ? parseFloat(urlCoords[1]) : 0;
-        let lon = urlCoords ? parseFloat(urlCoords[2]) : 0;
-        writeLog(`      📍 Coordinates: ${lat}, ${lon}`);
+        // 🚀 HIGH-PRECISION COORDINATE EXTRACTION
+        const url = page.url();
+        let lat = 0, lon = 0;
+        const preciseMatch = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+        const fallbackMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+
+        if (preciseMatch) {
+            lat = parseFloat(preciseMatch[1]);
+            lon = parseFloat(preciseMatch[2]);
+        } else if (fallbackMatch) {
+            lat = parseFloat(fallbackMatch[1]);
+            lon = parseFloat(fallbackMatch[2]);
+        }
+
+        writeLog(`      📍 Precise GPS: ${lat}, ${lon}`);
 
         if (isMatch) {
             writeLog(`      ✅ TARGET MATCH! (Phone: ${cleanMapsPhone})`);
@@ -216,9 +227,14 @@ async function runWorker() {
             }
 
             const dbPhone = String(task.id).replace('shadow_', '');
-            const targetCity = task.city || "Local";
-            const targetCat = task.categoryId || "cat_home";
-            const targetSub = task.subcategory || "";
+            const targetCity = task.city || "Unknown";
+            const targetCat = task.categoryId; // 🚀 No default to cat_home
+            const targetSub = task.subcategory; // 🚀 No default to General
+
+            if (!targetCat || !targetSub) {
+                writeLog(`⚠️ SKIP: Mandatory category info missing for ${task.name}`);
+                continue;
+            }
 
             writeLog(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
             writeLog(`🔍 TASK: ${task.name} | Phone: ${dbPhone}`);
