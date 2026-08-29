@@ -4,9 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * 🚀 HYBRID IMAGE REFRESHER & LEAD DISCOVERY (V165 - FULL RESTORED)
- * Purpose: Refresh images for target leads AND discover new leads.
- * Features: processAddressDiscovery restored, Single/List handling, Pro Logging.
+ * 🚀 HYBRID IMAGE REFRESHER & DATA REPAIR (V168 - ULTIMATE PRECISION)
+ * Purpose: Refresh images AND repair bad data fields in Sheet.
  */
 
 const args = process.argv.slice(2);
@@ -72,25 +71,21 @@ async function extractPortfolio(page) {
     try {
         if (page.isClosed()) return [];
         writeLog("      📸 Scraping Portfolio...");
-
         await page.evaluate(async () => {
             const panel = document.querySelector('div[role="main"], div[role="dialog"]');
             if (panel) { panel.scrollBy(0, 600); await new Promise(r => setTimeout(r, 400)); }
         });
-
         const photoBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
         if (photoBtn) {
             writeLog("      📂 Opening Gallery...");
             await photoBtn.click({ force: true }).catch(() => {});
             await page.waitForTimeout(5000);
-
             for (let i = 0; i < 8; i++) {
                 await page.mouse.wheel(0, 1500);
                 await page.waitForTimeout(800);
             }
             await page.waitForTimeout(2000);
         }
-
         return await page.evaluate(() => {
             const links = new Set();
             const processUrl = (src) => {
@@ -100,7 +95,6 @@ async function extractPortfolio(page) {
                 if (base.includes('/s')) base = base.split('/s')[0];
                 links.add(base + '=s1000');
             };
-
             document.querySelectorAll('*').forEach(el => {
                 if (el.tagName === 'IMG') processUrl(el.src);
                 const style = el.getAttribute('style') || '';
@@ -130,63 +124,49 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
             return { status: "SKIP_STATE" };
         }
 
-        // 🚀 HIGH-PRECISION COORDINATE EXTRACTION
         const url = page.url();
         let lat = 0, lon = 0;
         const preciseMatch = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
         const fallbackMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-
-        if (preciseMatch) {
-            lat = parseFloat(preciseMatch[1]);
-            lon = parseFloat(preciseMatch[2]);
-        } else if (fallbackMatch) {
-            lat = parseFloat(fallbackMatch[1]);
-            lon = parseFloat(fallbackMatch[2]);
-        }
-
+        if (preciseMatch) { lat = parseFloat(preciseMatch[1]); lon = parseFloat(preciseMatch[2]); }
+        else if (fallbackMatch) { lat = parseFloat(fallbackMatch[1]); lon = parseFloat(fallbackMatch[2]); }
         writeLog(`      📍 Precise GPS: ${lat}, ${lon}`);
 
-        if (isMatch) {
-            writeLog(`      ✅ TARGET MATCH! (Phone: ${cleanMapsPhone})`);
-            const keywords = await page.evaluate(() => {
-                const cat = document.querySelector('button[jsaction="pane.rating.category"]')?.innerText || "";
-                const tags = Array.from(document.querySelectorAll('.YR19ub')).map(el => el.innerText).join(",");
-                return (cat + "," + tags).split(',').map(s => s.trim()).filter(s => s.length > 2).join(",");
-            });
-            const portfolio = await extractPortfolio(page);
+        const keywords = await page.evaluate(() => {
+            const cat = document.querySelector('button[jsaction="pane.rating.category"]')?.innerText || "";
+            const tags = Array.from(document.querySelectorAll('.YR19ub')).map(el => el.innerText).join(",");
+            return (cat + "," + tags).split(',').map(s => s.trim()).filter(s => s.length > 2).join(",");
+        });
+        const portfolio = await extractPortfolio(page);
 
+        if (isMatch) {
+            writeLog(`      ✅ TARGET MATCH! Repairing fields...`);
             return {
                 status: "UPDATE",
                 data: {
-                    id: task.id,
-                    state: task.state,
+                    id: task.id, state: task.state,
                     profilePhotoUrl: portfolio[0] ? portfolio[0].replace('=s1000', '=w500-h500-k-no') : "",
                     portfolioUrls: portfolio.join(','),
-                    searchKeywords: keywords || nameRaw
+                    searchKeywords: keywords || nameRaw,
+                    primaryCategoryId: targetCat, subcategory: targetSub,
+                    latitude: lat, longitude: lon,
+                    city: targetCity, locality: targetCity,
+                    fullAddress: cleanAddr,
+                    experienceYears: Math.floor(Math.random() * 5) + 2,
+                    serviceMode: "Local", startingPrice: 0, priceUnit: "Discuss on Call",
+                    aboutDescription: `Professional ${targetSub} services in ${targetCity}.`
                 }
             };
         } else if (cleanMapsPhone !== "NOT_FOUND" && cleanMapsPhone.length === 10 && lat !== 0) {
             writeLog(`      💡 DISCOVERY! Found ${nameRaw} (${cleanMapsPhone})`);
-            const keywords = await page.evaluate(() => {
-                const cat = document.querySelector('button[jsaction="pane.rating.category"]')?.innerText || "";
-                const tags = Array.from(document.querySelectorAll('.YR19ub')).map(el => el.innerText).join(",");
-                return (cat + "," + tags).split(',').map(s => s.trim()).filter(s => s.length > 2).join(",");
-            });
-            const portfolio = await extractPortfolio(page);
-
             if (portfolio.length > 0) {
-                // Discover city/area name
                 processAddressDiscovery(cleanAddr, task.state);
-
                 return {
                     status: "DISCOVERY",
                     data: {
-                        id: `shadow_${cleanMapsPhone}`,
-                        businessName: nameRaw,
-                        primaryCategoryId: targetCat,
-                        subcategory: targetSub,
-                        experienceYears: Math.floor(Math.random() * 5) + 2,
-                        serviceMode: "Local",
+                        id: `shadow_${cleanMapsPhone}`, businessName: nameRaw,
+                        primaryCategoryId: targetCat, subcategory: targetSub,
+                        experienceYears: Math.floor(Math.random() * 5) + 2, serviceMode: "Local",
                         city: targetCity, locality: targetCity, state: task.state,
                         startingPrice: 0, priceUnit: "Discuss on Call",
                         whatsappNumber: cleanMapsPhone, callNumber: cleanMapsPhone,
@@ -196,7 +176,7 @@ async function processProfile(page, task, dbPhone, nameRaw, targetCity, targetCa
                         recommendationCount: 0, portfolioUrls: portfolio.join(','),
                         searchKeywords: keywords || nameRaw, lastSeen: Date.now(),
                         callCount: 0, fullAddress: cleanAddr, isNumberHidden: false,
-                        referredBy: "HYBRID_REFRESHER_V165", latitude: lat, longitude: lon
+                        referredBy: "HYBRID_REFRESHER_V168", latitude: lat, longitude: lon
                     }
                 };
             }
@@ -211,7 +191,6 @@ async function runWorker() {
         const queueResp = await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" });
         const allTasks = Array.isArray(queueResp.data) ? queueResp.data : [];
         if (allTasks.length === 0) return writeLog("✅ Queue Empty.");
-
         const myTasks = allTasks.filter((_, index) => index % TOTAL_WORKERS === WORKER_ID);
         writeLog(`📋 Task Queue: ${myTasks.length} assigned.`);
 
@@ -220,46 +199,35 @@ async function runWorker() {
         const page = await context.newPage();
 
         for (const task of myTasks) {
-            // 🚀 STRICT CHECK: Skip if new mandatory fields are missing
             if (!task.city || !task.categoryId || !task.subcategory) {
-                writeLog(`⚠️ SKIP [OLD DATA]: Task ${task.id} is missing mandatory fields (City/Cat/Sub).`);
+                writeLog(`⚠️ SKIP [OLD DATA]: Task ${task.id} is missing mandatory fields.`);
                 continue;
             }
-
             const dbPhone = String(task.id).replace('shadow_', '');
-            const targetCity = task.city || "Unknown";
-            const targetCat = task.categoryId; // 🚀 No default to cat_home
-            const targetSub = task.subcategory; // 🚀 No default to General
-
-            if (!targetCat || !targetSub) {
-                writeLog(`⚠️ SKIP: Mandatory category info missing for ${task.name}`);
-                continue;
-            }
+            const targetCity = task.city;
+            const targetCat = task.categoryId;
+            const targetSub = task.subcategory;
 
             writeLog(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
             writeLog(`🔍 TASK: ${task.name} | Phone: ${dbPhone}`);
-
-            const searchQuery = targetSub ? `${targetSub} in ${targetCity}, ${task.state}` : `${task.name}, ${task.city}`;
+            const searchQuery = `${targetSub} in ${targetCity}, ${task.state}`;
             writeLog(`🔎 Search Query: ${searchQuery}`);
 
             try {
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}`, { timeout: 60000 });
                 await page.waitForTimeout(5000);
-
                 const status = await Promise.race([
                     page.waitForSelector('a.hfpxzc', { timeout: 15000 }).then(() => "LIST").catch(() => null),
                     page.waitForSelector('h1.DUwDvf', { timeout: 15000 }).then(() => "SINGLE").catch(() => null)
                 ]);
 
                 let targetFound = false;
-
                 if (status === "SINGLE") {
-                    writeLog(`📋 Single Profile detected.`);
                     const name = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "Unknown");
                     const res = await processProfile(page, task, dbPhone, name, targetCity, targetCat, targetSub);
                     if (res.status === "UPDATE") {
                         const payload = { type: "BATCH_IMAGE_UPDATE", updates: [res.data] };
-                        writeLog(`📤 SENDING UPDATE PAYLOAD:\n${JSON.stringify(payload, null, 2)}`);
+                        writeLog(`📤 SENDING REPAIR PAYLOAD:\n${JSON.stringify(payload, null, 2)}`);
                         const updResp = await axios.post(HUB_URL, payload);
                         writeLog(`      📡 Update Sync: ${updResp.data}`);
                         const doneResp = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
@@ -267,16 +235,14 @@ async function runWorker() {
                         targetFound = true;
                     }
                 } else if (status === "LIST") {
-                    writeLog(`📋 List View detected. Scanning top 12...`);
-                    for (let i = 0; i < 12; i++) {
-                        const listings = await page.$$('a.hfpxzc');
-                        if (i >= listings.length) break;
-                        const listing = listings[i];
+                    const listings = await page.$$('a.hfpxzc');
+                    for (let i = 0; i < Math.min(listings.length, 12); i++) {
+                        const currentListings = await page.$$('a.hfpxzc');
+                        if (i >= currentListings.length) break;
+                        const listing = currentListings[i];
                         const nameRaw = await listing.getAttribute('aria-label').catch(() => "Unknown");
-
                         writeLog(`   [${i+1}] Checking: ${nameRaw}`);
                         await listing.click({ force: true });
-
                         let loaded = false;
                         for (let r = 0; r < 8; r++) {
                             const title = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "");
@@ -284,11 +250,10 @@ async function runWorker() {
                             await page.waitForTimeout(1000);
                         }
                         if (!loaded) continue;
-
                         const res = await processProfile(page, task, dbPhone, nameRaw, targetCity, targetCat, targetSub);
                         if (res.status === "UPDATE") {
                             const payload = { type: "BATCH_IMAGE_UPDATE", updates: [res.data] };
-                            writeLog(`📤 SENDING UPDATE PAYLOAD:\n${JSON.stringify(payload, null, 2)}`);
+                            writeLog(`📤 SENDING REPAIR PAYLOAD:\n${JSON.stringify(payload, null, 2)}`);
                             const updResp = await axios.post(HUB_URL, payload);
                             writeLog(`      📡 Update Sync: ${updResp.data}`);
                             const doneResp = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
@@ -300,26 +265,20 @@ async function runWorker() {
                             const dResp = await axios.post(HUB_URL, payload);
                             writeLog(`      📡 Discovery Sync: ${dResp.data}`);
                         }
-
                         const backBtn = await page.$('button[aria-label*="Back"], button[aria-label*="मागे"]');
                         if (backBtn) { await backBtn.click(); await page.waitForTimeout(2000); }
-
                         if (targetFound && i > 5) break;
                     }
                 }
-
                 if (!targetFound) {
                     writeLog(`❌ Target not found in search.`);
                     const doneResp = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", id: task.id });
                     writeLog(`      🧹 Queue Cleanup: ${doneResp.data}`);
                 }
-
             } catch (err) { writeLog(`❌ Task Error: ${err.message}`); }
         }
-
         await browser.close();
         writeLog("\n🏁 HYBRID REFRESHER FINISHED.");
     } catch (e) { writeLog(`🔥 Fatal System Error: ${e.message}`); }
 }
-
 runWorker();
