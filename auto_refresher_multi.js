@@ -34,10 +34,10 @@ async function extractPortfolio(page) {
             document.querySelectorAll('img').forEach(img => {
                 const src = img.src || "";
                 if (src.includes('googleusercontent.com') && !src.includes('/a/')) {
-                    links.add(src.split('=')[0].split('/s')[0]);
+                    links.add(src);
                 }
             });
-            return Array.from(links).map(b => `${b}=s1000`).slice(0, 15);
+            return Array.from(links).slice(0, 15);
         });
     } catch (e) { return []; }
 }
@@ -79,20 +79,19 @@ async function runWorker() {
         for (const task of myTasks) {
             const dbPhone = String(task.id).replace('shadow_', '');
 
-            // 🚀 SAFETY GUARD: Skip if state is missing
             if (!task.state || task.state === "null") {
-                writeLog(`⚠️ SKIPPING: No state info for ${task.name} (${task.id}). Hub update impossible.`);
+                writeLog(`⚠️ SKIP [NO STATE]: No state info for ${task.name} (${task.id}).`);
                 continue;
             }
 
-            writeLog(`\n🔍 SCANNING: ${task.name} (${dbPhone}) in ${task.addr}`);
+            writeLog(`\n🔍 START SCAN: ${task.name} | Target Phone: ${dbPhone} | Location: ${task.addr}`);
 
             try {
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(task.name + ", " + task.addr)}`, { timeout: 60000 });
 
                 const status = await Promise.race([
-                    page.waitForSelector('a.hfpxzc', { timeout: 12000 }).then(() => "LIST").catch(() => null),
-                    page.waitForSelector('button[data-item-id^="phone"]', { timeout: 12000 }).then(() => "SINGLE").catch(() => null)
+                    page.waitForSelector('a.hfpxzc', { timeout: 15000 }).then(() => "LIST").catch(() => null),
+                    page.waitForSelector('button[data-item-id^="phone"]', { timeout: 15000 }).then(() => "SINGLE").catch(() => null)
                 ]);
 
                 let matched = false;
@@ -103,7 +102,7 @@ async function runWorker() {
                     const listings = await page.$$('a.hfpxzc');
                     for (let j = 0; j < Math.min(listings.length, 5); j++) {
                         await listings[j].click();
-                        await page.waitForTimeout(2500); // Wait for info panel to slide in
+                        await page.waitForTimeout(3000);
                         if (await checkAndSync(page, task, dbPhone)) {
                             matched = true; break;
                         }
@@ -113,10 +112,10 @@ async function runWorker() {
                 if (matched) {
                     await markAsDone(task.id);
                 } else {
-                    writeLog(`❌ FAILED: Phone number mismatch or profile not found for ${task.name}`);
+                    writeLog(`❌ SKIP [NOT FOUND]: Phone number mismatch or profile not reachable for ${task.name}`);
                 }
             } catch (err) {
-                writeLog(`⚠️ Error processing ${task.name}: ${err.message}`);
+                writeLog(`⚠️ ERROR: Failed to process ${task.name}: ${err.message}`);
             }
         }
         await browser.close();
@@ -133,8 +132,12 @@ async function checkAndSync(page, task, dbPhone) {
         const cleanMapsPhone = mapsPhone.replace(/[^0-9]/g, '').slice(-10);
 
         if (cleanMapsPhone === dbPhone) {
+            writeLog(`✅ PHONE MATCH: Found ${cleanMapsPhone} on Maps. (Expected: ${dbPhone})`);
             const portfolio = await extractPortfolio(page);
             if (portfolio.length > 0) {
+                writeLog(`📸 PORTFOLIO FOUND: ${portfolio.length} images extracted.`);
+                portfolio.slice(0, 3).forEach((url, idx) => writeLog(`   [${idx+1}] ${url}`));
+
                 const payload = {
                     type: "IMAGE_UPDATE",
                     id: task.id,

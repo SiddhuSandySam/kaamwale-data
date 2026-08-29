@@ -68,16 +68,16 @@ async function extractPortfolio(page) {
         return await page.evaluate(() => {
             const links = new Set();
             document.querySelectorAll('img').forEach(el => {
-                if (el.src?.includes('googleusercontent.com')) links.add(el.src.split('=')[0].split('/s')[0]);
+                if (el.src?.includes('googleusercontent.com')) links.add(el.src);
             });
             document.querySelectorAll('div[style*="background-image"]').forEach(el => {
                 const bg = el.style.backgroundImage;
                 const match = bg.match(/url\(["']?([^"']+)["']?\)/);
                 if (match && match[1].includes('googleusercontent.com')) {
-                    links.add(match[1].split('=')[0].split('/s')[0]);
+                    links.add(match[1]);
                 }
             });
-            return Array.from(links).map(b => `${b}=s1000`).slice(0, 30);
+            return Array.from(links).slice(0, 30);
         });
     } catch (e) { return []; }
 }
@@ -96,30 +96,43 @@ async function runWorker() {
         let completedIds = [];
 
         for (const task of myTasks) {
-            writeLog(`Processing: ${task.name}`);
             const dbPhone = String(task.id).replace('shadow_', '');
+            writeLog(`\n🔍 START SCAN: ${task.name} | Target Phone: ${dbPhone} | Location: ${task.addr}`);
 
             try {
                 await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(task.name + ", " + task.addr)}`, { timeout: 60000 });
                 await page.waitForTimeout(5000);
 
                 const results = await page.$$('a.hfpxzc');
-                if (results.length > 0) { await results[0].click(); await page.waitForTimeout(5000); }
+                if (results.length > 0) {
+                    await results[0].click();
+                    await page.waitForTimeout(5000);
+                }
 
+                // 1. Check if the business is closed
                 if (await checkClosed(page)) {
-                    writeLog(`🗑️ DELETING: ${task.name} is CLOSED.`);
+                    writeLog(`🗑️ SKIP [CLOSED]: ${task.name} is permanently closed. Sending delete request.`);
                     await axios.post(HUB_URL, { type: "DELETE_ENTRIES", ids: [task.id], state: task.state });
                     await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: [task.id] });
                     continue;
                 }
 
+                // 2. Phone Matching Logic
                 const mapsPhone = await extractPhone(page);
-                const isMatch = (mapsPhone !== "NOT_FOUND") && (mapsPhone.includes(dbPhone) || dbPhone.includes(mapsPhone));
+                const cleanMapsPhone = mapsPhone !== "NOT_FOUND" ? mapsPhone.replace(/[^0-9]/g, '').slice(-10) : "NOT_FOUND";
+                const isMatch = (cleanMapsPhone !== "NOT_FOUND") && (dbPhone.includes(cleanMapsPhone) || cleanMapsPhone.includes(dbPhone));
 
                 if (isMatch) {
+                    writeLog(`✅ PHONE MATCH: Found ${cleanMapsPhone} on Maps. (Expected: ${dbPhone})`);
+
                     const keywords = await extractKeywords(page);
                     let portfolio = await extractPortfolio(page);
+
                     if (portfolio.length > 0) {
+                        writeLog(`📸 PORTFOLIO FOUND: ${portfolio.length} images extracted.`);
+                        // Log first 3 URLs for verification
+                        portfolio.slice(0, 3).forEach((url, idx) => writeLog(`   [${idx+1}] ${url}`));
+
                         pendingUpdates.push({
                             id: task.id,
                             state: task.state,
@@ -129,20 +142,21 @@ async function runWorker() {
                         });
                         completedIds.push(task.id);
 
-                        if (pendingUpdates.length >= 10) {
+                        if (pendingUpdates.length >= 5) { // Faster sync
                             await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: pendingUpdates });
                             await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: completedIds });
-                            writeLog(`✅ Batch Sync Success.`);
+                            writeLog(`🚀 BATCH SUCCESS: ${pendingUpdates.length} providers updated in Hub.`);
                             pendingUpdates = []; completedIds = [];
                         }
                     } else {
+                        writeLog(`⚠️ SKIP [NO IMAGES]: Found profile and phone matched, but no portfolio images available.`);
                         await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: [task.id] });
                     }
                 } else {
-                    writeLog(`❌ SKIP: Mismatch.`);
+                    writeLog(`❌ SKIP [MISMATCH]: Phone number on Maps (${cleanMapsPhone}) does not match DB (${dbPhone}).`);
                     await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: [task.id] });
                 }
-            } catch (err) { writeLog(`❌ Error: ${err.message}`); }
+            } catch (err) { writeLog(`❌ ERROR: Failed to process ${task.name}: ${err.message}`); }
         }
         if (pendingUpdates.length > 0) {
             await axios.post(HUB_URL, { type: "BATCH_IMAGE_UPDATE", updates: pendingUpdates });
