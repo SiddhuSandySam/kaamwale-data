@@ -36,19 +36,36 @@ async function flushBatches() {
     writeLog("⚡ STARTING BATCH FLUSH (10 Leads Mode)...");
     if (syncBatch.length > 0) {
         writeLog(`📤 Syncing ${syncBatch.length} leads to Sheet (FULL 31-FIELD MODE)...`);
-        try {
-            const r = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: syncBatch });
-            writeLog(`   ✅ Hub Response: ${JSON.stringify(r.data)}`);
-            syncBatch = [];
-        } catch (e) { writeLog(`   ❌ Sync Error: ${e.message}`); }
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                const r = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: syncBatch });
+                writeLog(`   ✅ Hub Response: ${JSON.stringify(r.data)}`);
+                syncBatch = [];
+                break;
+            } catch (e) {
+                writeLog(`   ⚠️ Sync Attempt ${attempt} Fail: ${e.message}`);
+                if (e.message.includes('lock') || e.message.includes('timeout')) {
+                    writeLog("      ⏳ Lock detected, sleeping 5s before retry...");
+                    await new Promise(r => setTimeout(r, 5000));
+                } else break;
+            }
+        }
     }
     if (doneBatch.length > 0) {
         writeLog(`🧹 Cleaning ${doneBatch.length} items from Queue...`);
-        try {
-            const r = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: doneBatch });
-            writeLog(`   ✅ Queue Cleanup Response: ${JSON.stringify(r.data)}`);
-            doneBatch = [];
-        } catch (e) { writeLog(`   ❌ Queue Cleanup Error: ${e.message}`); }
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                const r = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: doneBatch });
+                writeLog(`   ✅ Queue Cleanup Response: ${JSON.stringify(r.data)}`);
+                doneBatch = [];
+                break;
+            } catch (e) {
+                writeLog(`   ⚠️ Cleanup Attempt ${attempt} Fail: ${e.message}`);
+                if (e.message.includes('lock') || e.message.includes('timeout')) {
+                    await new Promise(r => setTimeout(r, 5000));
+                } else break;
+            }
+        }
     }
     writeLog("⚡ BATCH FLUSH COMPLETED.");
 }
@@ -101,66 +118,145 @@ function processAddressDiscovery(fullAddress, state) {
 
 async function extractPortfolio(page) {
     try {
-        writeLog("   📸 Deep Scraping Portfolio (Incremental Extraction Mode)...");
+        writeLog("   📸 Deep Scraping Portfolio (V198 - ANTI-PROFILE FIX)...");
         if (page.isClosed()) return [];
 
-        // 1. 📂 OPEN PHOTO GRID (Targeting the actual Photos button/tab)
-        const photoTrigger = await page.$('button[data-value="Photos"], button[aria-label^="Photos"], .m6x62c');
+        // 1. 🔍 CHECK FOR TOP "PHOTOS" TAB
+        const topTab = await page.$('button[data-value="Photos"], button[aria-label^="Photos"], a[aria-label^="Photos"]');
         let galleryOpened = false;
-        if (photoTrigger) {
-            writeLog("      ✅ Opening Photo Gallery Grid...");
-            await photoTrigger.click({ force: true });
+
+        if (topTab && await topTab.isVisible()) {
+            writeLog("      ✅ Found Top Photos Tab. Clicking...");
+            await topTab.click({ force: true });
             await page.waitForTimeout(5000);
             galleryOpened = true;
         }
 
-        const allUrls = new Set();
+        // 2. 🖼️ CLICK MAIN IMAGE (Top of Profile) if Tab not found
+        if (!galleryOpened) {
+            const mainImg = await page.$('button[aria-label^="Photo of"], img[src*="googleusercontent.com/p/"]');
+            if (mainImg && await mainImg.isVisible()) {
+                writeLog("      ✅ Found Main Image. Clicking to open gallery...");
+                await mainImg.click({ force: true });
+                await page.waitForTimeout(5000);
+                galleryOpened = true;
+            }
+        }
 
-        for (let i = 0; i < 15; i++) {
+        // 3. ⏬ TARGETED SCROLL & SECTION TRIGGERS
+        if (!galleryOpened) {
+            writeLog("      ⏬ Gallery not opened yet. Performing targeted scroll...");
+            for (let i = 0; i < 4; i++) {
+                const photosHeading = await page.$('h2:has-text("Photos"), h2:has-text("Photos & videos")');
+                if (photosHeading && await photosHeading.isVisible()) {
+                    writeLog("      📍 Reached Photos section.");
+                    break;
+                }
+                await page.mouse.wheel(0, 800);
+                await page.keyboard.press('PageDown');
+                await page.waitForTimeout(1000);
+            }
+
+            const sectionTriggers = [
+                'button[aria-label="All"]',
+                'div[aria-label="All"]',
+                'button:has-text("All")',
+                '.m18v9e img',
+                '.uEubGf img'
+            ];
+
+            for (let sel of sectionTriggers) {
+                const trigger = await page.$(sel);
+                if (trigger && await trigger.isVisible()) {
+                    writeLog(`      ✅ Found Section Trigger: ${sel}. Clicking...`);
+                    await trigger.click({ force: true });
+                    await page.waitForTimeout(5000);
+                    galleryOpened = true;
+                    break;
+                }
+            }
+        }
+
+        const allUrls = new Set();
+        const loopCount = galleryOpened ? 25 : 8;
+
+        writeLog(`      📑 Extraction Loop (${loopCount} iterations) | Gallery Mode: ${galleryOpened}...`);
+        for (let i = 0; i < loopCount; i++) {
             if (page.isClosed()) break;
 
-            const batch = await page.evaluate(() => {
+            const batch = await page.evaluate((isGallery) => {
                 const found = [];
-                // Target the specific gallery containers
-                const container = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]');
-                const target = container || document;
+                // If in gallery mode, limit search to the gallery container to avoid reviewer icons
+                const container = isGallery ? (document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]') || document.body) : document.body;
 
-                target.querySelectorAll('img').forEach(img => {
-                    let src = img.src || img.getAttribute('src') || img.dataset.src || '';
-                    if (src.includes('googleusercontent.com') && !src.includes('base64') && !src.includes('/a/')) {
-                        found.push(src.split('=')[0].split('/s')[0] + '=s1000');
+                const elements = container.querySelectorAll('img, div[style*="background-image"]');
+                elements.forEach(el => {
+                    let src = el.tagName === 'IMG' ? (el.src || el.getAttribute('src') || el.dataset.src) : "";
+                    if (!src) {
+                        const style = el.getAttribute('style') || "";
+                        const match = style.match(/url\(["']?(.*?)["']?\)/);
+                        if (match) src = match[1];
+                    }
+
+                    if (src && src.includes('googleusercontent.com') && !src.includes('base64')) {
+                        // 🛡️ STRICT FILTERING: Exclude profile pictures (/a/ or /a-/)
+                        // Business photos usually have /p/ (Place) or /video/
+                        const isProfile = src.includes('/a/') || src.includes('/a-/') || src.includes('=s32') || src.includes('=s64');
+                        const isPhoto = src.includes('/p/') || src.includes('/video/');
+
+                        if (isProfile && !isPhoto) return; // Skip obvious profiles
+
+                        // Check if parent is likely a review author icon
+                        let parent = el.parentElement;
+                        let isReviewIcon = false;
+                        for (let j = 0; j < 4; j++) {
+                            if (!parent) break;
+                            const aria = (parent.getAttribute('aria-label') || "").toLowerCase();
+                            if (aria.includes('photo of') && !aria.includes('business') && !aria.includes('owner')) {
+                                // Maps photos often have "Photo of BusinessName"
+                                // Reviewer icons often have "Photo of ReviewerName"
+                            }
+                            if (parent.tagName === 'BUTTON' && (parent.classList.contains('WEBjve') || aria.includes('review'))) {
+                                isReviewIcon = true;
+                                break;
+                            }
+                            parent = parent.parentElement;
+                        }
+                        if (isReviewIcon) return;
+
+                        const clean = src.split('=')[0].split('/s')[0].split('/w')[0].split('/h')[0];
+                        found.push(clean + '=s1000');
                     }
                 });
                 return found;
-            });
+            }, galleryOpened);
 
             batch.forEach(url => allUrls.add(url));
 
-            // 📜 SCROLL THE ACTUAL GRID
-            const scrolled = await page.evaluate(() => {
-                const scrollable = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="main"], div[tabindex="0"]');
-                if (scrollable) {
-                    scrollable.scrollBy(0, 1200);
-                    return true;
-                }
-                return false;
-            });
-
-            if (!scrolled) {
-                // Fallback: scroll the whole panel
-                await page.mouse.wheel(0, 1200);
+            if (galleryOpened) {
+                await page.evaluate(() => {
+                    const scrollable = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]');
+                    if (scrollable) scrollable.scrollBy(0, 1500);
+                    else window.scrollBy(0, 800);
+                });
+            } else {
+                await page.mouse.wheel(0, 600);
             }
-            await page.waitForTimeout(1000);
+            await page.waitForTimeout(1200);
         }
 
         const portfolio = Array.from(allUrls).filter(u => !u.includes('mapslogo')).slice(0, 45);
 
         if (galleryOpened) {
-            const backBtn = await page.$('button[aria-label="Back"], .VfPpkd-icon-LgbsSe');
-            if (backBtn) { await backBtn.click(); await page.waitForTimeout(1000); }
+            writeLog("      🔙 Closing Gallery...");
+            const closeSelectors = ['button[aria-label="Back"]', 'button[aria-label="Close"]', '.VfPpkd-icon-LgbsSe'];
+            for (let sel of closeSelectors) {
+                const btn = await page.$(sel);
+                if (btn && await btn.isVisible()) { await btn.click(); await page.waitForTimeout(1000); break; }
+            }
         }
 
-        writeLog(`   🖼️ Found ${portfolio.length} total high-res images.`);
+        writeLog(`   🖼️ Result: ${portfolio.length} high-res images extracted (Filtered).`);
         return portfolio;
     } catch (e) { writeLog(`   ⚠️ Portfolio Error: ${e.message}`); return []; }
 }

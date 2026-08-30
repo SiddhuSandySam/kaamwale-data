@@ -243,77 +243,94 @@ process.on('SIGTERM', () => gracefulShutdown(false));
 
 async function extractPortfolio(page) {
     try {
-        console.log(`Worker ${WORKER_ID} | 📸 | Extracting Portfolio (Hybrid Mode)...`);
+        console.log(`Worker ${WORKER_ID} | 📸 | Extracting Portfolio (V198 - ANTI-PROFILE FIX)...`);
         if (page.isClosed()) return [];
 
-        const allUrls = new Set();
-
-        // --- STEP 1: INITIAL SIDE PANEL SCAN (Safety Net) ---
-        // Extract what's immediately visible before trying to open the gallery
-        const sidePanelLinks = await page.evaluate(() => {
-            const res = new Set();
-            document.querySelectorAll('img').forEach(img => {
-                let src = img.src || img.getAttribute('src') || img.dataset.src || '';
-                if (src.includes('googleusercontent.com') && !src.includes('base64') && !src.includes('/a/')) {
-                    res.add(src.split('=')[0].split('/s')[0] + '=s1000');
-                }
-            });
-            // carousel thumbnails
-            document.querySelectorAll('div[style*="background-image"]').forEach(div => {
-                const bg = div.style.backgroundImage;
-                const match = bg.match(/url\(["']?([^"']+)["']?\)/);
-                if (match && match[1] && match[1].includes('googleusercontent.com')) {
-                    res.add(match[1].split('=')[0].split('/s')[0] + '=s1000');
-                }
-            });
-            return Array.from(res);
-        });
-        sidePanelLinks.forEach(u => allUrls.add(u));
-
-        // --- STEP 2: TRY TO OPEN FULL GALLERY (Deep Scan) ---
-        // Robust set of selectors for the "Photos" button
+        // --- STEP 1: INITIAL SIDE PANEL SCAN & TRY OPEN GALLERY ---
         const photoBtn = await page.$('button[data-value="Photos"], button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
-
         let galleryOpened = false;
-        if (photoBtn) {
+
+        if (photoBtn && await photoBtn.isVisible()) {
             try {
                 await photoBtn.click({ force: true });
-                await page.waitForTimeout(3000);
-                // Confirm gallery grid is actually visible
-                const isGrid = await page.$('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]');
-                if (isGrid) galleryOpened = true;
+                await page.waitForTimeout(5000);
+                galleryOpened = true;
             } catch (clickErr) {}
         }
 
-        if (galleryOpened) {
-            console.log(`Worker ${WORKER_ID} | 📸 | Deep Gallery Opened. Scanning...`);
-            for (let i = 0; i < 8; i++) {
-                if (page.isClosed()) break;
-                const batch = await page.evaluate(() => {
-                    const found = [];
-                    document.querySelectorAll('img').forEach(img => {
-                        let src = img.src || img.getAttribute('src') || img.dataset.src || '';
-                        if (src.includes('googleusercontent.com') && !src.includes('base64') && !src.includes('/a/')) {
-                            found.push(src.split('=')[0].split('/s')[0] + '=s1000');
-                        }
-                    });
-                    return found;
-                });
-                batch.forEach(url => allUrls.add(url));
-
-                await page.evaluate(() => {
-                    const scrollable = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"], div[role="main"]');
-                    if (scrollable) scrollable.scrollBy(0, 1000);
-                });
-                await page.waitForTimeout(800);
+        // --- STEP 2: TRY MAIN IMAGE IF TAB NOT FOUND ---
+        if (!galleryOpened) {
+            const mainImg = await page.$('button[aria-label^="Photo of"], img[src*="googleusercontent.com/p/"]');
+            if (mainImg && await mainImg.isVisible()) {
+                await mainImg.click({ force: true });
+                await page.waitForTimeout(5000);
+                galleryOpened = true;
             }
-            // Close gallery
-            const backBtn = await page.$('button[aria-label="Back"], .VfPpkd-icon-LgbsSe');
-            if (backBtn) { await backBtn.click(); await page.waitForTimeout(1000); }
+        }
+
+        const allUrls = new Set();
+        const loopCount = galleryOpened ? 15 : 5;
+
+        for (let i = 0; i < loopCount; i++) {
+            if (page.isClosed()) break;
+            const batch = await page.evaluate((isGallery) => {
+                const found = [];
+                const container = isGallery ? (document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]') || document.body) : document.body;
+
+                const elements = container.querySelectorAll('img, div[style*="background-image"]');
+                elements.forEach(el => {
+                    let src = el.tagName === 'IMG' ? (el.src || el.getAttribute('src') || el.dataset.src) : "";
+                    if (!src) {
+                        const style = el.getAttribute('style') || "";
+                        const match = style.match(/url\(["']?(.*?)["']?\)/);
+                        if (match) src = match[1];
+                    }
+
+                    if (src && src.includes('googleusercontent.com') && !src.includes('base64')) {
+                        // 🛡️ STRICT FILTERING
+                        const isProfile = src.includes('/a/') || src.includes('/a-/') || src.includes('=s32') || src.includes('=s64');
+                        const isPhoto = src.includes('/p/') || src.includes('/video/');
+
+                        if (isProfile && !isPhoto) return;
+
+                        let parent = el.parentElement;
+                        let isReviewIcon = false;
+                        for (let j = 0; j < 4; j++) {
+                            if (!parent) break;
+                            const aria = (parent.getAttribute('aria-label') || "").toLowerCase();
+                            if (parent.tagName === 'BUTTON' && (parent.classList.contains('WEBjve') || aria.includes('review'))) {
+                                isReviewIcon = true;
+                                break;
+                            }
+                            parent = parent.parentElement;
+                        }
+                        if (isReviewIcon) return;
+
+                        const clean = src.split('=')[0].split('/s')[0].split('/w')[0].split('/h')[0];
+                        found.push(clean + '=s1000');
+                    }
+                });
+                return found;
+            }, galleryOpened);
+
+            batch.forEach(url => allUrls.add(url));
+
+            await page.evaluate((isGallery) => {
+                const scrollable = isGallery ? document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]') : null;
+                if (scrollable) scrollable.scrollBy(0, 1200);
+                else window.scrollBy(0, 1000);
+            }, galleryOpened);
+            await page.waitForTimeout(1000);
         }
 
         const portfolio = Array.from(allUrls).filter(u => !u.includes('mapslogo')).slice(0, 45);
-        console.log(`Worker ${WORKER_ID} | 📸 | Found ${portfolio.length} images.`);
+
+        if (galleryOpened) {
+            const backBtn = await page.$('button[aria-label="Back"], .VfPpkd-icon-LgbsSe, button[aria-label="Close"]');
+            if (backBtn) { await backBtn.click(); await page.waitForTimeout(1000); }
+        }
+
+        console.log(`Worker ${WORKER_ID} | 📸 | Found ${portfolio.length} high-res images.`);
         return portfolio;
     } catch (e) { console.log(`Worker ${WORKER_ID} | ⚠️ | Portfolio Error: ${e.message}`); return []; }
 }

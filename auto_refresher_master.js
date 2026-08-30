@@ -37,46 +37,88 @@ async function isBroken(url) {
 
 async function extractPortfolio(page) {
     try {
-        writeLog("   📸 Deep Scraping Portfolio (Incremental Extraction Mode)...");
+        writeLog("   📸 Deep Scraping Portfolio (V198 - ANTI-PROFILE FIX)...");
         if (page.isClosed()) return [];
 
-        const photoTrigger = await page.$('button[data-value="Photos"], button[aria-label^="Photos"], .m6x62c');
+        // --- STEP 1: INITIAL SCAN & OPEN GALLERY ---
+        const photoBtn = await page.$('button[data-value="Photos"], button[aria-label^="Photos"], .m67q60 button');
         let galleryOpened = false;
-        if (photoTrigger) {
+
+        if (photoBtn && await photoBtn.isVisible()) {
             writeLog("      ✅ Opening Photo Gallery Grid...");
-            await photoTrigger.click({ force: true });
+            await photoBtn.click({ force: true });
             await page.waitForTimeout(5000);
             galleryOpened = true;
         }
 
+        // --- STEP 2: TRY MAIN IMAGE IF TAB NOT FOUND ---
+        if (!galleryOpened) {
+            const mainImg = await page.$('button[aria-label^="Photo of"], img[src*="googleusercontent.com/p/"]');
+            if (mainImg && await mainImg.isVisible()) {
+                await mainImg.click({ force: true });
+                await page.waitForTimeout(5000);
+                galleryOpened = true;
+            }
+        }
+
         const allUrls = new Set();
-        for (let i = 0; i < 15; i++) {
+        const loopCount = galleryOpened ? 20 : 8;
+
+        for (let i = 0; i < loopCount; i++) {
             if (page.isClosed()) break;
-            const batch = await page.evaluate(() => {
+            const batch = await page.evaluate((isGallery) => {
                 const found = [];
-                const container = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]');
-                const target = container || document;
-                target.querySelectorAll('img').forEach(img => {
-                    let src = img.src || img.getAttribute('src') || img.dataset.src || '';
-                    if (src.includes('googleusercontent.com') && !src.includes('base64') && !src.includes('/a/')) {
-                        found.push(src.split('=')[0].split('/s')[0] + '=s1000');
+                const container = isGallery ? (document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]') || document.body) : document.body;
+
+                const elements = container.querySelectorAll('img, div[style*="background-image"]');
+                elements.forEach(el => {
+                    let src = el.tagName === 'IMG' ? (el.src || el.getAttribute('src') || el.dataset.src) : "";
+                    if (!src) {
+                        const style = el.getAttribute('style') || "";
+                        const match = style.match(/url\(["']?(.*?)["']?\)/);
+                        if (match) src = match[1];
+                    }
+
+                    if (src && src.includes('googleusercontent.com') && !src.includes('base64')) {
+                        // 🛡️ STRICT FILTERING
+                        const isProfile = src.includes('/a/') || src.includes('/a-/') || src.includes('=s32') || src.includes('=s64');
+                        const isPhoto = src.includes('/p/') || src.includes('/video/');
+
+                        if (isProfile && !isPhoto) return;
+
+                        let parent = el.parentElement;
+                        let isReviewIcon = false;
+                        for (let j = 0; j < 4; j++) {
+                            if (!parent) break;
+                            const aria = (parent.getAttribute('aria-label') || "").toLowerCase();
+                            if (parent.tagName === 'BUTTON' && (parent.classList.contains('WEBjve') || aria.includes('review'))) {
+                                isReviewIcon = true;
+                                break;
+                            }
+                            parent = parent.parentElement;
+                        }
+                        if (isReviewIcon) return;
+
+                        const clean = src.split('=')[0].split('/s')[0].split('/w')[0].split('/h')[0];
+                        found.push(clean + '=s1000');
                     }
                 });
                 return found;
-            });
+            }, galleryOpened);
+
             batch.forEach(url => allUrls.add(url));
-            const scrolled = await page.evaluate(() => {
-                const scrollable = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="main"], div[tabindex="0"]');
-                if (scrollable) { scrollable.scrollBy(0, 1200); return true; }
-                return false;
-            });
-            if (!scrolled) await page.mouse.wheel(0, 1200);
+
+            await page.evaluate((isGallery) => {
+                const scrollable = isGallery ? document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]') : null;
+                if (scrollable) scrollable.scrollBy(0, 1200);
+                else window.scrollBy(0, 1000);
+            }, galleryOpened);
             await page.waitForTimeout(1000);
         }
 
         const portfolio = Array.from(allUrls).filter(u => !u.includes('mapslogo')).slice(0, 45);
         if (galleryOpened) {
-            const backBtn = await page.$('button[aria-label="Back"], .VfPpkd-icon-LgbsSe');
+            const backBtn = await page.$('button[aria-label="Back"], .VfPpkd-icon-LgbsSe, button[aria-label="Close"]');
             if (backBtn) { await backBtn.click(); await page.waitForTimeout(1000); }
         }
         writeLog(`   🖼️ Found ${portfolio.length} total high-res images.`);
