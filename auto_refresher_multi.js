@@ -4,10 +4,10 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * 🚀 AUTO REFRESHER MULTI-WORKER (V188 - FULL VERBOSE RESTORATION)
+ * 🚀 AUTO REFRESHER MULTI-WORKER (V190 - MULTI-WORKER STYLE PORTFOLIO)
  * 🛡️ STRICT: processAddressDiscovery (Full Junk List Restored)
  * 🛡️ STRICT: FULL 31 COLUMNS (Exact Multi-Worker Structure)
- * 📊 VERBOSE: Detailed Logging for Every Step.
+ * 📊 VERBOSE: Multi-Worker Style Portfolio with forced 1000px resolution.
  */
 
 const args = process.argv.slice(2);
@@ -90,12 +90,12 @@ function processAddressDiscovery(fullAddress, state) {
 
 async function extractPortfolio(page) {
     try {
-        writeLog("   📸 Extracting Portfolio (Multi-Worker Style)...");
+        writeLog("   📸 Extracting Portfolio (Multi-Worker Style @ 1000px)...");
         if (page.isClosed()) return [];
         await page.evaluate(async () => {
             const h1 = document.querySelector('h1.DUwDvf');
             const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.querySelector('div[role="main"]');
-            if (panel) { for (let i = 0; i < 4; i++) { panel.scrollBy(0, 1000); await new Promise(r => setTimeout(r, 600)); } }
+            if (panel) { for (let i = 0; i < 10; i++) { panel.scrollBy(0, 1000); await new Promise(r => setTimeout(r, 600)); } }
         });
         await page.waitForTimeout(1500);
         const links = await page.evaluate(() => {
@@ -107,13 +107,11 @@ async function extractPortfolio(page) {
                 const src = img.src || '';
                 if (src.includes('googleusercontent.com') && !src.includes('base64')) {
                     if (src.includes('/a/') || src.includes('/a-/') || src.includes('shared-v1')) return;
-                    let cleanUrl = src;
-                    if (src.includes('=') && !src.includes('gps-cs-s')) { cleanUrl = src.split('=')[0].split('/s')[0] + '=w1000-h1000'; }
-                    else if (src.includes('=s')) { cleanUrl = src.replace(/=s\d+/, '=s1000'); }
+                    let cleanUrl = src.split('=')[0].split('/s')[0] + '=s1000';
                     res.add(cleanUrl);
                 }
             });
-            return Array.from(res).filter(u => !u.includes('mapslogo')).slice(0, 15);
+            return Array.from(res).filter(u => !u.includes('mapslogo')).slice(0, 20);
         });
         writeLog(`   🖼️ Found ${links.length} images.`);
         return links;
@@ -150,7 +148,7 @@ async function processProfile(page, task, dbPhone, nameRaw) {
             recommendationCount: 0, portfolioUrls: portfolio,
             searchKeywords: [nameRaw, task.city, task.subcategory, task.state],
             lastSeen: Date.now(), callCount: 0, fullAddress: cleanAddr,
-            isNumberHidden: false, referredBy: "V188_AUTO_REFRESH",
+            isNumberHidden: false, referredBy: "V190_AUTO_REFRESH",
             referralBonusPaid: false, fcmToken: "", notificationsEnabled: true,
             latitude: lat, longitude: lon
         };
@@ -163,7 +161,7 @@ async function processProfile(page, task, dbPhone, nameRaw) {
 }
 
 async function runWorker() {
-    writeLog(`🚀 Auto Refresher V188 Starting...`);
+    writeLog(`🚀 Auto Refresher V190 Starting...`);
     try {
         const queueResp = await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" });
         const allTasks = Array.isArray(queueResp.data) ? queueResp.data : [];

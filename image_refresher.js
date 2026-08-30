@@ -4,10 +4,10 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * 🚀 HYBRID IMAGE REFRESHER & REPAIR (V188 - MULTI-WORKER STYLE)
+ * 🚀 HYBRID IMAGE REFRESHER & REPAIR (V190 - MULTI-WORKER STYLE PORTFOLIO)
  * 🛡️ STRICT: processAddressDiscovery (Full Junk List Restored)
  * 🛡️ STRICT: FULL 31 COLUMNS (Exact Multi-Worker Structure)
- * 📊 VERBOSE: Detailed Logging for Every Step RESTORED.
+ * 📊 VERBOSE: Multi-Worker Style Portfolio with forced 1000px resolution.
  */
 
 const args = process.argv.slice(2);
@@ -33,7 +33,7 @@ function writeLog(msg) {
 }
 
 async function flushBatches() {
-    writeLog("⚡ STARTING BATCH FLUSH...");
+    writeLog("⚡ STARTING BATCH FLUSH (10 Leads Mode)...");
     if (syncBatch.length > 0) {
         writeLog(`📤 Syncing ${syncBatch.length} leads to Sheet (FULL 31-FIELD MODE)...`);
         try {
@@ -68,21 +68,37 @@ async function extractPhone(page) {
 function processAddressDiscovery(fullAddress, state) {
     try {
         if (!fullAddress || fullAddress === "N/A") return;
-        const JUNK_KEYWORDS = ['building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block', 'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'society', 'apt', 'apartment', 'villa', 'tower', 'beside', 'behind', 'temple', 'hospital', 'school', 'church', 'masjid', 'gate', 'mall', 'market', 'complex', 'center', 'centre', 'chowk', 'circle', 'bypass', 'yard', 'ward', 'street', 'gali', 'sector', 'khasra', 'mandir', 'सेक्टर', 'गावात'];
+        writeLog(`   🏙️ Checking Area Discovery for: ${fullAddress}`);
+        const JUNK_KEYWORDS = [
+            'building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block',
+            'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'station', 'bus stop', 'society',
+            'apt', 'apartment', 'villa', 'tower', 'beside', 'behind', 'temple', 'hospital', 'school', 'church',
+            'masjid', 'gate', 'mall', 'market', 'complex', 'center', 'centre', 'chowk', 'circle', 'bypass', 'yard',
+            'ward', 'street', 'gali', 'sector', 'khasra', 'mandir', 'सेक्टर', 'गावात', 'road'
+        ];
         const addressParts = fullAddress.split(',').map(p => p.trim());
         let stateIdx = addressParts.length - 1;
         if (addressParts[stateIdx].toLowerCase() === "india" && addressParts.length >= 2) stateIdx--;
+
         for (let offset = 1; offset <= 4; offset++) {
             const idx = stateIdx - offset;
             if (idx < 0) break;
             const rawName = addressParts[idx].trim();
+            const nameLower = rawName.toLowerCase();
+
             const isPlusCode = rawName.includes('+');
             const isJunkCode = /^[0-9\-\/\&\s\.\#]+$/.test(rawName) || (rawName.length <= 5 && /[0-9]/.test(rawName));
-            const hasJunkWords = JUNK_KEYWORDS.some(k => rawName.toLowerCase().includes(k));
+            const hasJunkWords = JUNK_KEYWORDS.some(k => nameLower.includes(k));
+
             if (!isPlusCode && !isJunkCode && !hasJunkWords && rawName.length > 2) {
                 const cleanName = rawName.replace(/[0-9]/g, '').replace(/[\+\#\-\/\&]/g, '').trim();
                 if (cleanName.length < 3) continue;
-                const isExisting = config.states.some(s => s.name.toLowerCase().includes(state.toLowerCase()) && s.cities.some(c => c.toLowerCase() === cleanName.toLowerCase()));
+
+                const isExisting = config.states.some(s =>
+                    s.name.toLowerCase().includes(state.toLowerCase()) &&
+                    s.cities.some(c => c.toLowerCase() === cleanName.toLowerCase())
+                );
+
                 if (!isExisting) {
                     const discoveryFile = path.join(__dirname, `discovered_W${WORKER_ID}.json`);
                     let discoveries = {};
@@ -90,7 +106,7 @@ function processAddressDiscovery(fullAddress, state) {
                     const key = `${state}|${cleanName}`;
                     discoveries[key] = (discoveries[key] || 0) + 1;
                     fs.writeFileSync(discoveryFile, JSON.stringify(discoveries, null, 2));
-                    writeLog(`   🏙️ DISCOVERED AREA: ${cleanName} in ${state}`);
+                    writeLog(`      🌟 DISCOVERED NEW AREA: ${cleanName} in ${state}`);
                 }
             }
         }
@@ -99,32 +115,42 @@ function processAddressDiscovery(fullAddress, state) {
 
 async function extractPortfolio(page) {
     try {
-        writeLog("   📸 Extracting Portfolio (Multi-Worker Style)...");
+        writeLog("   📸 Deep Scraping Portfolio (Multi-Worker Style @ 1000px)...");
         if (page.isClosed()) return [];
+
+        // 🚀 MULTI-WORKER SCROLL LOGIC
         await page.evaluate(async () => {
             const h1 = document.querySelector('h1.DUwDvf');
             const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.querySelector('div[role="main"]');
-            if (panel) { for (let i = 0; i < 4; i++) { panel.scrollBy(0, 1000); await new Promise(r => setTimeout(r, 600)); } }
+            if (panel) {
+                for (let i = 0; i < 10; i++) { // 🚀 DEEP SCROLL
+                    panel.scrollBy(0, 1000);
+                    await new Promise(r => setTimeout(r, 600));
+                }
+            }
         });
         await page.waitForTimeout(1500);
+
         const links = await page.evaluate(() => {
             const res = new Set();
             const h1 = document.querySelector('h1.DUwDvf');
             const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.body;
             if (!panel) return [];
+
             panel.querySelectorAll('img').forEach(img => {
                 const src = img.src || '';
                 if (src.includes('googleusercontent.com') && !src.includes('base64')) {
                     if (src.includes('/a/') || src.includes('/a-/') || src.includes('shared-v1')) return;
-                    let cleanUrl = src;
-                    if (src.includes('=') && !src.includes('gps-cs-s')) { cleanUrl = src.split('=')[0].split('/s')[0] + '=w1000-h1000'; }
-                    else if (src.includes('=s')) { cleanUrl = src.replace(/=s\d+/, '=s1000'); }
+
+                    // 🚀 FORCE 1000px RESOLUTION (STRICT)
+                    let cleanUrl = src.split('=')[0].split('/s')[0] + '=s1000';
                     res.add(cleanUrl);
                 }
             });
-            return Array.from(res).filter(u => !u.includes('mapslogo')).slice(0, 15);
+            return Array.from(res).filter(u => !u.includes('mapslogo')).slice(0, 30);
         });
-        writeLog(`   🖼️ Found ${links.length} images.`);
+
+        writeLog(`   🖼️ Found ${links.length} high-res images.`);
         return links;
     } catch (e) { writeLog(`   ⚠️ Portfolio Error: ${e.message}`); return []; }
 }
@@ -160,25 +186,41 @@ async function processProfile(page, task, dbPhone, nameRaw) {
 
         const provider = {
             id: isMatch ? task.id : `shadow_${cleanMapsPhone}`,
-            businessName: nameRaw, primaryCategoryId: task.categoryId, subcategory: task.subcategory,
-            experienceYears: Math.floor(Math.random() * 5) + 3, serviceMode: "Local",
-            city: task.city, locality: task.city, state: task.state,
-            startingPrice: 0, priceUnit: "Discuss on Call",
-            whatsappNumber: cleanMapsPhone, callNumber: cleanMapsPhone,
+            businessName: nameRaw,
+            primaryCategoryId: task.categoryId,
+            subcategory: task.subcategory,
+            experienceYears: Math.floor(Math.random() * 5) + 3,
+            serviceMode: "Local",
+            city: task.city,
+            locality: task.city,
+            state: task.state,
+            startingPrice: 0,
+            priceUnit: "Discuss on Call",
+            whatsappNumber: cleanMapsPhone,
+            callNumber: cleanMapsPhone,
             aboutDescription: `Professional ${task.subcategory} services available in ${task.city}. High-quality work guaranteed by local experts.`,
-            isApproved: true, isVerified: false, rating: 0.0,
-            profilePhotoUrl: portfolio[0] ? portfolio[0].split('=')[0] + '=w500-h500-k-no' : "",
-            recommendationCount: 0, portfolioUrls: portfolio,
+            isApproved: true,
+            isVerified: false,
+            rating: 0.0,
+            profilePhotoUrl: portfolio[0] ? portfolio[0].replace('=s1000', '=w500-h500-k-no') : "",
+            recommendationCount: 0,
+            portfolioUrls: portfolio,
             searchKeywords: [nameRaw, task.city, task.subcategory, task.state],
-            lastSeen: Date.now(), callCount: 0, fullAddress: cleanAddr,
-            isNumberHidden: false, referredBy: "V188_VERBOSE_REPAIR",
-            referralBonusPaid: false, fcmToken: "", notificationsEnabled: true,
-            latitude: lat, longitude: lon
+            lastSeen: Date.now(),
+            callCount: 0,
+            fullAddress: cleanAddr,
+            isNumberHidden: false,
+            referredBy: "V190_DEEP_REPAIR",
+            referralBonusPaid: false,
+            fcmToken: "",
+            notificationsEnabled: true,
+            latitude: lat,
+            longitude: lon
         };
 
         processAddressDiscovery(cleanAddr, task.state);
         syncBatch.push(provider);
-        writeLog(`   📦 Added to Batch (${syncBatch.length}/10)`);
+        writeLog(`   📦 Added to Batch (${syncBatch.length}/10) | Type: ${isMatch ? "REPAIR" : "DISCOVERY"}`);
         if (isMatch) summary.updated.push(`${nameRaw} (${dbPhone})`);
         else summary.discovered.push(`${nameRaw} (${cleanMapsPhone})`);
         return true;
@@ -186,13 +228,12 @@ async function processProfile(page, task, dbPhone, nameRaw) {
 }
 
 async function runWorker() {
-    writeLog(`🚀 Hybrid Refresher V188 Starting... (TOTAL VERBOSE)`);
+    writeLog(`🚀 Hybrid Refresher V190 Starting (MULTI-WORKER STYLE PORTFOLIO)`);
     try {
         const queueResp = await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" });
         const allTasks = Array.isArray(queueResp.data) ? queueResp.data : [];
         if (allTasks.length === 0) return writeLog("✅ Queue Empty. Exiting.");
         const myTasks = allTasks.filter((_, index) => index % TOTAL_WORKERS === WORKER_ID);
-        writeLog(`📋 My Tasks: ${myTasks.length} assigned.`);
 
         const browser = await chromium.launch({ headless: false });
         const page = await browser.newPage();
@@ -227,13 +268,13 @@ async function runWorker() {
                 }
                 doneBatch.push(task.id);
                 if (syncBatch.length >= 10 || doneBatch.length >= 10) await flushBatches();
-            } catch (err) { writeLog(`❌ Task Error: ${err.message}`); }
+            } catch (err) { writeLog(`❌ Loop Error: ${err.message}`); }
         }
         await flushBatches();
         await browser.close();
         writeLog("\n" + "=".repeat(50));
-        writeLog("📊 FINAL SUMMARY REPORT (V188)");
-        writeLog(`✅ UPDATED: ${summary.updated.length}\n🌟 DISCOVERED: ${summary.discovered.length}\n🚫 DEACTIVATED: ${summary.deactivated.length}`);
+        writeLog("📊 FINAL SUMMARY REPORT (V190)");
+        writeLog(`✅ UPDATED: ${summary.updated.length}\n🌟 DISCOVERED: ${summary.discovered.length}`);
         writeLog("=".repeat(50));
     } catch (e) { writeLog(`🔥 Fatal Error: ${e.message}`); }
 }
