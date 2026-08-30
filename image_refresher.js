@@ -164,7 +164,8 @@ async function processProfile(page, task, dbPhone, nameRaw) {
             profilePhotoUrl: portfolio[0] ? portfolio[0].split('=')[0] + '=w500-h500-k-no' : "",
             recommendationCount: 0, portfolioUrls: portfolio,
             searchKeywords: [nameRaw, task.city, task.subcategory],
-            lastSeen: Date.now(), callCount: 0, fullAddress: cleanAddr,
+            lastSeen: Date.now(), // 🚀 CRITICAL: Force Robot Sync to pick this repair!
+            callCount: 0, fullAddress: cleanAddr,
             isNumberHidden: false, referredBy: "REPAIR_ENGINE_V175",
             latitude: lat, longitude: lon
         };
