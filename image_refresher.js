@@ -96,15 +96,26 @@ async function extractPortfolio(page) {
             for (let i = 0; i < 6; i++) { await page.mouse.wheel(0, 1500); await page.waitForTimeout(800); }
             await page.waitForTimeout(2000);
         }
-        return await page.evaluate(() => {
+        const links = await page.evaluate(() => {
             const set = new Set();
             document.querySelectorAll('img').forEach(el => {
-                if (el.src && el.src.includes('googleusercontent.com') && !el.src.includes('/a/')) {
-                    set.add(el.src.split('=')[0].split('/s')[0] + '=s1000');
+                const src = el.src || "";
+                if (src.includes('googleusercontent.com') && !src.includes('/a/') && !src.includes('base64')) {
+                    // 🛡️ SMART LINK EXTRACTION: Don't split if it's a signed URL (gps-cs-s)
+                    let cleanUrl = src;
+                    if (src.includes('=') && !src.includes('gps-cs-s')) {
+                        cleanUrl = src.split('=')[0].split('/s')[0] + '=s1000';
+                    } else if (src.includes('=s')) {
+                        cleanUrl = src.replace(/=s\d+/, '=s1000');
+                    }
+                    set.add(cleanUrl);
                 }
             });
-            return Array.from(set).slice(0, 25);
+            // Filter out any Maps Logo URL that might have slipped in
+            return Array.from(set).filter(u => !u.includes('mapslogo')).slice(0, 25);
         });
+        writeLog(`   🖼️ Found ${links.length} images.`);
+        return links;
     } catch (e) { return []; }
 }
 
