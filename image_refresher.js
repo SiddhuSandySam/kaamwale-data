@@ -4,11 +4,10 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * 🚀 HYBRID IMAGE REFRESHER & REPAIR (V185 - IRON-CLAD EDITION)
- * 🛡️ STRICT: extractPhone (Multi-selector Robust Logic)
+ * 🚀 HYBRID IMAGE REFRESHER & REPAIR (V188 - MULTI-WORKER STYLE)
  * 🛡️ STRICT: processAddressDiscovery (Full Junk List Restored)
  * 🛡️ STRICT: FULL 31 COLUMNS (Exact Multi-Worker Structure)
- * 📊 VERBOSE: Detailed Logging for Every Step.
+ * 📊 VERBOSE: Detailed Logging for Every Step RESTORED.
  */
 
 const args = process.argv.slice(2);
@@ -100,7 +99,8 @@ function processAddressDiscovery(fullAddress, state) {
 
 async function extractPortfolio(page) {
     try {
-        writeLog("   📸 Deep Scraping Portfolio (Multi-Worker Style)...");
+        writeLog("   📸 Extracting Portfolio (Multi-Worker Style)...");
+        if (page.isClosed()) return [];
         await page.evaluate(async () => {
             const h1 = document.querySelector('h1.DUwDvf');
             const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.querySelector('div[role="main"]');
@@ -108,20 +108,21 @@ async function extractPortfolio(page) {
         });
         await page.waitForTimeout(1500);
         const links = await page.evaluate(() => {
-            const set = new Set();
+            const res = new Set();
             const h1 = document.querySelector('h1.DUwDvf');
             const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.body;
             if (!panel) return [];
             panel.querySelectorAll('img').forEach(img => {
                 const src = img.src || '';
-                if (src.includes('googleusercontent.com') && !src.includes('/a/') && !src.includes('base64')) {
+                if (src.includes('googleusercontent.com') && !src.includes('base64')) {
+                    if (src.includes('/a/') || src.includes('/a-/') || src.includes('shared-v1')) return;
                     let cleanUrl = src;
                     if (src.includes('=') && !src.includes('gps-cs-s')) { cleanUrl = src.split('=')[0].split('/s')[0] + '=w1000-h1000'; }
                     else if (src.includes('=s')) { cleanUrl = src.replace(/=s\d+/, '=s1000'); }
-                    set.add(cleanUrl);
+                    res.add(cleanUrl);
                 }
             });
-            return Array.from(set).filter(u => !u.includes('mapslogo')).slice(0, 25);
+            return Array.from(res).filter(u => !u.includes('mapslogo')).slice(0, 15);
         });
         writeLog(`   🖼️ Found ${links.length} images.`);
         return links;
@@ -170,7 +171,7 @@ async function processProfile(page, task, dbPhone, nameRaw) {
             recommendationCount: 0, portfolioUrls: portfolio,
             searchKeywords: [nameRaw, task.city, task.subcategory, task.state],
             lastSeen: Date.now(), callCount: 0, fullAddress: cleanAddr,
-            isNumberHidden: false, referredBy: "V185_IRON_CLAD",
+            isNumberHidden: false, referredBy: "V188_VERBOSE_REPAIR",
             referralBonusPaid: false, fcmToken: "", notificationsEnabled: true,
             latitude: lat, longitude: lon
         };
@@ -185,7 +186,7 @@ async function processProfile(page, task, dbPhone, nameRaw) {
 }
 
 async function runWorker() {
-    writeLog(`🚀 Hybrid Refresher V185 Starting... (Worker: ${WORKER_ID})`);
+    writeLog(`🚀 Hybrid Refresher V188 Starting... (TOTAL VERBOSE)`);
     try {
         const queueResp = await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" });
         const allTasks = Array.isArray(queueResp.data) ? queueResp.data : [];
@@ -231,7 +232,7 @@ async function runWorker() {
         await flushBatches();
         await browser.close();
         writeLog("\n" + "=".repeat(50));
-        writeLog("📊 FINAL SUMMARY REPORT (V185)");
+        writeLog("📊 FINAL SUMMARY REPORT (V188)");
         writeLog(`✅ UPDATED: ${summary.updated.length}\n🌟 DISCOVERED: ${summary.discovered.length}\n🚫 DEACTIVATED: ${summary.deactivated.length}`);
         writeLog("=".repeat(50));
     } catch (e) { writeLog(`🔥 Fatal Error: ${e.message}`); }
