@@ -678,7 +678,7 @@
   "Goa|Deulwada": 2,
   "Goa|Badem": 1,
   "Goa|Abaxio Vaddo": 1,
-  "Goa|Betora": 1,
+  "Goa|Betora": 2,
   "Goa|KHEDEM": 1,
   "Goa|Madkai": 1,
   "Goa|Kundai": 2,
@@ -721,8 +721,8 @@
   "Goa|Pissurle": 1,
   "Goa|IDC": 1,
   "Goa|Upper Harvalem": 1,
-  "Goa|rajwada": 3,
-  "Goa|Basement": 3,
+  "Goa|rajwada": 4,
+  "Goa|Basement": 4,
   "Goa|Maem": 3,
   "Goa|Goa_": 3,
   "Goa|mayem": 3,
@@ -735,5 +735,7 @@
   "Goa|Green Valley": 2,
   "Goa|Navetim": 1,
   "Goa|Volvaddo": 1,
-  "Goa|NAGZARI": 1
+  "Goa|NAGZARI": 1,
+  "Goa|Bethora": 1,
+  "Goa|Vancio Waddo": 2
 }
