@@ -37,25 +37,51 @@ async function isBroken(url) {
 
 async function extractPortfolio(page) {
     try {
-        const photoGalleryBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"]');
-        if (photoGalleryBtn) {
-            await photoGalleryBtn.click();
-            await page.waitForTimeout(3000);
-            await page.evaluate(async () => {
-                const gallery = document.querySelector('div[role="main"], div[role="grid"]');
-                if (gallery) { gallery.scrollBy(0, 2000); await new Promise(r => setTimeout(r, 500)); }
-            });
+        writeLog("   📸 Deep Scraping Portfolio (Incremental Extraction Mode)...");
+        if (page.isClosed()) return [];
+
+        const photoTrigger = await page.$('button[data-value="Photos"], button[aria-label^="Photos"], .m6x62c');
+        let galleryOpened = false;
+        if (photoTrigger) {
+            writeLog("      ✅ Opening Photo Gallery Grid...");
+            await photoTrigger.click({ force: true });
+            await page.waitForTimeout(5000);
+            galleryOpened = true;
         }
-        return await page.evaluate(() => {
-            const baseLinks = new Set();
-            document.querySelectorAll('img').forEach(el => {
-                if (el.src && el.src.includes('googleusercontent.com') && !el.src.includes('/a/')) {
-                    baseLinks.add(el.src.split('=')[0].split('/s')[0]);
-                }
+
+        const allUrls = new Set();
+        for (let i = 0; i < 15; i++) {
+            if (page.isClosed()) break;
+            const batch = await page.evaluate(() => {
+                const found = [];
+                const container = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]');
+                const target = container || document;
+                target.querySelectorAll('img').forEach(img => {
+                    let src = img.src || img.getAttribute('src') || img.dataset.src || '';
+                    if (src.includes('googleusercontent.com') && !src.includes('base64') && !src.includes('/a/')) {
+                        found.push(src.split('=')[0].split('/s')[0] + '=s1000');
+                    }
+                });
+                return found;
             });
-            return Array.from(baseLinks).map(base => `${base}=s1000`).slice(0, 15);
-        });
-    } catch (e) { return []; }
+            batch.forEach(url => allUrls.add(url));
+            const scrolled = await page.evaluate(() => {
+                const scrollable = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="main"], div[tabindex="0"]');
+                if (scrollable) { scrollable.scrollBy(0, 1200); return true; }
+                return false;
+            });
+            if (!scrolled) await page.mouse.wheel(0, 1200);
+            await page.waitForTimeout(1000);
+        }
+
+        const portfolio = Array.from(allUrls).filter(u => !u.includes('mapslogo')).slice(0, 45);
+        if (galleryOpened) {
+            const backBtn = await page.$('button[aria-label="Back"], .VfPpkd-icon-LgbsSe');
+            if (backBtn) { await backBtn.click(); await page.waitForTimeout(1000); }
+        }
+        writeLog(`   🖼️ Found ${portfolio.length} total high-res images.`);
+        return portfolio;
+    } catch (e) { writeLog(`   ⚠️ Portfolio Error: ${e.message}`); return []; }
 }
 
 async function processState(stateName, stateUrl, browser) {

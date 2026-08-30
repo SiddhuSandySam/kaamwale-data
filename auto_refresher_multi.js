@@ -4,10 +4,10 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * 🚀 AUTO REFRESHER MULTI-WORKER (V190 - MULTI-WORKER STYLE PORTFOLIO)
+ * 🚀 AUTO REFRESHER MULTI-WORKER (V191 - EXACT MULTI-WORKER STYLE)
+ * 🛡️ STRICT: extractPhone (Multi-selector Robust Logic)
  * 🛡️ STRICT: processAddressDiscovery (Full Junk List Restored)
  * 🛡️ STRICT: FULL 31 COLUMNS (Exact Multi-Worker Structure)
- * 📊 VERBOSE: Multi-Worker Style Portfolio with forced 1000px resolution.
  */
 
 const args = process.argv.slice(2);
@@ -90,31 +90,50 @@ function processAddressDiscovery(fullAddress, state) {
 
 async function extractPortfolio(page) {
     try {
-        writeLog("   📸 Extracting Portfolio (Multi-Worker Style @ 1000px)...");
+        writeLog("   📸 Deep Scraping Portfolio (Incremental Extraction Mode)...");
         if (page.isClosed()) return [];
-        await page.evaluate(async () => {
-            const h1 = document.querySelector('h1.DUwDvf');
-            const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.querySelector('div[role="main"]');
-            if (panel) { for (let i = 0; i < 10; i++) { panel.scrollBy(0, 1000); await new Promise(r => setTimeout(r, 600)); } }
-        });
-        await page.waitForTimeout(1500);
-        const links = await page.evaluate(() => {
-            const res = new Set();
-            const h1 = document.querySelector('h1.DUwDvf');
-            const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.body;
-            if (!panel) return [];
-            panel.querySelectorAll('img').forEach(img => {
-                const src = img.src || '';
-                if (src.includes('googleusercontent.com') && !src.includes('base64')) {
-                    if (src.includes('/a/') || src.includes('/a-/') || src.includes('shared-v1')) return;
-                    let cleanUrl = src.split('=')[0].split('/s')[0] + '=s1000';
-                    res.add(cleanUrl);
-                }
+
+        const photoTrigger = await page.$('button[data-value="Photos"], button[aria-label^="Photos"], .m6x62c');
+        let galleryOpened = false;
+        if (photoTrigger) {
+            writeLog("      ✅ Opening Photo Gallery Grid...");
+            await photoTrigger.click({ force: true });
+            await page.waitForTimeout(5000);
+            galleryOpened = true;
+        }
+
+        const allUrls = new Set();
+        for (let i = 0; i < 15; i++) {
+            if (page.isClosed()) break;
+            const batch = await page.evaluate(() => {
+                const found = [];
+                const container = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]');
+                const target = container || document;
+                target.querySelectorAll('img').forEach(img => {
+                    let src = img.src || img.getAttribute('src') || img.dataset.src || '';
+                    if (src.includes('googleusercontent.com') && !src.includes('base64') && !src.includes('/a/')) {
+                        found.push(src.split('=')[0].split('/s')[0] + '=s1000');
+                    }
+                });
+                return found;
             });
-            return Array.from(res).filter(u => !u.includes('mapslogo')).slice(0, 20);
-        });
-        writeLog(`   🖼️ Found ${links.length} images.`);
-        return links;
+            batch.forEach(url => allUrls.add(url));
+            const scrolled = await page.evaluate(() => {
+                const scrollable = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="main"], div[tabindex="0"]');
+                if (scrollable) { scrollable.scrollBy(0, 1200); return true; }
+                return false;
+            });
+            if (!scrolled) await page.mouse.wheel(0, 1200);
+            await page.waitForTimeout(1000);
+        }
+
+        const portfolio = Array.from(allUrls).filter(u => !u.includes('mapslogo')).slice(0, 45);
+        if (galleryOpened) {
+            const backBtn = await page.$('button[aria-label="Back"], .VfPpkd-icon-LgbsSe');
+            if (backBtn) { await backBtn.click(); await page.waitForTimeout(1000); }
+        }
+        writeLog(`   🖼️ Found ${portfolio.length} total high-res images.`);
+        return portfolio;
     } catch (e) { writeLog(`   ⚠️ Portfolio Error: ${e.message}`); return []; }
 }
 
@@ -148,7 +167,7 @@ async function processProfile(page, task, dbPhone, nameRaw) {
             recommendationCount: 0, portfolioUrls: portfolio,
             searchKeywords: [nameRaw, task.city, task.subcategory, task.state],
             lastSeen: Date.now(), callCount: 0, fullAddress: cleanAddr,
-            isNumberHidden: false, referredBy: "V190_AUTO_REFRESH",
+            isNumberHidden: false, referredBy: "V191_AUTO_REFRESH",
             referralBonusPaid: false, fcmToken: "", notificationsEnabled: true,
             latitude: lat, longitude: lon
         };
@@ -161,7 +180,7 @@ async function processProfile(page, task, dbPhone, nameRaw) {
 }
 
 async function runWorker() {
-    writeLog(`🚀 Auto Refresher V190 Starting...`);
+    writeLog(`🚀 Auto Refresher V191 Starting...`);
     try {
         const queueResp = await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" });
         const allTasks = Array.isArray(queueResp.data) ? queueResp.data : [];

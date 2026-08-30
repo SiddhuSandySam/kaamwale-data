@@ -26,49 +26,51 @@ async function extractPhone(page) {
 
 async function extractPortfolio(page) {
     try {
-        await page.waitForTimeout(3000);
-        const photoBtn = await page.$('button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
+        writeLog("   📸 Deep Scraping Portfolio (Incremental Extraction Mode)...");
+        if (page.isClosed()) return [];
 
-        if (photoBtn) {
-            writeLog("🖱️ Entering Full Photo Gallery...");
-            await photoBtn.click({ force: true });
-            await page.waitForTimeout(6000);
-
-            await page.evaluate(async () => {
-                const findScrollable = () => {
-                    const elements = document.querySelectorAll('div[role="main"], div[role="grid"], div[aria-label*="Photos"], .m67q60');
-                    for (let el of elements) { if (el.scrollHeight > el.clientHeight) return el; }
-                    return document.querySelector('div[tabindex="0"]');
-                };
-                const scrollArea = findScrollable();
-                if (scrollArea) {
-                    for(let i=0; i<8; i++) {
-                        scrollArea.scrollBy(0, 2000);
-                        await new Promise(r => setTimeout(r, 700));
-                    }
-                }
-            });
-            await page.waitForTimeout(3000);
+        const photoTrigger = await page.$('button[data-value="Photos"], button[aria-label^="Photos"], .m6x62c');
+        let galleryOpened = false;
+        if (photoTrigger) {
+            writeLog("      ✅ Opening Photo Gallery Grid...");
+            await photoTrigger.click({ force: true });
+            await page.waitForTimeout(5000);
+            galleryOpened = true;
         }
 
-        return await page.evaluate(() => {
-            const links = new Set();
-            document.querySelectorAll('img').forEach(el => {
-                if (el.src && el.src.includes('googleusercontent.com') && !el.src.includes('/a/') && !el.src.includes('shared-v1')) {
-                    const base = el.src.split('=')[0].split('/s')[0];
-                    links.add(base);
-                }
+        const allUrls = new Set();
+        for (let i = 0; i < 15; i++) {
+            if (page.isClosed()) break;
+            const batch = await page.evaluate(() => {
+                const found = [];
+                const container = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]');
+                const target = container || document;
+                target.querySelectorAll('img').forEach(img => {
+                    let src = img.src || img.getAttribute('src') || img.dataset.src || '';
+                    if (src.includes('googleusercontent.com') && !src.includes('base64') && !src.includes('/a/')) {
+                        found.push(src.split('=')[0].split('/s')[0] + '=s1000');
+                    }
+                });
+                return found;
             });
-            document.querySelectorAll('div[style*="background-image"]').forEach(el => {
-                const bg = el.style.backgroundImage;
-                const match = bg.match(/url\(["']?([^"']+)["']?\)/);
-                if (match && match[1].includes('googleusercontent.com')) {
-                    links.add(match[1].split('=')[0].split('/s')[0]);
-                }
+            batch.forEach(url => allUrls.add(url));
+            const scrolled = await page.evaluate(() => {
+                const scrollable = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="main"], div[tabindex="0"]');
+                if (scrollable) { scrollable.scrollBy(0, 1200); return true; }
+                return false;
             });
-            return Array.from(links).map(b => `${b}=s1000`).slice(0, 30);
-        });
-    } catch (e) { return []; }
+            if (!scrolled) await page.mouse.wheel(0, 1200);
+            await page.waitForTimeout(1000);
+        }
+
+        const portfolio = Array.from(allUrls).filter(u => !u.includes('mapslogo')).slice(0, 45);
+        if (galleryOpened) {
+            const backBtn = await page.$('button[aria-label="Back"], .VfPpkd-icon-LgbsSe');
+            if (backBtn) { await backBtn.click(); await page.waitForTimeout(1000); }
+        }
+        writeLog(`   🖼️ Found ${portfolio.length} total high-res images.`);
+        return portfolio;
+    } catch (e) { writeLog(`   ⚠️ Portfolio Error: ${e.message}`); return []; }
 }
 
 async function runRefresher() {

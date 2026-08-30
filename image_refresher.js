@@ -4,10 +4,10 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * 🚀 HYBRID IMAGE REFRESHER & REPAIR (V190 - MULTI-WORKER STYLE PORTFOLIO)
+ * 🚀 HYBRID IMAGE REFRESHER & REPAIR (V192 - ULTRA-HARD EXTRACTION)
  * 🛡️ STRICT: processAddressDiscovery (Full Junk List Restored)
  * 🛡️ STRICT: FULL 31 COLUMNS (Exact Multi-Worker Structure)
- * 📊 VERBOSE: Multi-Worker Style Portfolio with forced 1000px resolution.
+ * 📊 VERBOSE: Deep Portfolio Scroll (12x) with forced 1000px resolution.
  */
 
 const args = process.argv.slice(2);
@@ -69,36 +69,22 @@ function processAddressDiscovery(fullAddress, state) {
     try {
         if (!fullAddress || fullAddress === "N/A") return;
         writeLog(`   🏙️ Checking Area Discovery for: ${fullAddress}`);
-        const JUNK_KEYWORDS = [
-            'building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block',
-            'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'station', 'bus stop', 'society',
-            'apt', 'apartment', 'villa', 'tower', 'beside', 'behind', 'temple', 'hospital', 'school', 'church',
-            'masjid', 'gate', 'mall', 'market', 'complex', 'center', 'centre', 'chowk', 'circle', 'bypass', 'yard',
-            'ward', 'street', 'gali', 'sector', 'khasra', 'mandir', 'सेक्टर', 'गावात', 'road'
-        ];
+        const JUNK_KEYWORDS = ['building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block', 'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'society', 'apt', 'apartment', 'villa', 'tower', 'beside', 'behind', 'temple', 'hospital', 'school', 'church', 'masjid', 'gate', 'mall', 'market', 'complex', 'center', 'centre', 'chowk', 'circle', 'bypass', 'yard', 'ward', 'street', 'gali', 'sector', 'khasra', 'mandir', 'सेक्टर', 'गावात', 'road'];
         const addressParts = fullAddress.split(',').map(p => p.trim());
         let stateIdx = addressParts.length - 1;
         if (addressParts[stateIdx].toLowerCase() === "india" && addressParts.length >= 2) stateIdx--;
-
         for (let offset = 1; offset <= 4; offset++) {
             const idx = stateIdx - offset;
             if (idx < 0) break;
             const rawName = addressParts[idx].trim();
             const nameLower = rawName.toLowerCase();
-
             const isPlusCode = rawName.includes('+');
             const isJunkCode = /^[0-9\-\/\&\s\.\#]+$/.test(rawName) || (rawName.length <= 5 && /[0-9]/.test(rawName));
             const hasJunkWords = JUNK_KEYWORDS.some(k => nameLower.includes(k));
-
             if (!isPlusCode && !isJunkCode && !hasJunkWords && rawName.length > 2) {
                 const cleanName = rawName.replace(/[0-9]/g, '').replace(/[\+\#\-\/\&]/g, '').trim();
                 if (cleanName.length < 3) continue;
-
-                const isExisting = config.states.some(s =>
-                    s.name.toLowerCase().includes(state.toLowerCase()) &&
-                    s.cities.some(c => c.toLowerCase() === cleanName.toLowerCase())
-                );
-
+                const isExisting = config.states.some(s => s.name.toLowerCase().includes(state.toLowerCase()) && s.cities.some(c => c.toLowerCase() === cleanName.toLowerCase()));
                 if (!isExisting) {
                     const discoveryFile = path.join(__dirname, `discovered_W${WORKER_ID}.json`);
                     let discoveries = {};
@@ -115,43 +101,67 @@ function processAddressDiscovery(fullAddress, state) {
 
 async function extractPortfolio(page) {
     try {
-        writeLog("   📸 Deep Scraping Portfolio (Multi-Worker Style @ 1000px)...");
+        writeLog("   📸 Deep Scraping Portfolio (Incremental Extraction Mode)...");
         if (page.isClosed()) return [];
 
-        // 🚀 MULTI-WORKER SCROLL LOGIC
-        await page.evaluate(async () => {
-            const h1 = document.querySelector('h1.DUwDvf');
-            const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.querySelector('div[role="main"]');
-            if (panel) {
-                for (let i = 0; i < 10; i++) { // 🚀 DEEP SCROLL
-                    panel.scrollBy(0, 1000);
-                    await new Promise(r => setTimeout(r, 600));
-                }
-            }
-        });
-        await page.waitForTimeout(1500);
+        // 1. 📂 OPEN PHOTO GRID (Targeting the actual Photos button/tab)
+        const photoTrigger = await page.$('button[data-value="Photos"], button[aria-label^="Photos"], .m6x62c');
+        let galleryOpened = false;
+        if (photoTrigger) {
+            writeLog("      ✅ Opening Photo Gallery Grid...");
+            await photoTrigger.click({ force: true });
+            await page.waitForTimeout(5000);
+            galleryOpened = true;
+        }
 
-        const links = await page.evaluate(() => {
-            const res = new Set();
-            const h1 = document.querySelector('h1.DUwDvf');
-            const panel = h1 ? h1.closest('div[role="main"], div[role="dialog"]') : document.body;
-            if (!panel) return [];
+        const allUrls = new Set();
 
-            panel.querySelectorAll('img').forEach(img => {
-                const src = img.src || '';
-                if (src.includes('googleusercontent.com') && !src.includes('base64')) {
-                    if (src.includes('/a/') || src.includes('/a-/') || src.includes('shared-v1')) return;
+        for (let i = 0; i < 15; i++) {
+            if (page.isClosed()) break;
 
-                    // 🚀 FORCE 1000px RESOLUTION (STRICT)
-                    let cleanUrl = src.split('=')[0].split('/s')[0] + '=s1000';
-                    res.add(cleanUrl);
-                }
+            const batch = await page.evaluate(() => {
+                const found = [];
+                // Target the specific gallery containers
+                const container = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]');
+                const target = container || document;
+
+                target.querySelectorAll('img').forEach(img => {
+                    let src = img.src || img.getAttribute('src') || img.dataset.src || '';
+                    if (src.includes('googleusercontent.com') && !src.includes('base64') && !src.includes('/a/')) {
+                        found.push(src.split('=')[0].split('/s')[0] + '=s1000');
+                    }
+                });
+                return found;
             });
-            return Array.from(res).filter(u => !u.includes('mapslogo')).slice(0, 30);
-        });
 
-        writeLog(`   🖼️ Found ${links.length} high-res images.`);
-        return links;
+            batch.forEach(url => allUrls.add(url));
+
+            // 📜 SCROLL THE ACTUAL GRID
+            const scrolled = await page.evaluate(() => {
+                const scrollable = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="main"], div[tabindex="0"]');
+                if (scrollable) {
+                    scrollable.scrollBy(0, 1200);
+                    return true;
+                }
+                return false;
+            });
+
+            if (!scrolled) {
+                // Fallback: scroll the whole panel
+                await page.mouse.wheel(0, 1200);
+            }
+            await page.waitForTimeout(1000);
+        }
+
+        const portfolio = Array.from(allUrls).filter(u => !u.includes('mapslogo')).slice(0, 45);
+
+        if (galleryOpened) {
+            const backBtn = await page.$('button[aria-label="Back"], .VfPpkd-icon-LgbsSe');
+            if (backBtn) { await backBtn.click(); await page.waitForTimeout(1000); }
+        }
+
+        writeLog(`   🖼️ Found ${portfolio.length} total high-res images.`);
+        return portfolio;
     } catch (e) { writeLog(`   ⚠️ Portfolio Error: ${e.message}`); return []; }
 }
 
@@ -175,47 +185,31 @@ async function processProfile(page, task, dbPhone, nameRaw) {
         const url = page.url();
         let lat = 0, lon = 0;
         const pm = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-        if (pm) { lat = parseFloat(pm[1]); lon = parseFloat(pm[2]); writeLog(`   📍 GPS: ${lat}, ${lon}`); }
+        if (pm) { lat = parseFloat(pm[1]); lon = parseFloat(pm[2]); writeLog(`   📍 GPS Coordinates: ${lat}, ${lon}`); }
 
         const addrRaw = await page.$eval('button[data-item-id="address"]', el => el.innerText).catch(() => "N/A");
         const cleanAddr = addrRaw.replace('\n', '').replace('', '').trim();
-        if (cleanAddr === "N/A" || !cleanAddr) { writeLog("   🛑 Skip: No address."); return false; }
+        if (cleanAddr === "N/A" || !cleanAddr) { writeLog("   🛑 Skip: No valid address found."); return false; }
 
         const portfolio = await extractPortfolio(page);
-        if (portfolio.length === 0) { writeLog("   🛑 Skip: No images."); return false; }
+        if (portfolio.length === 0) { writeLog("   🛑 Skip: No portfolio images extracted."); return false; }
 
         const provider = {
             id: isMatch ? task.id : `shadow_${cleanMapsPhone}`,
-            businessName: nameRaw,
-            primaryCategoryId: task.categoryId,
-            subcategory: task.subcategory,
-            experienceYears: Math.floor(Math.random() * 5) + 3,
-            serviceMode: "Local",
-            city: task.city,
-            locality: task.city,
-            state: task.state,
-            startingPrice: 0,
-            priceUnit: "Discuss on Call",
-            whatsappNumber: cleanMapsPhone,
-            callNumber: cleanMapsPhone,
+            businessName: nameRaw, primaryCategoryId: task.categoryId, subcategory: task.subcategory,
+            experienceYears: Math.floor(Math.random() * 5) + 3, serviceMode: "Local",
+            city: task.city, locality: task.city, state: task.state,
+            startingPrice: 0, priceUnit: "Discuss on Call",
+            whatsappNumber: cleanMapsPhone, callNumber: cleanMapsPhone,
             aboutDescription: `Professional ${task.subcategory} services available in ${task.city}. High-quality work guaranteed by local experts.`,
-            isApproved: true,
-            isVerified: false,
-            rating: 0.0,
-            profilePhotoUrl: portfolio[0] ? portfolio[0].replace('=s1000', '=w500-h500-k-no') : "",
-            recommendationCount: 0,
-            portfolioUrls: portfolio,
+            isApproved: true, isVerified: false, rating: 0.0,
+            profilePhotoUrl: portfolio[0] ? portfolio[0].split('=')[0] + '=w500-h500-k-no' : "",
+            recommendationCount: 0, portfolioUrls: portfolio,
             searchKeywords: [nameRaw, task.city, task.subcategory, task.state],
-            lastSeen: Date.now(),
-            callCount: 0,
-            fullAddress: cleanAddr,
-            isNumberHidden: false,
-            referredBy: "V190_DEEP_REPAIR",
-            referralBonusPaid: false,
-            fcmToken: "",
-            notificationsEnabled: true,
-            latitude: lat,
-            longitude: lon
+            lastSeen: Date.now(), callCount: 0, fullAddress: cleanAddr,
+            isNumberHidden: false, referredBy: "V192_IRON_CLAD",
+            referralBonusPaid: false, fcmToken: "", notificationsEnabled: true,
+            latitude: lat, longitude: lon
         };
 
         processAddressDiscovery(cleanAddr, task.state);
@@ -228,12 +222,13 @@ async function processProfile(page, task, dbPhone, nameRaw) {
 }
 
 async function runWorker() {
-    writeLog(`🚀 Hybrid Refresher V190 Starting (MULTI-WORKER STYLE PORTFOLIO)`);
+    writeLog(`🚀 Hybrid Refresher V192 Starting (ULTRA-HARD EXTRACTION)`);
     try {
         const queueResp = await axios.post(HUB_URL, { type: "GET_REFRESH_QUEUE" });
         const allTasks = Array.isArray(queueResp.data) ? queueResp.data : [];
         if (allTasks.length === 0) return writeLog("✅ Queue Empty. Exiting.");
         const myTasks = allTasks.filter((_, index) => index % TOTAL_WORKERS === WORKER_ID);
+        writeLog(`📋 My Tasks: ${myTasks.length} assigned.`);
 
         const browser = await chromium.launch({ headless: false });
         const page = await browser.newPage();
@@ -273,7 +268,7 @@ async function runWorker() {
         await flushBatches();
         await browser.close();
         writeLog("\n" + "=".repeat(50));
-        writeLog("📊 FINAL SUMMARY REPORT (V190)");
+        writeLog("📊 FINAL SUMMARY REPORT (V192)");
         writeLog(`✅ UPDATED: ${summary.updated.length}\n🌟 DISCOVERED: ${summary.discovered.length}`);
         writeLog("=".repeat(50));
     } catch (e) { writeLog(`🔥 Fatal Error: ${e.message}`); }
