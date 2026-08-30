@@ -31,7 +31,7 @@ const SERVICE_ACCOUNT_FILE = path.join(__dirname, 'serviceAccountKey.json');
 
 // --- STARTUP HEADER ---
 console.log("\n===============================================");
-console.log(`   RAPIDHELP WORKER ${WORKER_ID} | VERSION: V77 | DATA-ARMOR-ULTIMATE`);
+console.log(`   RAPIDHELP WORKER ${WORKER_ID} | VERSION: V78 | DATA-ARMOR-HYBRID`);
 console.log("===============================================\n");
 
 // INITIALIZE FIREBASE
@@ -243,49 +243,77 @@ process.on('SIGTERM', () => gracefulShutdown(false));
 
 async function extractPortfolio(page) {
     try {
-        console.log(`Worker ${WORKER_ID} | 📸 | Deep Scraping Portfolio (Incremental Mode)...`);
+        console.log(`Worker ${WORKER_ID} | 📸 | Extracting Portfolio (Hybrid Mode)...`);
         if (page.isClosed()) return [];
 
-        const photoTrigger = await page.$('button[data-value="Photos"], button[aria-label^="Photos"], .m6x62c');
-        let galleryOpened = false;
-        if (photoTrigger) {
-            console.log(`Worker ${WORKER_ID} | 📸 | Opening Photo Gallery Grid...`);
-            await photoTrigger.click({ force: true });
-            await page.waitForTimeout(5000);
-            galleryOpened = true;
-        }
-
         const allUrls = new Set();
-        for (let i = 0; i < 15; i++) {
-            if (page.isClosed()) break;
-            const batch = await page.evaluate(() => {
-                const found = [];
-                const container = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]');
-                const target = container || document;
-                target.querySelectorAll('img').forEach(img => {
-                    let src = img.src || img.getAttribute('src') || img.dataset.src || '';
-                    if (src.includes('googleusercontent.com') && !src.includes('base64') && !src.includes('/a/')) {
-                        found.push(src.split('=')[0].split('/s')[0] + '=s1000');
-                    }
-                });
-                return found;
+
+        // --- STEP 1: INITIAL SIDE PANEL SCAN (Safety Net) ---
+        // Extract what's immediately visible before trying to open the gallery
+        const sidePanelLinks = await page.evaluate(() => {
+            const res = new Set();
+            document.querySelectorAll('img').forEach(img => {
+                let src = img.src || img.getAttribute('src') || img.dataset.src || '';
+                if (src.includes('googleusercontent.com') && !src.includes('base64') && !src.includes('/a/')) {
+                    res.add(src.split('=')[0].split('/s')[0] + '=s1000');
+                }
             });
-            batch.forEach(url => allUrls.add(url));
-            const scrolled = await page.evaluate(() => {
-                const scrollable = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="main"], div[tabindex="0"]');
-                if (scrollable) { scrollable.scrollBy(0, 1200); return true; }
-                return false;
+            // carousel thumbnails
+            document.querySelectorAll('div[style*="background-image"]').forEach(div => {
+                const bg = div.style.backgroundImage;
+                const match = bg.match(/url\(["']?([^"']+)["']?\)/);
+                if (match && match[1] && match[1].includes('googleusercontent.com')) {
+                    res.add(match[1].split('=')[0].split('/s')[0] + '=s1000');
+                }
             });
-            if (!scrolled) await page.mouse.wheel(0, 1200);
-            await page.waitForTimeout(1000);
+            return Array.from(res);
+        });
+        sidePanelLinks.forEach(u => allUrls.add(u));
+
+        // --- STEP 2: TRY TO OPEN FULL GALLERY (Deep Scan) ---
+        // Robust set of selectors for the "Photos" button
+        const photoBtn = await page.$('button[data-value="Photos"], button[aria-label*="Photo"], button[aria-label*="फ़ोटो"], .m67q60 button');
+
+        let galleryOpened = false;
+        if (photoBtn) {
+            try {
+                await photoBtn.click({ force: true });
+                await page.waitForTimeout(3000);
+                // Confirm gallery grid is actually visible
+                const isGrid = await page.$('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"]');
+                if (isGrid) galleryOpened = true;
+            } catch (clickErr) {}
         }
 
-        const portfolio = Array.from(allUrls).filter(u => !u.includes('mapslogo')).slice(0, 45);
         if (galleryOpened) {
+            console.log(`Worker ${WORKER_ID} | 📸 | Deep Gallery Opened. Scanning...`);
+            for (let i = 0; i < 8; i++) {
+                if (page.isClosed()) break;
+                const batch = await page.evaluate(() => {
+                    const found = [];
+                    document.querySelectorAll('img').forEach(img => {
+                        let src = img.src || img.getAttribute('src') || img.dataset.src || '';
+                        if (src.includes('googleusercontent.com') && !src.includes('base64') && !src.includes('/a/')) {
+                            found.push(src.split('=')[0].split('/s')[0] + '=s1000');
+                        }
+                    });
+                    return found;
+                });
+                batch.forEach(url => allUrls.add(url));
+
+                await page.evaluate(() => {
+                    const scrollable = document.querySelector('.m6x62c-v77d8b-view-container, .DxyBCb, div[role="grid"], div[role="main"]');
+                    if (scrollable) scrollable.scrollBy(0, 1000);
+                });
+                await page.waitForTimeout(800);
+            }
+            // Close gallery
             const backBtn = await page.$('button[aria-label="Back"], .VfPpkd-icon-LgbsSe');
             if (backBtn) { await backBtn.click(); await page.waitForTimeout(1000); }
         }
-        console.log(`Worker ${WORKER_ID} | 📸 | Found ${portfolio.length} total high-res images.`);
+
+        const portfolio = Array.from(allUrls).filter(u => !u.includes('mapslogo')).slice(0, 45);
+        console.log(`Worker ${WORKER_ID} | 📸 | Found ${portfolio.length} images.`);
         return portfolio;
     } catch (e) { console.log(`Worker ${WORKER_ID} | ⚠️ | Portfolio Error: ${e.message}`); return []; }
 }

@@ -141,3 +141,381 @@
     }
   ]
 }
+[30/8/2026, 9:41:03 am] 🚀 Refresher V178 Starting (Discovery & Repair Mode)
+[30/8/2026, 9:41:09 am] 
+━━━━━━━━━━━━━━ TASK: pandit ji for pooja in ulwe ━━━━━━━━━━━━━━
+[30/8/2026, 9:41:24 am]    📱 Maps Phone: 8422983322 | Expected: 8422983322
+[30/8/2026, 9:41:24 am]    📸 Deep Scraping Portfolio...
+[30/8/2026, 9:41:25 am]       📂 Opening Gallery...
+[30/8/2026, 9:41:40 am]    🖼️ Found 2 images.
+[30/8/2026, 9:41:40 am]    🏙️ DISCOVERED AREA: Ulwe in Maharashtra
+[30/8/2026, 9:41:40 am] 📤 Syncing 1 leads to Sheet (Full 31-Column Mode)...
+[30/8/2026, 9:42:08 am]    ✅ Hub Response: "Maharashtra: Success"
+[30/8/2026, 9:42:08 am] 🧹 Cleaning 1 items from Queue...
+[30/8/2026, 9:42:11 am] 
+✅ UPDATED: 1 | 🌟 DISCOVERED: 0
+[30/8/2026, 10:28:53 am] 🚀 Hybrid Refresher V185 Starting... (Worker: 0)
+[30/8/2026, 10:29:04 am] 📋 My Tasks: 1 assigned.
+[30/8/2026, 10:29:05 am] 
+━━━━━━━━━━━━━━ TASK: VRG Tax Consultant ━━━━━━━━━━━━━━
+[30/8/2026, 10:29:19 am]    🔍 Processing Profile: VRG Tax Consultant
+[30/8/2026, 10:29:19 am]    📱 Maps Phone: 9870531373 | Expected: 9870531373
+[30/8/2026, 10:29:19 am]    📍 GPS: 18.9660571, 73.0339609
+[30/8/2026, 10:29:19 am]    📸 Deep Scraping Portfolio (Multi-Worker Style)...
+[30/8/2026, 10:29:23 am]    🖼️ Found 3 images.
+[30/8/2026, 10:29:23 am]    🏙️ DISCOVERED AREA: Wahal in Maharashtra
+[30/8/2026, 10:29:23 am]    🏙️ DISCOVERED AREA: Ulwe in Maharashtra
+[30/8/2026, 10:29:23 am]    📦 Added to Batch (1/10)
+[30/8/2026, 10:29:23 am] ⚡ STARTING BATCH FLUSH...
+[30/8/2026, 10:29:23 am] 📤 Syncing 1 leads to Sheet (FULL 31-FIELD MODE)...
+[30/8/2026, 10:30:08 am]    ✅ Hub Response: "Maharashtra: Success"
+[30/8/2026, 10:30:08 am] 🧹 Cleaning 1 items from Queue...
+[30/8/2026, 10:30:11 am]    ✅ Queue Cleanup Response: "Success: Cleaned Queue"
+[30/8/2026, 10:30:11 am] ⚡ BATCH FLUSH COMPLETED.
+[30/8/2026, 10:30:12 am] 
+==================================================
+[30/8/2026, 10:30:12 am] 📊 FINAL SUMMARY REPORT (V185)
+[30/8/2026, 10:30:12 am] ✅ UPDATED: 1
+🌟 DISCOVERED: 0
+🚫 DEACTIVATED: 0
+[30/8/2026, 10:30:12 am] ==================================================
+[30/8/2026, 10:45:38 am] 🚀 Hybrid Refresher V185 Starting... (Worker: 0)
+[30/8/2026, 10:45:42 am] 📋 My Tasks: 1 assigned.
+[30/8/2026, 10:45:43 am] 
+━━━━━━━━━━━━━━ TASK: Aqua Planet ━━━━━━━━━━━━━━
+[30/8/2026, 10:45:53 am]    🔍 Processing Profile: Aqua Planet
+[30/8/2026, 10:45:53 am]    📱 Maps Phone: 9820190986 | Expected: 9820190986
+[30/8/2026, 10:45:53 am]    📍 GPS: 19.0638071, 72.881332
+[30/8/2026, 10:45:53 am]    📸 Deep Scraping Portfolio (Multi-Worker Style)...
+[30/8/2026, 10:45:57 am]    🖼️ Found 1 images.
+[30/8/2026, 10:45:57 am]    🏙️ DISCOVERED AREA: Kurla (E in Maharashtra
+[30/8/2026, 10:45:57 am]    🏙️ DISCOVERED AREA: Nehru Nagar in Maharashtra
+[30/8/2026, 10:45:57 am]    📦 Added to Batch (1/10)
+[30/8/2026, 10:45:57 am] ⚡ STARTING BATCH FLUSH...
+[30/8/2026, 10:45:57 am] 📤 Syncing 1 leads to Sheet (FULL 31-FIELD MODE)...
+[30/8/2026, 10:46:31 am]    ✅ Hub Response: "Maharashtra: Success"
+[30/8/2026, 10:46:31 am] 🧹 Cleaning 1 items from Queue...
+[30/8/2026, 10:46:35 am]    ✅ Queue Cleanup Response: "Success: Cleaned Queue"
+[30/8/2026, 10:46:35 am] ⚡ BATCH FLUSH COMPLETED.
+[30/8/2026, 10:46:35 am] 
+==================================================
+[30/8/2026, 10:46:35 am] 📊 FINAL SUMMARY REPORT (V185)
+[30/8/2026, 10:46:35 am] ✅ UPDATED: 1
+🌟 DISCOVERED: 0
+🚫 DEACTIVATED: 0
+[30/8/2026, 10:46:35 am] ==================================================
+[30/8/2026, 10:52:01 am] 🚀 Hybrid Refresher V185 Starting... (Worker: 0)
+[30/8/2026, 10:52:06 am] 📋 My Tasks: 2 assigned.
+[30/8/2026, 10:52:07 am] 
+━━━━━━━━━━━━━━ TASK: Aqua Planet ━━━━━━━━━━━━━━
+[30/8/2026, 10:52:17 am]    🔍 Processing Profile: Aqua Planet
+[30/8/2026, 10:52:17 am]    📱 Maps Phone: 9820190986 | Expected: 9820190986
+[30/8/2026, 10:52:17 am]    📍 GPS: 19.0638071, 72.881332
+[30/8/2026, 10:52:17 am]    📸 Deep Scraping Portfolio (Multi-Worker Style)...
+[30/8/2026, 10:52:21 am]    🖼️ Found 1 images.
+[30/8/2026, 10:52:21 am]    🏙️ DISCOVERED AREA: Kurla (E in Maharashtra
+[30/8/2026, 10:52:21 am]    🏙️ DISCOVERED AREA: Nehru Nagar in Maharashtra
+[30/8/2026, 10:52:21 am]    📦 Added to Batch (1/10)
+[30/8/2026, 10:52:21 am] 
+━━━━━━━━━━━━━━ TASK: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम ━━━━━━━━━━━━━━
+[30/8/2026, 10:52:27 am]    🔍 Processing Profile: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम
+[30/8/2026, 10:52:27 am]    📱 Maps Phone: 8369467013 | Expected: 8369467013
+[30/8/2026, 10:52:27 am]    📍 GPS: 19.0355373, 72.8396051
+[30/8/2026, 10:52:27 am]    📸 Deep Scraping Portfolio (Multi-Worker Style)...
+[30/8/2026, 10:52:31 am]    🖼️ Found 14 images.
+[30/8/2026, 10:52:31 am]    📦 Added to Batch (2/10)
+[30/8/2026, 10:52:31 am] ⚡ STARTING BATCH FLUSH...
+[30/8/2026, 10:52:31 am] 📤 Syncing 2 leads to Sheet (FULL 31-FIELD MODE)...
+[30/8/2026, 10:53:05 am]    ✅ Hub Response: "Maharashtra: Success"
+[30/8/2026, 10:53:05 am] 🧹 Cleaning 2 items from Queue...
+[30/8/2026, 10:53:08 am]    ✅ Queue Cleanup Response: "Success: Cleaned Queue"
+[30/8/2026, 10:53:08 am] ⚡ BATCH FLUSH COMPLETED.
+[30/8/2026, 10:53:09 am] 
+==================================================
+[30/8/2026, 10:53:09 am] 📊 FINAL SUMMARY REPORT (V185)
+[30/8/2026, 10:53:09 am] ✅ UPDATED: 2
+🌟 DISCOVERED: 0
+🚫 DEACTIVATED: 0
+[30/8/2026, 10:53:09 am] ==================================================
+[30/8/2026, 11:05:05 am] 🚀 Hybrid Refresher V188 Starting... (TOTAL VERBOSE)
+[30/8/2026, 11:05:09 am] 📋 My Tasks: 2 assigned.
+[30/8/2026, 11:05:10 am] 
+━━━━━━━━━━━━━━ TASK: Aqua Planet ━━━━━━━━━━━━━━
+[30/8/2026, 11:05:19 am]    🔍 Processing Profile: Aqua Planet
+[30/8/2026, 11:05:19 am]    📱 Maps Phone: 9820190986 | Expected: 9820190986
+[30/8/2026, 11:05:19 am]    📍 GPS: 19.0638071, 72.881332
+[30/8/2026, 11:05:19 am]    📸 Extracting Portfolio (Multi-Worker Style)...
+[30/8/2026, 11:05:23 am]    🖼️ Found 2 images.
+[30/8/2026, 11:05:23 am]    🏙️ DISCOVERED AREA: Kurla (E in Maharashtra
+[30/8/2026, 11:05:23 am]    🏙️ DISCOVERED AREA: Nehru Nagar in Maharashtra
+[30/8/2026, 11:05:23 am]    📦 Added to Batch (1/10)
+[30/8/2026, 11:05:23 am] 
+━━━━━━━━━━━━━━ TASK: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम ━━━━━━━━━━━━━━
+[30/8/2026, 11:05:29 am]    🔍 Processing Profile: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम
+[30/8/2026, 11:05:29 am]    📱 Maps Phone: 8369467013 | Expected: 8369467013
+[30/8/2026, 11:05:29 am]    📍 GPS: 19.0355373, 72.8396051
+[30/8/2026, 11:05:29 am]    📸 Extracting Portfolio (Multi-Worker Style)...
+[30/8/2026, 11:05:33 am]    🖼️ Found 2 images.
+[30/8/2026, 11:05:33 am]    📦 Added to Batch (2/10)
+[30/8/2026, 11:05:33 am] ⚡ STARTING BATCH FLUSH...
+[30/8/2026, 11:05:33 am] 📤 Syncing 2 leads to Sheet (FULL 31-FIELD MODE)...
+[30/8/2026, 11:06:11 am]    ✅ Hub Response: "Maharashtra: Success"
+[30/8/2026, 11:06:11 am] 🧹 Cleaning 2 items from Queue...
+[30/8/2026, 11:06:17 am]    ✅ Queue Cleanup Response: "Success: Cleaned Queue"
+[30/8/2026, 11:06:17 am] ⚡ BATCH FLUSH COMPLETED.
+[30/8/2026, 11:06:18 am] 
+==================================================
+[30/8/2026, 11:06:18 am] 📊 FINAL SUMMARY REPORT (V188)
+[30/8/2026, 11:06:18 am] ✅ UPDATED: 2
+🌟 DISCOVERED: 0
+🚫 DEACTIVATED: 0
+[30/8/2026, 11:06:18 am] ==================================================
+[30/8/2026, 11:20:21 am] 🚀 Hybrid Refresher V190 Starting (MULTI-WORKER STYLE PORTFOLIO)
+[30/8/2026, 11:20:24 am] 
+━━━━━━━━━━━━━━ TASK: Aqua Planet ━━━━━━━━━━━━━━
+[30/8/2026, 11:20:38 am]    🔍 Processing Profile: Aqua Planet
+[30/8/2026, 11:20:38 am]    📱 Maps Phone: 9820190986 | Expected: 9820190986
+[30/8/2026, 11:20:38 am]    📍 GPS: 19.0638071, 72.881332
+[30/8/2026, 11:20:38 am]    📸 Deep Scraping Portfolio (Multi-Worker Style @ 1000px)...
+[30/8/2026, 11:20:45 am]    🖼️ Found 1 high-res images.
+[30/8/2026, 11:20:45 am]    🏙️ Checking Area Discovery for: Shop No.F, 24, SG Barve Marg, Nehru Nagar, Kurla (E, Mumbai, Maharashtra 400024
+[30/8/2026, 11:20:45 am]       🌟 DISCOVERED NEW AREA: Kurla (E in Maharashtra
+[30/8/2026, 11:20:45 am]       🌟 DISCOVERED NEW AREA: Nehru Nagar in Maharashtra
+[30/8/2026, 11:20:45 am]    📦 Added to Batch (1/10) | Type: REPAIR
+[30/8/2026, 11:20:45 am] 
+━━━━━━━━━━━━━━ TASK: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम ━━━━━━━━━━━━━━
+[30/8/2026, 11:20:51 am]    🔍 Processing Profile: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम
+[30/8/2026, 11:20:51 am]    📱 Maps Phone: 8369467013 | Expected: 8369467013
+[30/8/2026, 11:20:51 am]    📍 GPS: 19.0355373, 72.8396051
+[30/8/2026, 11:20:51 am]    📸 Deep Scraping Portfolio (Multi-Worker Style @ 1000px)...
+[30/8/2026, 11:20:58 am]    🖼️ Found 10 high-res images.
+[30/8/2026, 11:20:58 am]    🏙️ Checking Area Discovery for: 183/F, Patil House, New Mangela Wadi, Veer Savarkar Marg, Sitladevi Temple Rd, Mahim West, Mumbai, Maharashtra 400016
+[30/8/2026, 11:20:58 am]    📦 Added to Batch (2/10) | Type: REPAIR
+[30/8/2026, 11:20:58 am] ⚡ STARTING BATCH FLUSH (10 Leads Mode)...
+[30/8/2026, 11:20:58 am] 📤 Syncing 2 leads to Sheet (FULL 31-FIELD MODE)...
+[30/8/2026, 11:21:32 am]    ✅ Hub Response: "Maharashtra: Success"
+[30/8/2026, 11:21:32 am] 🧹 Cleaning 2 items from Queue...
+[30/8/2026, 11:21:36 am]    ✅ Queue Cleanup Response: "Success: Cleaned Queue"
+[30/8/2026, 11:21:36 am] ⚡ BATCH FLUSH COMPLETED.
+[30/8/2026, 11:21:36 am] 
+==================================================
+[30/8/2026, 11:21:36 am] 📊 FINAL SUMMARY REPORT (V190)
+[30/8/2026, 11:21:36 am] ✅ UPDATED: 2
+🌟 DISCOVERED: 0
+[30/8/2026, 11:21:36 am] ==================================================
+[30/8/2026, 11:39:12 am] 🚀 Hybrid Refresher V192 Starting (ULTRA-HARD EXTRACTION)
+[30/8/2026, 11:39:15 am] 📋 My Tasks: 2 assigned.
+[30/8/2026, 11:39:16 am] 
+━━━━━━━━━━━━━━ TASK: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम ━━━━━━━━━━━━━━
+[30/8/2026, 11:39:24 am]    🔍 Processing Profile: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम
+[30/8/2026, 11:39:24 am]    📱 Maps Phone: 8369467013 | Expected: 8369467013
+[30/8/2026, 11:39:24 am]    📍 GPS Coordinates: 19.0355373, 72.8396051
+[30/8/2026, 11:39:24 am]    📸 Deep Scraping Portfolio (Multi-Worker Style @ 1000px)...
+[30/8/2026, 11:39:36 am]    🖼️ Found 1 high-res images.
+[30/8/2026, 11:39:36 am]    🏙️ Checking Area Discovery for: 183/F, Patil House, New Mangela Wadi, Veer Savarkar Marg, Sitladevi Temple Rd, Mahim West, Mumbai, Maharashtra 400016
+[30/8/2026, 11:39:36 am]    📦 Added to Batch (1/10) | Type: REPAIR
+[30/8/2026, 11:39:36 am] 
+━━━━━━━━━━━━━━ TASK: Aqua Planet ━━━━━━━━━━━━━━
+[30/8/2026, 11:39:41 am]    🔍 Processing Profile: Aqua Planet
+[30/8/2026, 11:39:41 am]    📱 Maps Phone: 9820190986 | Expected: 9820190986
+[30/8/2026, 11:39:41 am]    📍 GPS Coordinates: 19.0638071, 72.881332
+[30/8/2026, 11:39:41 am]    📸 Deep Scraping Portfolio (Multi-Worker Style @ 1000px)...
+[30/8/2026, 11:39:53 am]    🖼️ Found 11 high-res images.
+[30/8/2026, 11:39:53 am]    🏙️ Checking Area Discovery for: Shop No.F, 24, SG Barve Marg, Nehru Nagar, Kurla (E, Mumbai, Maharashtra 400024
+[30/8/2026, 11:39:53 am]       🌟 DISCOVERED NEW AREA: Kurla (E in Maharashtra
+[30/8/2026, 11:39:53 am]       🌟 DISCOVERED NEW AREA: Nehru Nagar in Maharashtra
+[30/8/2026, 11:39:53 am]    📦 Added to Batch (2/10) | Type: REPAIR
+[30/8/2026, 11:39:53 am] ⚡ STARTING BATCH FLUSH (10 Leads Mode)...
+[30/8/2026, 11:39:53 am] 📤 Syncing 2 leads to Sheet (FULL 31-FIELD MODE)...
+[30/8/2026, 11:40:21 am]    ✅ Hub Response: "Maharashtra: Success"
+[30/8/2026, 11:40:21 am] 🧹 Cleaning 2 items from Queue...
+[30/8/2026, 11:40:26 am]    ✅ Queue Cleanup Response: "Success: Cleaned Queue"
+[30/8/2026, 11:40:26 am] ⚡ BATCH FLUSH COMPLETED.
+[30/8/2026, 11:40:26 am] 
+==================================================
+[30/8/2026, 11:40:26 am] 📊 FINAL SUMMARY REPORT (V192)
+[30/8/2026, 11:40:26 am] ✅ UPDATED: 2
+🌟 DISCOVERED: 0
+[30/8/2026, 11:40:26 am] ==================================================
+[30/8/2026, 11:44:11 am] 🚀 Hybrid Refresher V192 Starting (ULTRA-HARD EXTRACTION)
+[30/8/2026, 11:44:15 am] 📋 My Tasks: 2 assigned.
+[30/8/2026, 11:44:15 am] 
+━━━━━━━━━━━━━━ TASK: Aqua Planet ━━━━━━━━━━━━━━
+[30/8/2026, 11:44:24 am]    🔍 Processing Profile: Aqua Planet
+[30/8/2026, 11:44:24 am]    📱 Maps Phone: 9820190986 | Expected: 9820190986
+[30/8/2026, 11:44:24 am]    📍 GPS Coordinates: 19.0638071, 72.881332
+[30/8/2026, 11:44:24 am]    📸 Deep Scraping Portfolio (Gallery Mode)...
+[30/8/2026, 11:44:24 am]       ✅ Opening Photo Gallery...
+[30/8/2026, 11:44:37 am]    🖼️ Found 6 high-res images.
+[30/8/2026, 11:44:37 am]    🏙️ Checking Area Discovery for: Shop No.F, 24, SG Barve Marg, Nehru Nagar, Kurla (E, Mumbai, Maharashtra 400024
+[30/8/2026, 11:44:37 am]       🌟 DISCOVERED NEW AREA: Kurla (E in Maharashtra
+[30/8/2026, 11:44:37 am]       🌟 DISCOVERED NEW AREA: Nehru Nagar in Maharashtra
+[30/8/2026, 11:44:37 am]    📦 Added to Batch (1/10) | Type: REPAIR
+[30/8/2026, 11:44:37 am] 
+━━━━━━━━━━━━━━ TASK: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम ━━━━━━━━━━━━━━
+[30/8/2026, 11:44:42 am]    🔍 Processing Profile: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम
+[30/8/2026, 11:44:42 am]    📱 Maps Phone: 8369467013 | Expected: 8369467013
+[30/8/2026, 11:44:42 am]    📍 GPS Coordinates: 19.0355373, 72.8396051
+[30/8/2026, 11:44:42 am]    📸 Deep Scraping Portfolio (Gallery Mode)...
+[30/8/2026, 11:44:42 am]       ✅ Opening Photo Gallery...
+[30/8/2026, 11:44:54 am]    🖼️ Found 6 high-res images.
+[30/8/2026, 11:44:54 am]    🏙️ Checking Area Discovery for: 183/F, Patil House, New Mangela Wadi, Veer Savarkar Marg, Sitladevi Temple Rd, Mahim West, Mumbai, Maharashtra 400016
+[30/8/2026, 11:44:54 am]    📦 Added to Batch (2/10) | Type: REPAIR
+[30/8/2026, 11:44:54 am] ⚡ STARTING BATCH FLUSH (10 Leads Mode)...
+[30/8/2026, 11:44:54 am] 📤 Syncing 2 leads to Sheet (FULL 31-FIELD MODE)...
+[30/8/2026, 11:45:20 am]    ✅ Hub Response: "Maharashtra: Success"
+[30/8/2026, 11:45:20 am] 🧹 Cleaning 2 items from Queue...
+[30/8/2026, 11:45:25 am]    ✅ Queue Cleanup Response: "Success: Cleaned Queue"
+[30/8/2026, 11:45:25 am] ⚡ BATCH FLUSH COMPLETED.
+[30/8/2026, 11:45:25 am] 
+==================================================
+[30/8/2026, 11:45:25 am] 📊 FINAL SUMMARY REPORT (V192)
+[30/8/2026, 11:45:25 am] ✅ UPDATED: 2
+🌟 DISCOVERED: 0
+[30/8/2026, 11:45:25 am] ==================================================
+[30/8/2026, 11:46:44 am] 🚀 Hybrid Refresher V192 Starting (ULTRA-HARD EXTRACTION)
+[30/8/2026, 11:46:47 am] 📋 My Tasks: 2 assigned.
+[30/8/2026, 11:46:48 am] 
+━━━━━━━━━━━━━━ TASK: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम ━━━━━━━━━━━━━━
+[30/8/2026, 11:46:58 am]    🔍 Processing Profile: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम
+[30/8/2026, 11:46:58 am]    📱 Maps Phone: 8369467013 | Expected: 8369467013
+[30/8/2026, 11:46:58 am]    📍 GPS Coordinates: 19.0355373, 72.8396051
+[30/8/2026, 11:46:58 am]    📸 Deep Scraping Portfolio (Gallery Mode)...
+[30/8/2026, 11:46:58 am]       ✅ Opening Photo Gallery...
+[30/8/2026, 11:47:11 am]    🖼️ Found 1 high-res images.
+[30/8/2026, 11:47:11 am]    🏙️ Checking Area Discovery for: 183/F, Patil House, New Mangela Wadi, Veer Savarkar Marg, Sitladevi Temple Rd, Mahim West, Mumbai, Maharashtra 400016
+[30/8/2026, 11:47:11 am]    📦 Added to Batch (1/10) | Type: REPAIR
+[30/8/2026, 11:47:11 am] 
+━━━━━━━━━━━━━━ TASK: Aqua Planet ━━━━━━━━━━━━━━
+[30/8/2026, 11:47:17 am]    🔍 Processing Profile: Aqua Planet
+[30/8/2026, 11:47:17 am]    📱 Maps Phone: 9820190986 | Expected: 9820190986
+[30/8/2026, 11:47:17 am]    📍 GPS Coordinates: 19.0638071, 72.881332
+[30/8/2026, 11:47:17 am]    📸 Deep Scraping Portfolio (Gallery Mode)...
+[30/8/2026, 11:47:17 am]       ✅ Opening Photo Gallery...
+[30/8/2026, 11:47:31 am]    🖼️ Found 1 high-res images.
+[30/8/2026, 11:47:31 am]    🏙️ Checking Area Discovery for: Shop No.F, 24, SG Barve Marg, Nehru Nagar, Kurla (E, Mumbai, Maharashtra 400024
+[30/8/2026, 11:47:31 am]       🌟 DISCOVERED NEW AREA: Kurla (E in Maharashtra
+[30/8/2026, 11:47:31 am]       🌟 DISCOVERED NEW AREA: Nehru Nagar in Maharashtra
+[30/8/2026, 11:47:31 am]    📦 Added to Batch (2/10) | Type: REPAIR
+[30/8/2026, 11:47:31 am] ⚡ STARTING BATCH FLUSH (10 Leads Mode)...
+[30/8/2026, 11:47:31 am] 📤 Syncing 2 leads to Sheet (FULL 31-FIELD MODE)...
+[30/8/2026, 11:47:57 am]    ✅ Hub Response: "Maharashtra: Success"
+[30/8/2026, 11:47:57 am] 🧹 Cleaning 2 items from Queue...
+[30/8/2026, 11:48:01 am]    ✅ Queue Cleanup Response: "Success: Cleaned Queue"
+[30/8/2026, 11:48:01 am] ⚡ BATCH FLUSH COMPLETED.
+[30/8/2026, 11:48:01 am] 
+==================================================
+[30/8/2026, 11:48:01 am] 📊 FINAL SUMMARY REPORT (V192)
+[30/8/2026, 11:48:01 am] ✅ UPDATED: 2
+🌟 DISCOVERED: 0
+[30/8/2026, 11:48:01 am] ==================================================
+[30/8/2026, 11:49:31 am] 🚀 Hybrid Refresher V192 Starting (ULTRA-HARD EXTRACTION)
+[30/8/2026, 11:49:35 am] 📋 My Tasks: 2 assigned.
+[30/8/2026, 11:49:35 am] 
+━━━━━━━━━━━━━━ TASK: Aqua Planet ━━━━━━━━━━━━━━
+[30/8/2026, 11:49:46 am]    🔍 Processing Profile: Aqua Planet
+[30/8/2026, 11:49:46 am]    📱 Maps Phone: 9820190986 | Expected: 9820190986
+[30/8/2026, 11:49:46 am]    📍 GPS Coordinates: 19.0638071, 72.881332
+[30/8/2026, 11:49:46 am]    📸 Deep Scraping Portfolio (Gallery Mode)...
+[30/8/2026, 11:49:46 am]       ✅ Opening Photo Gallery...
+[30/8/2026, 11:50:01 am]    🖼️ Found 5 high-res images.
+[30/8/2026, 11:50:01 am]    🏙️ Checking Area Discovery for: Shop No.F, 24, SG Barve Marg, Nehru Nagar, Kurla (E, Mumbai, Maharashtra 400024
+[30/8/2026, 11:50:01 am]       🌟 DISCOVERED NEW AREA: Kurla (E in Maharashtra
+[30/8/2026, 11:50:01 am]       🌟 DISCOVERED NEW AREA: Nehru Nagar in Maharashtra
+[30/8/2026, 11:50:01 am]    📦 Added to Batch (1/10) | Type: REPAIR
+[30/8/2026, 11:50:01 am] 
+━━━━━━━━━━━━━━ TASK: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम ━━━━━━━━━━━━━━
+[30/8/2026, 11:50:07 am]    🔍 Processing Profile: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम
+[30/8/2026, 11:50:07 am]    📱 Maps Phone: 8369467013 | Expected: 8369467013
+[30/8/2026, 11:50:07 am]    📍 GPS Coordinates: 19.0355373, 72.8396051
+[30/8/2026, 11:50:07 am]    📸 Deep Scraping Portfolio (Gallery Mode)...
+[30/8/2026, 11:50:07 am]       ✅ Opening Photo Gallery...
+[30/8/2026, 11:50:23 am]    🖼️ Found 4 high-res images.
+[30/8/2026, 11:50:23 am]    🏙️ Checking Area Discovery for: 183/F, Patil House, New Mangela Wadi, Veer Savarkar Marg, Sitladevi Temple Rd, Mahim West, Mumbai, Maharashtra 400016
+[30/8/2026, 11:50:23 am]    📦 Added to Batch (2/10) | Type: REPAIR
+[30/8/2026, 11:50:23 am] ⚡ STARTING BATCH FLUSH (10 Leads Mode)...
+[30/8/2026, 11:50:23 am] 📤 Syncing 2 leads to Sheet (FULL 31-FIELD MODE)...
+[30/8/2026, 11:50:48 am]    ✅ Hub Response: "Maharashtra: Success"
+[30/8/2026, 11:50:48 am] 🧹 Cleaning 2 items from Queue...
+[30/8/2026, 11:50:51 am]    ✅ Queue Cleanup Response: "Success: Cleaned Queue"
+[30/8/2026, 11:50:51 am] ⚡ BATCH FLUSH COMPLETED.
+[30/8/2026, 11:50:52 am] 
+==================================================
+[30/8/2026, 11:50:52 am] 📊 FINAL SUMMARY REPORT (V192)
+[30/8/2026, 11:50:52 am] ✅ UPDATED: 2
+🌟 DISCOVERED: 0
+[30/8/2026, 11:50:52 am] ==================================================
+[30/8/2026, 11:51:43 am] 🚀 Hybrid Refresher V192 Starting (ULTRA-HARD EXTRACTION)
+[30/8/2026, 11:51:46 am] ✅ Queue Empty. Exiting.
+[30/8/2026, 11:52:37 am] 🚀 Hybrid Refresher V192 Starting (ULTRA-HARD EXTRACTION)
+[30/8/2026, 11:52:40 am] 📋 My Tasks: 2 assigned.
+[30/8/2026, 11:52:40 am] 
+━━━━━━━━━━━━━━ TASK: Aqua Planet ━━━━━━━━━━━━━━
+[30/8/2026, 11:52:50 am]    🔍 Processing Profile: Aqua Planet
+[30/8/2026, 11:52:50 am]    📱 Maps Phone: 9820190986 | Expected: 9820190986
+[30/8/2026, 11:52:50 am]    📍 GPS Coordinates: 19.0638071, 72.881332
+[30/8/2026, 11:52:50 am]    📸 Deep Scraping Portfolio (Incremental Extraction Mode)...
+[30/8/2026, 11:52:50 am]       ✅ Opening Photo Gallery...
+[30/8/2026, 11:53:07 am]    🖼️ Found 5 total high-res images after deep incremental scan.
+[30/8/2026, 11:53:07 am]    🏙️ Checking Area Discovery for: Shop No.F, 24, SG Barve Marg, Nehru Nagar, Kurla (E, Mumbai, Maharashtra 400024
+[30/8/2026, 11:53:07 am]       🌟 DISCOVERED NEW AREA: Kurla (E in Maharashtra
+[30/8/2026, 11:53:07 am]       🌟 DISCOVERED NEW AREA: Nehru Nagar in Maharashtra
+[30/8/2026, 11:53:07 am]    📦 Added to Batch (1/10) | Type: REPAIR
+[30/8/2026, 11:53:07 am] 
+━━━━━━━━━━━━━━ TASK: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम ━━━━━━━━━━━━━━
+[30/8/2026, 11:53:13 am]    🔍 Processing Profile: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम
+[30/8/2026, 11:53:13 am]    📱 Maps Phone: 8369467013 | Expected: 8369467013
+[30/8/2026, 11:53:13 am]    📍 GPS Coordinates: 19.0355373, 72.8396051
+[30/8/2026, 11:53:13 am]    📸 Deep Scraping Portfolio (Incremental Extraction Mode)...
+[30/8/2026, 11:53:13 am]       ✅ Opening Photo Gallery...
+[30/8/2026, 11:53:30 am]    🖼️ Found 4 total high-res images after deep incremental scan.
+[30/8/2026, 11:53:30 am]    🏙️ Checking Area Discovery for: 183/F, Patil House, New Mangela Wadi, Veer Savarkar Marg, Sitladevi Temple Rd, Mahim West, Mumbai, Maharashtra 400016
+[30/8/2026, 11:53:30 am]    📦 Added to Batch (2/10) | Type: REPAIR
+[30/8/2026, 11:53:30 am] ⚡ STARTING BATCH FLUSH (10 Leads Mode)...
+[30/8/2026, 11:53:30 am] 📤 Syncing 2 leads to Sheet (FULL 31-FIELD MODE)...
+[30/8/2026, 11:54:09 am]    ✅ Hub Response: "Maharashtra: Success"
+[30/8/2026, 11:54:09 am] 🧹 Cleaning 2 items from Queue...
+[30/8/2026, 11:54:12 am]    ✅ Queue Cleanup Response: "Success: Cleaned Queue"
+[30/8/2026, 11:54:12 am] ⚡ BATCH FLUSH COMPLETED.
+[30/8/2026, 11:54:12 am] 
+==================================================
+[30/8/2026, 11:54:12 am] 📊 FINAL SUMMARY REPORT (V192)
+[30/8/2026, 11:54:12 am] ✅ UPDATED: 2
+🌟 DISCOVERED: 0
+[30/8/2026, 11:54:12 am] ==================================================
+[30/8/2026, 11:58:08 am] 🚀 Hybrid Refresher V192 Starting (ULTRA-HARD EXTRACTION)
+[30/8/2026, 11:58:11 am] 📋 My Tasks: 2 assigned.
+[30/8/2026, 11:58:11 am] 
+━━━━━━━━━━━━━━ TASK: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम ━━━━━━━━━━━━━━
+[30/8/2026, 11:58:21 am]    🔍 Processing Profile: Fins And Feathers Aquaria,फिन्स आणि फेदर्स एक्वेरिया माहिम
+[30/8/2026, 11:58:21 am]    📱 Maps Phone: 8369467013 | Expected: 8369467013
+[30/8/2026, 11:58:21 am]    📍 GPS Coordinates: 19.0355373, 72.8396051
+[30/8/2026, 11:58:21 am]    📸 Deep Scraping Portfolio (Incremental Extraction Mode)...
+[30/8/2026, 11:58:36 am]    🖼️ Found 1 total high-res images.
+[30/8/2026, 11:58:36 am]    🏙️ Checking Area Discovery for: 183/F, Patil House, New Mangela Wadi, Veer Savarkar Marg, Sitladevi Temple Rd, Mahim West, Mumbai, Maharashtra 400016
+[30/8/2026, 11:58:36 am]    📦 Added to Batch (1/10) | Type: REPAIR
+[30/8/2026, 11:58:36 am] 
+━━━━━━━━━━━━━━ TASK: Aqua Planet ━━━━━━━━━━━━━━
+[30/8/2026, 11:58:42 am]    🔍 Processing Profile: Aqua Planet
+[30/8/2026, 11:58:42 am]    📱 Maps Phone: 9820190986 | Expected: 9820190986
+[30/8/2026, 11:58:42 am]    📍 GPS Coordinates: 19.0638071, 72.881332
+[30/8/2026, 11:58:42 am]    📸 Deep Scraping Portfolio (Incremental Extraction Mode)...
+[30/8/2026, 11:58:57 am]    🖼️ Found 12 total high-res images.
+[30/8/2026, 11:58:57 am]    🏙️ Checking Area Discovery for: Shop No.F, 24, SG Barve Marg, Nehru Nagar, Kurla (E, Mumbai, Maharashtra 400024
+[30/8/2026, 11:58:57 am]       🌟 DISCOVERED NEW AREA: Kurla (E in Maharashtra
+[30/8/2026, 11:58:57 am]       🌟 DISCOVERED NEW AREA: Nehru Nagar in Maharashtra
+[30/8/2026, 11:58:57 am]    📦 Added to Batch (2/10) | Type: REPAIR
+[30/8/2026, 11:58:57 am] ⚡ STARTING BATCH FLUSH (10 Leads Mode)...
+[30/8/2026, 11:58:57 am] 📤 Syncing 2 leads to Sheet (FULL 31-FIELD MODE)...
+[30/8/2026, 11:59:33 am]    ✅ Hub Response: "Maharashtra: Success"
+[30/8/2026, 11:59:33 am] 🧹 Cleaning 2 items from Queue...
+[30/8/2026, 11:59:37 am]    ✅ Queue Cleanup Response: "Success: Cleaned Queue"
+[30/8/2026, 11:59:37 am] ⚡ BATCH FLUSH COMPLETED.
+[30/8/2026, 11:59:38 am] 
+==================================================
+[30/8/2026, 11:59:38 am] 📊 FINAL SUMMARY REPORT (V192)
+[30/8/2026, 11:59:38 am] ✅ UPDATED: 2
+🌟 DISCOVERED: 0
+[30/8/2026, 11:59:38 am] ==================================================
+[30/8/2026, 12:00:03 pm] 🚀 Hybrid Refresher V192 Starting (ULTRA-HARD EXTRACTION)
+[30/8/2026, 12:00:05 pm] ✅ Queue Empty. Exiting.

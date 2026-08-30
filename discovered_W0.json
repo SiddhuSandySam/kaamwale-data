@@ -660,6 +660,7 @@
   "Maharashtra|Sagar Sangam CHS": 1,
   "Maharashtra|West": 1,
   "Maharashtra|Nerul": 1,
+<<<<<<< Updated upstream
   "Bihar|Laxkariganj": 2,
   "Bihar|Khilanganj": 2,
   "Bihar|Bahadurpur": 3,
@@ -989,4 +990,10 @@
   "Bihar|Lakshmisagar": 1,
   "Bihar|Chappki Parri": 1,
   "Bihar|GODOWN": 1
+=======
+  "Maharashtra|Ulwe": 2,
+  "Maharashtra|Wahal": 1,
+  "Maharashtra|Kurla (E": 10,
+  "Maharashtra|Nehru Nagar": 10
+>>>>>>> Stashed changes
 }
