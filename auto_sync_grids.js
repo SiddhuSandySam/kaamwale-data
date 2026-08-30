@@ -1,7 +1,7 @@
 /**
- * RAPIDHELP SMART DATA SYNC ROBOT (V4 - ULTRA DEDUPE)
- * 🛡️ STABILITY: Fixes Grid-ID Migration (Removes leads from old grids when coordinates change).
- * 🚀 PERFORMANCE: Parallel Grid Generation & Incremental Fetching.
+ * RAPIDHELP SMART DATA SYNC ROBOT (V4.1 - FULL SYNC ENHANCED)
+ * 🛡️ STABILITY: Fixes Full Sync folder refresh.
+ * 🛡️ DEDUPE: Removes leads from old grids when coordinates change.
  */
 
 const axios = require('axios');
@@ -19,7 +19,7 @@ function getGridId(lat, lon) {
 }
 
 async function startRobotSync() {
-    console.log(`🤖 MASTER ROBOT V4 | ${isFullSync ? 'FULL SYNC' : 'INCREMENTAL SYNC'}`);
+    console.log(`🤖 MASTER ROBOT V4.1 | ${isFullSync ? 'FULL SYNC 🌑' : 'INCREMENTAL SYNC 📡'}`);
 
     let lastSyncTime = 0;
     if (!isFullSync && fs.existsSync(LAST_SYNC_FILE)) {
@@ -33,7 +33,14 @@ async function startRobotSync() {
     const states = Object.keys(appData.stateUrls);
     for (const stateName of states) {
         const stateUrl = appData.stateUrls[stateName];
-        const gridDir = path.join(__dirname, `${stateName.toLowerCase().replace(/ /g, '_')}_grids`);
+        const folderName = `${stateName.toLowerCase().replace(/ /g, '_')}_grids`;
+        const gridDir = path.join(__dirname, folderName);
+
+        // 🚀 FULL SYNC SLATE CLEANING
+        if (isFullSync && fs.existsSync(gridDir)) {
+            console.log(`   🧹 [${stateName}] Cleaning old grids for fresh Full Sync...`);
+            fs.rmSync(gridDir, { recursive: true, force: true });
+        }
         if (!fs.existsSync(gridDir)) fs.mkdirSync(gridDir, { recursive: true });
 
         console.log(`🏙️ PROCESSING STATE: ${stateName}`);
@@ -44,7 +51,8 @@ async function startRobotSync() {
 
         while (hasMore) {
             let finalUrl = `${stateUrl}?type=providers&offset=${offset}&limit=5000&nocache=true`;
-            if (lastSyncTime > 0) finalUrl += `&since=${lastSyncTime}`;
+            // Incremental sync uses 'since', Full sync gets everything
+            if (lastSyncTime > 0 && !isFullSync) finalUrl += `&since=${lastSyncTime}`;
 
             const resp = await axios.get(finalUrl, { timeout: 300000 });
             if (Array.isArray(resp.data)) {
@@ -55,7 +63,7 @@ async function startRobotSync() {
         }
 
         if (allNewProviders.length > 0) {
-            const newLeadsMap = {}; // gid -> leads
+            const newLeadsMap = {};
             const newLeadIds = new Set(allNewProviders.map(p => p.id));
 
             allNewProviders.forEach(p => {
@@ -66,39 +74,37 @@ async function startRobotSync() {
                 }
             });
 
-            // 🚀 ULTRA DEDUPE: Step 1 - Remove updated leads from ALL existing files in this state
-            const gridFiles = fs.readdirSync(gridDir).filter(f => f.endsWith('.json'));
-            console.log(`   🛡️ Cleaning ${newLeadIds.size} updated leads from existing ${gridFiles.length} grid files...`);
-
-            gridFiles.forEach(file => {
-                const filePath = path.join(gridDir, file);
-                const gid = file.replace('.json', '');
-                let gridData = JSON.parse(fs.readFileSync(filePath));
-
-                const filteredData = gridData.filter(p => !newLeadIds.has(p.id));
-
-                // Add new data if this is the target grid
-                if (newLeadsMap[gid]) {
-                    filteredData.push(...newLeadsMap[gid]);
-                    delete newLeadsMap[gid]; // Mark as handled
-                }
-
-                if (filteredData.length === 0) fs.unlinkSync(filePath);
-                else fs.writeFileSync(filePath, JSON.stringify(filteredData));
-            });
-
-            // Step 2 - Create new grid files for leftover handled leads
-            Object.keys(newLeadsMap).forEach(gid => {
-                const filePath = path.join(gridDir, `${gid}.json`);
-                fs.writeFileSync(filePath, JSON.stringify(newLeadsMap[gid]));
-            });
-
+            // 🚀 BATCH WRITE
+            if (isFullSync) {
+                // If Full Sync, just write everything new
+                Object.keys(newLeadsMap).forEach(gid => {
+                    fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(newLeadsMap[gid]));
+                });
+            } else {
+                // If Incremental, perform cleaning and merging
+                const gridFiles = fs.readdirSync(gridDir).filter(f => f.endsWith('.json'));
+                gridFiles.forEach(file => {
+                    const filePath = path.join(gridDir, file);
+                    const gid = file.replace('.json', '');
+                    let gridData = JSON.parse(fs.readFileSync(filePath));
+                    const filteredData = gridData.filter(p => !newLeadIds.has(p.id));
+                    if (newLeadsMap[gid]) {
+                        filteredData.push(...newLeadsMap[gid]);
+                        delete newLeadsMap[gid];
+                    }
+                    if (filteredData.length === 0) fs.unlinkSync(filePath);
+                    else fs.writeFileSync(filePath, JSON.stringify(filteredData));
+                });
+                Object.keys(newLeadsMap).forEach(gid => {
+                    fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(newLeadsMap[gid]));
+                });
+            }
             console.log(`   ✨ State ${stateName} Synced: ${allNewProviders.length} leads.`);
         }
     }
 
     fs.writeFileSync(LAST_SYNC_FILE, JSON.stringify({ timestamp: Date.now() }, null, 2));
-    console.log(`🚀 SYNC COMPLETE!`);
+    console.log(`🚀 MISSION ACCOMPLISHED!`);
 }
 
 startRobotSync().catch(err => { console.error(err); process.exit(1); });
