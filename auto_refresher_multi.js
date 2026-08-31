@@ -111,18 +111,22 @@ async function extractPortfolio(page) {
 
         if (photoBtn && await photoBtn.isVisible()) {
             writeLog("      ✅ Opening Photo Gallery Grid...");
-            await photoBtn.click({ force: true });
-            await page.waitForTimeout(5000);
-            galleryOpened = true;
+            try {
+                await photoBtn.click({ force: true, timeout: 3000 });
+                await page.waitForTimeout(3000);
+                galleryOpened = true;
+            } catch (e) {}
         }
 
         // --- STEP 2: TRY MAIN IMAGE IF TAB NOT FOUND ---
         if (!galleryOpened) {
             const mainImg = await page.$('button[aria-label^="Photo of"], img[src*="googleusercontent.com/p/"]');
             if (mainImg && await mainImg.isVisible()) {
-                await mainImg.click({ force: true });
-                await page.waitForTimeout(5000);
-                galleryOpened = true;
+                try {
+                    await mainImg.click({ force: true, timeout: 3000 });
+                    await page.waitForTimeout(3000);
+                    galleryOpened = true;
+                } catch (e) {}
             }
         }
 

@@ -252,8 +252,8 @@ async function extractPortfolio(page) {
 
         if (photoBtn && await photoBtn.isVisible()) {
             try {
-                await photoBtn.click({ force: true });
-                await page.waitForTimeout(5000);
+                await photoBtn.click({ force: true, timeout: 3000 });
+                await page.waitForTimeout(3000);
                 galleryOpened = true;
             } catch (clickErr) {}
         }
@@ -262,9 +262,11 @@ async function extractPortfolio(page) {
         if (!galleryOpened) {
             const mainImg = await page.$('button[aria-label^="Photo of"], img[src*="googleusercontent.com/p/"]');
             if (mainImg && await mainImg.isVisible()) {
-                await mainImg.click({ force: true });
-                await page.waitForTimeout(5000);
-                galleryOpened = true;
+                try {
+                    await mainImg.click({ force: true, timeout: 3000 });
+                    await page.waitForTimeout(3000);
+                    galleryOpened = true;
+                } catch (clickErr) {}
             }
         }
 
@@ -597,7 +599,13 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             const listing = listings[i];
             const nameRaw = await listing.getAttribute('aria-label').catch(() => "Unknown");
 
-            await listing.scrollIntoViewIfNeeded(); await listing.click({ force: true });
+            try {
+                await listing.scrollIntoViewIfNeeded({ timeout: 3000 });
+                await listing.click({ force: true, timeout: 3000 });
+            } catch (clickErr) {
+                console.log(`Worker ${WORKER_ID} | [-] | Skip: Unclickable/Detached listing element.`);
+                continue;
+            }
 
             let updated = false;
             for (let r = 0; r < 12; r++) {

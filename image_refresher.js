@@ -144,9 +144,11 @@ async function extractPortfolio(page) {
 
         if (topTab && await topTab.isVisible()) {
             writeLog("      ✅ Found Top Photos Tab. Clicking...");
-            await topTab.click({ force: true });
-            await page.waitForTimeout(5000);
-            galleryOpened = true;
+            try {
+                await topTab.click({ force: true, timeout: 3000 });
+                await page.waitForTimeout(3000);
+                galleryOpened = true;
+            } catch (e) {}
         }
 
         // 2. 🖼️ CLICK MAIN IMAGE (Top of Profile) if Tab not found
@@ -154,9 +156,11 @@ async function extractPortfolio(page) {
             const mainImg = await page.$('button[aria-label^="Photo of"], img[src*="googleusercontent.com/p/"]');
             if (mainImg && await mainImg.isVisible()) {
                 writeLog("      ✅ Found Main Image. Clicking to open gallery...");
-                await mainImg.click({ force: true });
-                await page.waitForTimeout(5000);
-                galleryOpened = true;
+                try {
+                    await mainImg.click({ force: true, timeout: 3000 });
+                    await page.waitForTimeout(3000);
+                    galleryOpened = true;
+                } catch (e) {}
             }
         }
 
@@ -186,10 +190,12 @@ async function extractPortfolio(page) {
                 const trigger = await page.$(sel);
                 if (trigger && await trigger.isVisible()) {
                     writeLog(`      ✅ Found Section Trigger: ${sel}. Clicking...`);
-                    await trigger.click({ force: true });
-                    await page.waitForTimeout(5000);
-                    galleryOpened = true;
-                    break;
+                    try {
+                        await trigger.click({ force: true, timeout: 3000 });
+                        await page.waitForTimeout(3000);
+                        galleryOpened = true;
+                        break;
+                    } catch (e) {}
                 }
             }
         }
