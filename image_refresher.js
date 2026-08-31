@@ -45,7 +45,7 @@ async function flushBatches() {
                 const resData = String(r.data);
                 writeLog(`   ✅ Hub Response [A${attempt}]: ${resData}`);
 
-                if (resData.includes("Success") || resData.includes("Complete") || resData.includes("Maharashtra")) {
+                if (resData.includes("Success") || resData.includes("Complete") || resData.includes("Maharashtra") || resData.includes("config")) {
                     syncBatch = syncBatch.filter(p => !leadsToSync.includes(p));
                     success = true;
                     break;

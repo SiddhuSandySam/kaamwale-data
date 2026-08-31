@@ -330,13 +330,23 @@ async function extractPortfolio(page) {
             if (backBtn) { await backBtn.click(); await page.waitForTimeout(1000); }
         }
 
-        console.log(`Worker ${WORKER_ID} | 📸 | Found ${portfolio.length} high-res images.`);
+        console.log(`Worker ${WORKER_ID} | 📸 | Result: ${portfolio.length} images. First 2 URLs:`);
+        portfolio.slice(0, 2).forEach((url, i) => console.log(`   [${i+1}] ${url}`));
+
         return portfolio;
     } catch (e) { console.log(`Worker ${WORKER_ID} | ⚠️ | Portfolio Error: ${e.message}`); return []; }
 }
 
 async function scrapeIndividualProfile(page, businessName, city, state, categoryId, subcategory) {
     try {
+        // 🛡️ STRICT TITLE VERIFICATION
+        const mapsTitle = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "");
+        if (mapsTitle && !mapsTitle.toLowerCase().includes(businessName.toLowerCase().substring(0, 4)) &&
+            !businessName.toLowerCase().includes(mapsTitle.toLowerCase().substring(0, 4))) {
+            console.log(`Worker ${WORKER_ID} | [🛑] | SKIP | Title Mismatch. Maps: ${mapsTitle} vs List: ${businessName}`);
+            return 0;
+        }
+
         // 🚀 RELIABLE EXTRACTION
         await page.waitForSelector('button[data-item-id^="phone"]', { timeout: 15000 }).catch(() => {});
         const phoneStr = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");

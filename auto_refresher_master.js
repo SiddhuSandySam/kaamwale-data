@@ -121,7 +121,10 @@ async function extractPortfolio(page) {
             const backBtn = await page.$('button[aria-label="Back"], .VfPpkd-icon-LgbsSe, button[aria-label="Close"]');
             if (backBtn) { await backBtn.click(); await page.waitForTimeout(1000); }
         }
-        writeLog(`   🖼️ Found ${portfolio.length} total high-res images.`);
+
+        writeLog(`   🖼️ Result: ${portfolio.length} images. First 2 URLs:`);
+        portfolio.slice(0, 2).forEach((url, i) => writeLog(`      [${i+1}] ${url}`));
+
         return portfolio;
     } catch (e) { writeLog(`   ⚠️ Portfolio Error: ${e.message}`); return []; }
 }
@@ -153,6 +156,14 @@ async function processState(stateName, stateUrl, browser) {
 
                     await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(p.businessName + ", " + p.fullAddress)}`);
                     await page.waitForTimeout(4000);
+
+                    // 🛡️ STRICT TITLE VERIFICATION
+                    const mapsTitle = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "");
+                    if (mapsTitle && !mapsTitle.toLowerCase().includes(p.businessName.toLowerCase().substring(0, 4)) &&
+                        !p.businessName.toLowerCase().includes(mapsTitle.toLowerCase().substring(0, 4))) {
+                        writeLog(`⚠️ SKIP: Title Mismatch. Maps: [${mapsTitle}] vs DB: [${p.businessName}]`);
+                        continue;
+                    }
 
                     // 🛡️ PHONE VERIFICATION: Extract phone from Google Maps
                     const mapsPhoneRaw = await page.$eval('button[data-item-id^="phone"]', el => el.innerText).catch(() => "");
