@@ -1,0 +1,82 @@
+[
+  {
+    "id": "shadow_9301661697",
+    "businessName": "D Analytical Support (General Analytic)",
+    "primaryCategoryId": "cat_business",
+    "subcategory": "Company Secretary",
+    "experienceYears": 1,
+    "serviceMode": "Local",
+    "city": "Bhilai",
+    "locality": "Vidya Vihar Colony",
+    "state": "Chhattisgarh",
+    "startingPrice": 0,
+    "priceUnit": "Discuss on Call",
+    "whatsappNumber": "9301661697",
+    "callNumber": "9301661697",
+    "aboutDescription": "Professional Company Secretary services available in Bhilai. High-quality work guaranteed by local experts.",
+    "isApproved": true,
+    "isVerified": false,
+    "rating": 0,
+    "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWmNgThYfx74yGZDGAVwZ79W6U3SxhEXBCfzHPBiWAY0r53KqNE6SiJJe8vd1Pz93qGFyLJxUvVScbkDSivmw4N4cKxOEk10YhRqocPT_gpR3GM6N8XtXF-LUE4wSYnx-IpvoDIggA=w500-h500-k-no",
+    "recommendationCount": 0,
+    "portfolioUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWmNgThYfx74yGZDGAVwZ79W6U3SxhEXBCfzHPBiWAY0r53KqNE6SiJJe8vd1Pz93qGFyLJxUvVScbkDSivmw4N4cKxOEk10YhRqocPT_gpR3GM6N8XtXF-LUE4wSYnx-IpvoDIggA=s1000"
+    ],
+    "searchKeywords": [
+      "D Analytical Support (General Analytic)",
+      "Bhilai",
+      "Company Secretary",
+      "Chhattisgarh"
+    ],
+    "lastSeen": 1788154744865,
+    "callCount": 0,
+    "fullAddress": "11/2, Nehru Nagar West, Vidya Vihar Colony, Bhilai, Chhattisgarh 490020, India",
+    "isNumberHidden": false,
+    "referredBy": "SYSTEM_SCRAPER",
+    "referralBonusPaid": false,
+    "fcmToken": "",
+    "notificationsEnabled": true,
+    "latitude": 21.2024928,
+    "longitude": 81.3225878
+  },
+  {
+    "id": "shadow_7714048130",
+    "businessName": "Batra Deepak and Associates",
+    "primaryCategoryId": "cat_business",
+    "subcategory": "Auditor",
+    "experienceYears": 3,
+    "serviceMode": "Local",
+    "city": "Raipur",
+    "locality": "Chhattisgarh",
+    "state": "Chhattisgarh",
+    "startingPrice": 0,
+    "priceUnit": "Discuss on Call",
+    "whatsappNumber": "7714048130",
+    "callNumber": "7714048130",
+    "aboutDescription": "Professional Auditor services available in Raipur. High-quality work guaranteed by local experts.",
+    "isApproved": true,
+    "isVerified": false,
+    "rating": 0,
+    "profilePhotoUrl": "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnXM9Ho1e_-EvXnNTUDODikGkKxNYm9HLHfZHv0HLAOvIQIIOhOAFWlhmoTs4QB6YO0XiGowINlObNKPJTHI944GgL9geA3IM_YMNtEqlQ0L_VKff0rV-D0gpnIFdj2U_aas27L=w500-h500-k-no",
+    "recommendationCount": 0,
+    "portfolioUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AHRPTWnXM9Ho1e_-EvXnNTUDODikGkKxNYm9HLHfZHv0HLAOvIQIIOhOAFWlhmoTs4QB6YO0XiGowINlObNKPJTHI944GgL9geA3IM_YMNtEqlQ0L_VKff0rV-D0gpnIFdj2U_aas27L=s1000"
+    ],
+    "searchKeywords": [
+      "Batra Deepak and Associates",
+      "Raipur",
+      "Auditor",
+      "Chhattisgarh"
+    ],
+    "lastSeen": 1788154880557,
+    "callCount": 0,
+    "fullAddress": "Office No. 28, 2nd Floor, Ashoka Plaza, Ashoka Ratan, Vidhan Sabha Road, Adarsh Nagar, LIC Colony, Mowa, Raipur, Chhattisgarh, 492007, Raipur, Chhattisgarh 492014, India",
+    "isNumberHidden": false,
+    "referredBy": "SYSTEM_SCRAPER",
+    "referralBonusPaid": false,
+    "fcmToken": "",
+    "notificationsEnabled": true,
+    "latitude": 21.2624139,
+    "longitude": 81.6748001
+  }
+]
