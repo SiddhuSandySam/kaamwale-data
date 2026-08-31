@@ -167,8 +167,8 @@ async function flushBuffers(isExiting = false) {
                             console.log(`Worker ${WORKER_ID} | [${mode}] | ✅ [${stateName}] Sync Success for: [${leadNames}]`);
                             stateSuccess = true;
                         } else {
-                            console.warn(`Worker ${WORKER_ID} | [${mode}] | ⚠️ [${stateName}] Server Busy/Error: ${resData}`);
-                            // If server specifically says error, don't count as success
+                            const logData = resData.length > 100 ? resData.substring(0, 100) + "..." : resData;
+                            console.warn(`Worker ${WORKER_ID} | [${mode}] | ⚠️ [${stateName}] Server Response: ${logData}`);
                         }
                     } catch (e) {
                         console.error(`Worker ${WORKER_ID} | [${mode}] | ❌ [${stateName}] Sync Error: ${e.message}`);

@@ -191,13 +191,14 @@ async function processState(stateName, stateUrl, browser) {
                         try {
                             const hubRes = await axios.post(HUB_URL, payload);
                             const resMsg = String(hubRes.data);
-                            if (resMsg.includes("Success")) {
+                            if (resMsg.includes("Success") || resMsg.includes("config")) {
                                 refreshRegistry[p.id] = Date.now();
                                 saveRegistry();
                                 totalRefreshedInState++;
                                 writeLog(`🎉 UPDATED: ${p.businessName} | Images: ${portfolio.length}`);
                             } else {
-                                writeLog(`❌ SERVER ERROR: ${p.businessName} | Msg: ${resMsg}`);
+                                const logMsg = resMsg.length > 100 ? resMsg.substring(0, 100) + "..." : resMsg;
+                                writeLog(`❌ SERVER ERROR: ${p.businessName} | Msg: ${logMsg}`);
                             }
                         } catch (err) {
                             writeLog(`❌ HUB POST ERROR: ${p.businessName} | ${err.message}`);

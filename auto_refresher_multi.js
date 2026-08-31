@@ -36,11 +36,23 @@ async function flushBatches() {
     writeLog("⚡ STARTING BATCH FLUSH...");
     if (syncBatch.length > 0) {
         writeLog(`📤 Syncing ${syncBatch.length} leads (FULL 31-FIELD MODE)...`);
-        try { await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: syncBatch }); syncBatch = []; } catch (e) { writeLog(`❌ Flush Error: ${e.message}`); }
+        try {
+            const r = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: syncBatch });
+            const resData = String(r.data);
+            const logData = resData.length > 100 ? resData.substring(0, 100) + "..." : resData;
+            writeLog(`   ✅ Hub Response: ${logData}`);
+            syncBatch = [];
+        } catch (e) { writeLog(`❌ Flush Error: ${e.message}`); }
     }
     if (doneBatch.length > 0) {
         writeLog(`🧹 Cleaning ${doneBatch.length} items from Queue...`);
-        try { await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: doneBatch }); doneBatch = []; } catch (e) {}
+        try {
+            const r = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: doneBatch });
+            const resData = String(r.data);
+            const logData = resData.length > 100 ? resData.substring(0, 100) + "..." : resData;
+            writeLog(`   ✅ Queue Response: ${logData}`);
+            doneBatch = [];
+        } catch (e) {}
     }
 }
 

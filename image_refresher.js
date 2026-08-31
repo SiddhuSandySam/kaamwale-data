@@ -43,7 +43,8 @@ async function flushBatches() {
             try {
                 const r = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 120000 });
                 const resData = String(r.data);
-                writeLog(`   ✅ Hub Response [A${attempt}]: ${resData}`);
+                const logData = resData.length > 100 ? resData.substring(0, 100) + "..." : resData;
+                writeLog(`   ✅ Hub Response [A${attempt}]: ${logData}`);
 
                 if (resData.includes("Success") || resData.includes("Complete") || resData.includes("Maharashtra") || resData.includes("config")) {
                     syncBatch = syncBatch.filter(p => !leadsToSync.includes(p));
