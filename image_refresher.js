@@ -35,35 +35,51 @@ function writeLog(msg) {
 async function flushBatches() {
     writeLog("⚡ STARTING BATCH FLUSH (10 Leads Mode)...");
     if (syncBatch.length > 0) {
-        writeLog(`📤 Syncing ${syncBatch.length} leads to Sheet (FULL 31-FIELD MODE)...`);
-        for (let attempt = 1; attempt <= 3; attempt++) {
+        const leadsToSync = [...syncBatch];
+        writeLog(`📤 Syncing ${leadsToSync.length} leads to Sheet (FULL 31-FIELD MODE)...`);
+
+        let success = false;
+        for (let attempt = 1; attempt <= 5; attempt++) {
             try {
-                const r = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: syncBatch });
-                writeLog(`   ✅ Hub Response: ${JSON.stringify(r.data)}`);
-                syncBatch = [];
-                break;
-            } catch (e) {
-                writeLog(`   ⚠️ Sync Attempt ${attempt} Fail: ${e.message}`);
-                if (e.message.includes('lock') || e.message.includes('timeout')) {
-                    writeLog("      ⏳ Lock detected, sleeping 5s before retry...");
+                const r = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 120000 });
+                const resData = String(r.data);
+                writeLog(`   ✅ Hub Response [A${attempt}]: ${resData}`);
+
+                if (resData.includes("Success") || resData.includes("Complete") || resData.includes("Maharashtra")) {
+                    syncBatch = syncBatch.filter(p => !leadsToSync.includes(p));
+                    success = true;
+                    break;
+                } else if (resData.includes("Lock timeout")) {
+                    writeLog(`   ⚠️ Server Lock Busy (Attempt ${attempt}). Sleeping 15s before retry...`);
+                    await new Promise(r => setTimeout(r, 15000));
+                } else {
+                    writeLog(`   ❌ Server Error: ${resData}. Retrying anyway...`);
                     await new Promise(r => setTimeout(r, 5000));
-                } else break;
+                }
+            } catch (e) {
+                writeLog(`   ⚠️ Sync Attempt ${attempt} Network Fail: ${e.message}`);
+                await new Promise(r => setTimeout(r, 10000));
             }
         }
     }
+
     if (doneBatch.length > 0) {
-        writeLog(`🧹 Cleaning ${doneBatch.length} items from Queue...`);
+        const idsToClean = [...doneBatch];
+        writeLog(`🧹 Cleaning ${idsToClean.length} items from Queue...`);
         for (let attempt = 1; attempt <= 3; attempt++) {
             try {
-                const r = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: doneBatch });
-                writeLog(`   ✅ Queue Cleanup Response: ${JSON.stringify(r.data)}`);
-                doneBatch = [];
-                break;
+                const r = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: idsToClean });
+                const resData = String(r.data);
+                if (resData.includes("Success")) {
+                    doneBatch = doneBatch.filter(id => !idsToClean.includes(id));
+                    writeLog(`   ✅ Queue Cleanup Response: ${resData}`);
+                    break;
+                }
+                writeLog(`   ⚠️ Cleanup Fail [A${attempt}]: ${resData}`);
+                await new Promise(r => setTimeout(r, 5000));
             } catch (e) {
-                writeLog(`   ⚠️ Cleanup Attempt ${attempt} Fail: ${e.message}`);
-                if (e.message.includes('lock') || e.message.includes('timeout')) {
-                    await new Promise(r => setTimeout(r, 5000));
-                } else break;
+                writeLog(`   ⚠️ Cleanup Exception: ${e.message}`);
+                await new Promise(r => setTimeout(r, 5000));
             }
         }
     }
