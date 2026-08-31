@@ -19,11 +19,17 @@ function getGridId(lat, lon) {
 }
 
 async function startRobotSync() {
-    console.log(`🤖 MASTER ROBOT V4.1 | ${isFullSync ? 'FULL SYNC 🌑' : 'INCREMENTAL SYNC 📡'}`);
+    const SYNC_START_TIME = Date.now();
+    const LOOKBACK_BUFFER = 15 * 60 * 1000; // 🚀 15-minute safety net to prevent race conditions
+
+    console.log(`🤖 MASTER ROBOT V4.2 | ${isFullSync ? 'FULL SYNC 🌑' : 'INCREMENTAL SYNC 📡'}`);
 
     let lastSyncTime = 0;
     if (!isFullSync && fs.existsSync(LAST_SYNC_FILE)) {
-        try { lastSyncTime = JSON.parse(fs.readFileSync(LAST_SYNC_FILE)).timestamp || 0; } catch (e) {}
+        try {
+            const savedData = JSON.parse(fs.readFileSync(LAST_SYNC_FILE));
+            lastSyncTime = savedData.timestamp || 0;
+        } catch (e) {}
     }
 
     const hubResp = await axios.get(`${HUB_URL}?type=app_data&nocache=true`, { timeout: 90000 });
@@ -49,10 +55,13 @@ async function startRobotSync() {
         let offset = 0;
         let hasMore = true;
 
+        // 🛡️ APPLY LOOKBACK BUFFER for incremental sync
+        let effectiveSince = (lastSyncTime > 0 && !isFullSync) ? (lastSyncTime - LOOKBACK_BUFFER) : 0;
+        if (effectiveSince < 0) effectiveSince = 0;
+
         while (hasMore) {
             let finalUrl = `${stateUrl}?type=providers&offset=${offset}&limit=5000&nocache=true`;
-            // Incremental sync uses 'since', Full sync gets everything
-            if (lastSyncTime > 0 && !isFullSync) finalUrl += `&since=${lastSyncTime}`;
+            if (effectiveSince > 0) finalUrl += `&since=${effectiveSince}`;
 
             const resp = await axios.get(finalUrl, { timeout: 300000 });
             if (Array.isArray(resp.data)) {
@@ -74,36 +83,39 @@ async function startRobotSync() {
                 }
             });
 
-            // 🚀 BATCH WRITE
+            // 🚀 BATCH WRITE (With robust dedupe/merge)
             if (isFullSync) {
-                // If Full Sync, just write everything new
                 Object.keys(newLeadsMap).forEach(gid => {
                     fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(newLeadsMap[gid]));
                 });
             } else {
-                // If Incremental, perform cleaning and merging
                 const gridFiles = fs.readdirSync(gridDir).filter(f => f.endsWith('.json'));
                 gridFiles.forEach(file => {
                     const filePath = path.join(gridDir, file);
                     const gid = file.replace('.json', '');
-                    let gridData = JSON.parse(fs.readFileSync(filePath));
-                    const filteredData = gridData.filter(p => !newLeadIds.has(p.id));
-                    if (newLeadsMap[gid]) {
-                        filteredData.push(...newLeadsMap[gid]);
-                        delete newLeadsMap[gid];
-                    }
-                    if (filteredData.length === 0) fs.unlinkSync(filePath);
-                    else fs.writeFileSync(filePath, JSON.stringify(filteredData));
+                    try {
+                        let gridData = JSON.parse(fs.readFileSync(filePath));
+                        // 🛡️ Remove existing version of updated leads
+                        const filteredData = gridData.filter(p => !newLeadIds.has(p.id));
+                        if (newLeadsMap[gid]) {
+                            filteredData.push(...newLeadsMap[gid]);
+                            delete newLeadsMap[gid];
+                        }
+                        if (filteredData.length === 0) fs.unlinkSync(filePath);
+                        else fs.writeFileSync(filePath, JSON.stringify(filteredData));
+                    } catch (e) { console.error(`   ⚠️ Grid Error [${file}]: ${e.message}`); }
                 });
+                // Write completely new grids discovered in this sync
                 Object.keys(newLeadsMap).forEach(gid => {
                     fs.writeFileSync(path.join(gridDir, `${gid}.json`), JSON.stringify(newLeadsMap[gid]));
                 });
             }
-            console.log(`   ✨ State ${stateName} Synced: ${allNewProviders.length} leads.`);
+            console.log(`   ✨ State ${stateName} Synced: ${allNewProviders.length} records updated.`);
         }
     }
 
-    fs.writeFileSync(LAST_SYNC_FILE, JSON.stringify({ timestamp: Date.now() }, null, 2));
+    // 🚀 WATERMARK: Save the time sync STARTED, not finished, for zero gap.
+    fs.writeFileSync(LAST_SYNC_FILE, JSON.stringify({ timestamp: SYNC_START_TIME }, null, 2));
     console.log(`🚀 MISSION ACCOMPLISHED!`);
 }
 
