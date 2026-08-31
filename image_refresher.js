@@ -272,7 +272,9 @@ async function extractPortfolio(page) {
             }
         }
 
-        writeLog(`   🖼️ Result: ${portfolio.length} high-res images extracted (Filtered).`);
+        writeLog(`   🖼️ Result: ${portfolio.length} images. First 2 URLs:`);
+        portfolio.slice(0, 2).forEach((url, i) => writeLog(`      [${i+1}] ${url}`));
+
         return portfolio;
     } catch (e) { writeLog(`   ⚠️ Portfolio Error: ${e.message}`); return []; }
 }
@@ -280,6 +282,23 @@ async function extractPortfolio(page) {
 async function processProfile(page, task, dbPhone, nameRaw) {
     try {
         writeLog(`   🔍 Processing Profile: ${nameRaw}`);
+
+        // 🛡️ STRICT TITLE VERIFICATION: Ensure page context has switched to the new profile
+        let titleMatched = false;
+        for (let r = 0; r < 5; r++) {
+            const mapsTitle = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "");
+            if (mapsTitle.toLowerCase().includes(nameRaw.toLowerCase().substring(0, 5))) {
+                titleMatched = true;
+                break;
+            }
+            await page.waitForTimeout(1000);
+        }
+
+        if (!titleMatched) {
+            writeLog(`   🛑 Skip: Profile Title Mismatch/Not Loaded. (Expected: ${nameRaw})`);
+            return false;
+        }
+
         const isClosed = await page.evaluate(() => document.body.innerText.toLowerCase().includes('temporarily closed'));
         if (isClosed && nameRaw.toLowerCase().includes(task.name.toLowerCase().substring(0,3))) {
             writeLog(`   🚫 DEACTIVATING: ${nameRaw} is Closed.`);
