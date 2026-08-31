@@ -522,7 +522,7 @@
   "Goa|Parse": 2,
   "Goa|Kasarvarne": 3,
   "Goa|Ozorim": 3,
-  "Goa|Poroscodem": 2,
+  "Goa|Poroscodem": 4,
   "Goa|Surban Wadda": 1,
   "Goa|Madhalamaj": 3,
   "Goa|Mopa Talarna pahilawada": 1,
@@ -535,7 +535,7 @@
   "Goa|Varkhand": 1,
   "Goa|Virnoda  Nagzor": 2,
   "Goa|Mumbai  Goa Hwy": 2,
-  "Goa|Tambose": 1,
+  "Goa|Tambose": 2,
   "Goa|oshal bag dhargal NH Goa": 1,
   "Goa|Nanerwada": 1,
   "Goa|AgarwadaChopdem VP": 1,
@@ -725,5 +725,9 @@
   "Goa|Shirgal": 23,
   "Goa|Royal arcade": 1,
   "Goa|Talpona": 2,
-  "Goa|rajbag tarir": 1
+  "Goa|rajbag tarir": 1,
+  "Goa|Sonarwaddo": 1,
+  "Goa|Colleandongor": 1,
+  "Goa|Alpha Colony": 1,
+  "Goa|Amberem": 1
 }
