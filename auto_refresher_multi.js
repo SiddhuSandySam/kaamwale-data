@@ -187,8 +187,12 @@ async function extractPortfolio(page) {
 
         const portfolio = Array.from(allUrls).filter(u => !u.includes('mapslogo')).slice(0, 45);
         if (galleryOpened) {
+            try { await page.keyboard.press('Escape'); } catch (escErr) {}
             const backBtn = await page.$('button[aria-label="Back"], .VfPpkd-icon-LgbsSe, button[aria-label="Close"]');
-            if (backBtn) { await backBtn.click(); await page.waitForTimeout(1000); }
+            if (backBtn && await backBtn.isVisible()) {
+                try { await backBtn.click({ force: true, timeout: 3000 }); } catch (clickErr) {}
+            }
+            await page.waitForTimeout(1000);
         }
 
         writeLog(`   🖼️ Result: ${portfolio.length} images. First 2 URLs:`);

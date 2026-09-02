@@ -272,10 +272,15 @@ async function extractPortfolio(page) {
 
         if (galleryOpened) {
             writeLog("      🔙 Closing Gallery...");
+            try { await page.keyboard.press('Escape'); } catch (escErr) {}
             const closeSelectors = ['button[aria-label="Back"]', 'button[aria-label="Close"]', '.VfPpkd-icon-LgbsSe'];
             for (let sel of closeSelectors) {
                 const btn = await page.$(sel);
-                if (btn && await btn.isVisible()) { await btn.click(); await page.waitForTimeout(1000); break; }
+                if (btn && await btn.isVisible()) {
+                    try { await btn.click({ force: true, timeout: 3000 }); } catch (clickErr) {}
+                    await page.waitForTimeout(1000);
+                    break;
+                }
             }
         }
 
