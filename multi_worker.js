@@ -579,8 +579,12 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
         }
 
         if (status === "SINGLE") {
-            console.log(`Worker ${WORKER_ID} | [!] | Direct Profile detected.`);
             const name = await page.$eval('h1.DUwDvf', el => el.innerText).catch(() => "Unknown");
+            if (name.trim().toLowerCase() === city.trim().toLowerCase() || name.trim().toLowerCase() === state.trim().toLowerCase()) {
+                console.log(`Worker ${WORKER_ID} | [-] | City Map Pin (${name}) loaded for ${subcategory} in ${city}. No business found.`);
+                return 0;
+            }
+            console.log(`Worker ${WORKER_ID} | 🎯 | Direct Business Profile detected: ${name}`);
             return await scrapeIndividualProfile(page, name, city, state, categoryId, subcategory);
         }
 
