@@ -34,26 +34,68 @@ function writeLog(msg) {
 
 async function flushBatches() {
     writeLog("⚡ STARTING BATCH FLUSH...");
+
+    // 1. SYNC PROVIDERS WITH PERSISTENT RETRY LOOP
     if (syncBatch.length > 0) {
-        writeLog(`📤 Syncing ${syncBatch.length} leads (FULL 31-FIELD MODE)...`);
-        try {
-            const r = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: syncBatch });
-            const resData = String(r.data);
-            const logData = resData.length > 100 ? resData.substring(0, 100) + "..." : resData;
-            writeLog(`   ✅ Hub Response: ${logData}`);
-            syncBatch = [];
-        } catch (e) { writeLog(`❌ Flush Error: ${e.message}`); }
+        const leadsToSync = [...syncBatch];
+        writeLog(`📤 Syncing ${leadsToSync.length} leads (FULL 31-FIELD MODE)...`);
+        let attempt = 0;
+        let success = false;
+
+        while (!success) {
+            attempt++;
+            try {
+                const r = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 180000 });
+                const resData = String(r.data || "");
+
+                if (resData.includes("Success") || resData.includes("Complete") || resData.includes("already exists")) {
+                    const logData = resData.length > 100 ? resData.substring(0, 100) + "..." : resData;
+                    writeLog(`   ✅ Hub Response [A${attempt}]: ${logData}`);
+                    syncBatch = [];
+                    success = true;
+                } else {
+                    const logData = resData.length > 80 ? resData.substring(0, 80) + "..." : resData;
+                    writeLog(`   ⚠️ Server Lock Busy [A${attempt}]: ${logData}. Sleeping 15s before retry...`);
+                    await new Promise(res => setTimeout(res, 15000));
+                }
+            } catch (e) {
+                writeLog(`   ❌ Connection Error [A${attempt}]: ${e.message}. Sleeping 20s before retry...`);
+                await new Promise(res => setTimeout(res, 20000));
+            }
+        }
     }
+
+    // 2. CLEAN QUEUE WITH PERSISTENT RETRY LOOP
     if (doneBatch.length > 0) {
-        writeLog(`🧹 Cleaning ${doneBatch.length} items from Queue...`);
-        try {
-            const r = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: doneBatch });
-            const resData = String(r.data);
-            const logData = resData.length > 100 ? resData.substring(0, 100) + "..." : resData;
-            writeLog(`   ✅ Queue Response: ${logData}`);
-            doneBatch = [];
-        } catch (e) {}
+        const idsToClean = [...doneBatch];
+        writeLog(`🧹 Cleaning ${idsToClean.length} items from Queue...`);
+        let attempt = 0;
+        let success = false;
+
+        while (!success) {
+            attempt++;
+            try {
+                const r = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: idsToClean }, { timeout: 180000 });
+                const resData = String(r.data || "");
+
+                if (resData.includes("Success") || resData.includes("Cleaned") || resData.includes("Complete")) {
+                    const logData = resData.length > 100 ? resData.substring(0, 100) + "..." : resData;
+                    writeLog(`   ✅ Queue Cleanup Response [A${attempt}]: ${logData}`);
+                    doneBatch = [];
+                    success = true;
+                } else {
+                    const logData = resData.length > 80 ? resData.substring(0, 80) + "..." : resData;
+                    writeLog(`   ⚠️ Cleanup Fail [A${attempt}]: ${logData}. Sleeping 15s before retry...`);
+                    await new Promise(res => setTimeout(res, 15000));
+                }
+            } catch (e) {
+                writeLog(`   ❌ Cleanup Error [A${attempt}]: ${e.message}. Sleeping 20s before retry...`);
+                await new Promise(res => setTimeout(res, 20000));
+            }
+        }
     }
+
+    writeLog("⚡ BATCH FLUSH COMPLETED.");
 }
 
 async function extractPhone(page) {

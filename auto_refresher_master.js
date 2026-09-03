@@ -196,20 +196,28 @@ async function processState(stateName, stateUrl, browser) {
                             }]
                         };
 
-                        try {
-                            const hubRes = await axios.post(HUB_URL, payload);
-                            const resMsg = String(hubRes.data);
-                            if (resMsg.includes("Success") || resMsg.includes("config")) {
-                                refreshRegistry[p.id] = Date.now();
-                                saveRegistry();
-                                totalRefreshedInState++;
-                                writeLog(`🎉 UPDATED: ${p.businessName} | Images: ${portfolio.length}`);
-                            } else {
-                                const logMsg = resMsg.length > 100 ? resMsg.substring(0, 100) + "..." : resMsg;
-                                writeLog(`❌ SERVER ERROR: ${p.businessName} | Msg: ${logMsg}`);
+                        let attempt = 0;
+                        let hubSuccess = false;
+                        while (!hubSuccess) {
+                            attempt++;
+                            try {
+                                const hubRes = await axios.post(HUB_URL, payload, { timeout: 180000 });
+                                const resMsg = String(hubRes.data || "");
+                                if (resMsg.includes("Success") || resMsg.includes("config") || resMsg.includes("Complete")) {
+                                    refreshRegistry[p.id] = Date.now();
+                                    saveRegistry();
+                                    totalRefreshedInState++;
+                                    writeLog(`🎉 UPDATED [A${attempt}]: ${p.businessName} | Images: ${portfolio.length}`);
+                                    hubSuccess = true;
+                                } else {
+                                    const logMsg = resMsg.length > 80 ? resMsg.substring(0, 80) + "..." : resMsg;
+                                    writeLog(`⚠️ SERVER BUSY [A${attempt}]: ${p.businessName} | Msg: ${logMsg}. Retrying in 15s...`);
+                                    await new Promise(r => setTimeout(r, 15000));
+                                }
+                            } catch (err) {
+                                writeLog(`❌ HUB POST ERROR [A${attempt}]: ${p.businessName} | ${err.message}. Retrying in 20s...`);
+                                await new Promise(r => setTimeout(r, 20000));
                             }
-                        } catch (err) {
-                            writeLog(`❌ HUB POST ERROR: ${p.businessName} | ${err.message}`);
                         }
                     } else {
                         writeLog(`⚠️ NO IMAGES: ${p.businessName} - No portfolio found.`);

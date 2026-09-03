@@ -39,27 +39,28 @@ async function flushBatches() {
         writeLog(`📤 Syncing ${leadsToSync.length} leads to Sheet (FULL 31-FIELD MODE)...`);
 
         let success = false;
-        for (let attempt = 1; attempt <= 5; attempt++) {
+        let attempt = 0;
+        while (!success) {
+            attempt++;
             try {
-                const r = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 120000 });
-                const resData = String(r.data);
+                const r = await axios.post(HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 180000 });
+                const resData = String(r.data || "");
                 const logData = resData.length > 100 ? resData.substring(0, 100) + "..." : resData;
-                writeLog(`   ✅ Hub Response [A${attempt}]: ${logData}`);
 
-                if (resData.includes("Success") || resData.includes("Complete") || resData.includes("Maharashtra") || resData.includes("config")) {
+                if (resData.includes("Success") || resData.includes("Complete") || resData.includes("Maharashtra") || resData.includes("config") || resData.includes("already exists")) {
+                    writeLog(`   ✅ Hub Response [A${attempt}]: ${logData}`);
                     syncBatch = syncBatch.filter(p => !leadsToSync.includes(p));
                     success = true;
-                    break;
                 } else if (resData.includes("Lock timeout")) {
                     writeLog(`   ⚠️ Server Lock Busy (Attempt ${attempt}). Sleeping 15s before retry...`);
                     await new Promise(r => setTimeout(r, 15000));
                 } else {
-                    writeLog(`   ❌ Server Error: ${resData}. Retrying anyway...`);
-                    await new Promise(r => setTimeout(r, 5000));
+                    writeLog(`   ❌ Server Error [A${attempt}]: ${logData}. Retrying in 10s...`);
+                    await new Promise(r => setTimeout(r, 10000));
                 }
             } catch (e) {
-                writeLog(`   ⚠️ Sync Attempt ${attempt} Network Fail: ${e.message}`);
-                await new Promise(r => setTimeout(r, 10000));
+                writeLog(`   ⚠️ Sync Attempt ${attempt} Network Fail: ${e.message}. Retrying in 15s...`);
+                await new Promise(r => setTimeout(r, 15000));
             }
         }
     }
@@ -67,20 +68,29 @@ async function flushBatches() {
     if (doneBatch.length > 0) {
         const idsToClean = [...doneBatch];
         writeLog(`🧹 Cleaning ${idsToClean.length} items from Queue...`);
-        for (let attempt = 1; attempt <= 3; attempt++) {
+        let success = false;
+        let attempt = 0;
+        while (!success) {
+            attempt++;
             try {
-                const r = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: idsToClean });
-                const resData = String(r.data);
-                if (resData.includes("Success")) {
+                const r = await axios.post(HUB_URL, { type: "MARK_REFRESH_DONE", ids: idsToClean }, { timeout: 180000 });
+                const resData = String(r.data || "");
+                const logData = resData.length > 100 ? resData.substring(0, 100) + "..." : resData;
+
+                if (resData.includes("Success") || resData.includes("Cleaned") || resData.includes("Complete")) {
                     doneBatch = doneBatch.filter(id => !idsToClean.includes(id));
-                    writeLog(`   ✅ Queue Cleanup Response: ${resData}`);
-                    break;
+                    writeLog(`   ✅ Queue Cleanup Response [A${attempt}]: ${logData}`);
+                    success = true;
+                } else if (resData.includes("Lock timeout")) {
+                    writeLog(`   ⚠️ Cleanup Fail [A${attempt}]: ${logData}. Sleeping 15s before retry...`);
+                    await new Promise(r => setTimeout(r, 15000));
+                } else {
+                    writeLog(`   ⚠️ Cleanup Fail [A${attempt}]: ${logData}. Retrying in 10s...`);
+                    await new Promise(r => setTimeout(r, 10000));
                 }
-                writeLog(`   ⚠️ Cleanup Fail [A${attempt}]: ${resData}`);
-                await new Promise(r => setTimeout(r, 5000));
             } catch (e) {
-                writeLog(`   ⚠️ Cleanup Exception: ${e.message}`);
-                await new Promise(r => setTimeout(r, 5000));
+                writeLog(`   ⚠️ Cleanup Exception [A${attempt}]: ${e.message}. Retrying in 15s...`);
+                await new Promise(r => setTimeout(r, 15000));
             }
         }
     }
