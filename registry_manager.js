@@ -38,12 +38,13 @@ class RegistryManager {
         if (fs.existsSync(legacyPath)) {
             const data = fs.readFileSync(legacyPath, 'utf8');
             data.split('\n').forEach(line => {
-                const clean = line.trim();
-                if (clean) this.registrySet.add(clean);
+                const clean = line.replace(/[^0-9]/g, '').slice(-10);
+                if (clean && clean.length === 10) this.registrySet.add(clean);
             });
         }
 
-        console.log(`RegistryManager | Shared Brain: Loaded ${this.registrySet.size} unique IDs.`);
+        const ramUsageMb = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1);
+        console.log(`RegistryManager | 🧠 Shared Brain (RAM): Loaded ${this.registrySet.size} unique IDs into Node.js Memory (${ramUsageMb} MB RAM). Instant O(1) Check Active.`);
 
         // 2. Migrate from JSON if needed
         if (fs.existsSync(REGISTRY_JSON) && this.registrySet.size === 0) {
@@ -51,8 +52,8 @@ class RegistryManager {
                 const data = JSON.parse(fs.readFileSync(REGISTRY_JSON));
                 const stream = fs.createWriteStream(WORKER_REGISTRY_TXT, { flags: 'a' });
                 data.forEach(id => {
-                    const clean = String(id).replace('shadow_', '');
-                    if (!this.registrySet.has(clean)) {
+                    const clean = String(id).replace(/[^0-9]/g, '').slice(-10);
+                    if (clean && clean.length === 10 && !this.registrySet.has(clean)) {
                         this.registrySet.add(clean);
                         stream.write(clean + '\n');
                     }
@@ -63,13 +64,15 @@ class RegistryManager {
     }
 
     has(phone) {
-        const cleanPhone = String(phone).replace('shadow_', '');
+        if (!phone) return false;
+        const cleanPhone = String(phone).replace(/[^0-9]/g, '').slice(-10);
         return this.registrySet.has(cleanPhone);
     }
 
     add(phone) {
-        const cleanPhone = String(phone).replace('shadow_', '');
-        if (!this.registrySet.has(cleanPhone)) {
+        if (!phone) return;
+        const cleanPhone = String(phone).replace(/[^0-9]/g, '').slice(-10);
+        if (cleanPhone.length === 10 && !this.registrySet.has(cleanPhone)) {
             this.registrySet.add(cleanPhone);
             // 🚀 Write ONLY to this worker's specific file to avoid Git conflicts
             fs.appendFileSync(WORKER_REGISTRY_TXT, cleanPhone + '\n');
@@ -79,16 +82,15 @@ class RegistryManager {
     addBatch(phones) {
         let addedCount = 0;
         phones.forEach(p => {
-            const clean = String(p).replace('shadow_', '');
-            if (!this.registrySet.has(clean)) {
+            const clean = String(p).replace(/[^0-9]/g, '').slice(-10);
+            if (clean && clean.length === 10 && !this.registrySet.has(clean)) {
                 this.registrySet.add(clean);
-                // 🚀 Sync append is much safer for huge batches in GitHub Actions
                 fs.appendFileSync(WORKER_REGISTRY_TXT, clean + '\n');
                 addedCount++;
             }
         });
         if (addedCount > 0) {
-            console.log(`RegistryManager | Batch added ${addedCount} new IDs.`);
+            console.log(`RegistryManager | 🧠 Batch added ${addedCount} new IDs to RAM.`);
         }
     }
 
