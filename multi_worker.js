@@ -366,8 +366,7 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
         }
 
         if (registry.has(cleanPhone)) {
-            console.log(`Worker ${WORKER_ID} | [-] | SKIP | Business: ${businessName} | Phone: ${cleanPhone} | Reason: Duplicate (Registry)`);
-            return { status: "DUPLICATE", phone: cleanPhone };
+            return { status: "DUPLICATE", phone: cleanPhone, businessName: businessName };
         }
 
         await page.waitForSelector('button[data-item-id="address"]', { timeout: 15000 }).catch(() => {});
@@ -550,7 +549,7 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
 
         if (sheetBuffer.length >= BATCH_LIMIT || firestoreBuffer.length >= BATCH_LIMIT) await flushBuffers();
         const finalPhone = cleanPhone.replace(/[^0-9]/g, '').slice(-10);
-        console.log(`Worker ${WORKER_ID} | [+] | Saved: ${businessName} | Phone: ${finalPhone} (Total: ${++newLeadsCount})`);
+        console.log(`Worker ${WORKER_ID} | 🎉 | ADDED | ${businessName} | Phone: ${finalPhone} (Total: ${++newLeadsCount})`);
         registry.add(cleanPhone);
         return 1;
     } catch (err) { return 0; }
@@ -607,7 +606,7 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
                 await listing.scrollIntoViewIfNeeded({ timeout: 3000 });
                 await listing.click({ force: true, timeout: 3000 });
             } catch (clickErr) {
-                console.log(`Worker ${WORKER_ID} | [-] | Skip: Unclickable/Detached listing element.`);
+                console.log(`Worker ${WORKER_ID} | ⏩ | SKIP | Unclickable/Detached listing element.`);
                 continue;
             }
 
@@ -626,13 +625,14 @@ async function scrapeCombination(page, city, state, categoryId, subcategory) {
             } else {
                 streak++;
                 if (res && res.status === "DUPLICATE") {
-                    console.log(`Worker ${WORKER_ID} | [-] | Skip: Duplicate Number: ${res.phone} (Streak: ${streak}/4)`);
+                    const bName = res.businessName || nameRaw || "Unknown";
+                    console.log(`Worker ${WORKER_ID} | ⏩ | SKIP | ${bName} | Phone: ${res.phone} | Duplicate (Streak: ${streak}/4)`);
                 } else {
-                    console.log(`Worker ${WORKER_ID} | [-] | Skip: Invalid/Poor Quality (Streak: ${streak}/4)`);
+                    console.log(`Worker ${WORKER_ID} | 🛑 | SKIP | ${nameRaw} | Invalid/Poor Quality (Streak: ${streak}/4)`);
                 }
 
                 if (streak >= 4) {
-                    console.log(`Worker ${WORKER_ID} | [!] | Streak hit. Moving to next sub-category...`);
+                    console.log(`Worker ${WORKER_ID} | 🎯 | STREAK HIT | 4 consecutive duplicates/skips. Moving to next sub-category...`);
                     return foundCount;
                 }
             }
