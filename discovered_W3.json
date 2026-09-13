@@ -1656,7 +1656,7 @@
   "Goa|Feira Baixa": 1,
   "Goa|Pharmacy": 1,
   "Goa|Ghateshwar Nagar": 1,
-  "Goa|Vaddo": 1,
+  "Goa|Vaddo": 2,
   "Goa|Mapusa Goa": 2,
   "Goa|Above Canara Bank": 2,
   "Goa|Green Oasis Gaunsvaddo": 1,
@@ -1762,8 +1762,8 @@
   "Goa|Saunta Vaddo": 1,
   "Goa|Saunta Vaddo Tito S Gaga": 1,
   "Goa|Harvalem": 1,
-  "Goa|Rudreshwar Colony": 1,
-  "Goa|Pratap Nagar": 1,
+  "Goa|Rudreshwar Colony": 2,
+  "Goa|Pratap Nagar": 2,
   "Goa|Bamon Waddo": 1,
   "Goa|Urban Height Bldg": 1,
   "Goa|Pundlik Nagar": 1,
@@ -1785,5 +1785,9 @@
   "Goa|Malwara": 1,
   "Goa|PDA colony": 1,
   "Goa|Montfort Campus": 1,
-  "Goa|Bondir": 1
+  "Goa|Bondir": 1,
+  "Goa|Indira Nagar": 1,
+  "Goa|Auchit waddo": 1,
+  "Goa|Cansa": 1,
+  "Goa|Narayan Nagar": 2
 }
