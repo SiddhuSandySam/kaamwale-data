@@ -21,7 +21,7 @@ jobs:
           node-version: '20'
 
       - name: Install Dependencies
-        run: npm install firebase-admin
+        run: npm install firebase-admin @google-cloud/firestore
 
       - name: Restore Firebase Key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > serviceAccountKey.json

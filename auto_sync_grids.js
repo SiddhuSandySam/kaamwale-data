@@ -1,6 +1,6 @@
 /**
- * RAPIDHELP SMART DATA SYNC ROBOT (V4.1 - FULL SYNC ENHANCED)
- * 🛡️ STABILITY: Fixes Full Sync folder refresh.
+ * RAPIDHELP SMART DATA SYNC ROBOT (V4.2 - RETRY & RESILIENT TIMEOUT ENHANCED)
+ * 🛡️ STABILITY: Fixes Google Apps Script timeouts with retries & 5m timeout.
  * 🛡️ DEDUPE: Removes leads from old grids when coordinates change.
  */
 
@@ -18,6 +18,19 @@ function getGridId(lat, lon) {
     return `g_${Math.floor(lat * 10)}_${Math.floor(lon * 10)}`;
 }
 
+async function fetchWithRetry(url, options = {}, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return await axios.get(url, { timeout: 300000, ...options });
+        } catch (err) {
+            console.warn(`⚠️ Request failed (Attempt ${attempt}/${maxRetries}): ${err.message}`);
+            if (attempt === maxRetries) throw err;
+            console.log(`   🔄 Waiting 5s before retry...`);
+            await new Promise(res => setTimeout(res, 5000 * attempt));
+        }
+    }
+}
+
 async function startRobotSync() {
     const SYNC_START_TIME = Date.now();
     const LOOKBACK_BUFFER = 15 * 60 * 1000; // 🚀 15-minute safety net to prevent race conditions
@@ -32,7 +45,7 @@ async function startRobotSync() {
         } catch (e) {}
     }
 
-    const hubResp = await axios.get(`${HUB_URL}?type=app_data&nocache=true`, { timeout: 90000 });
+    const hubResp = await fetchWithRetry(`${HUB_URL}?type=app_data&nocache=true`);
     const appData = hubResp.data;
     if (!appData.stateUrls) throw new Error("Invalid Hub Data");
 
@@ -63,7 +76,7 @@ async function startRobotSync() {
             let finalUrl = `${stateUrl}?type=providers&offset=${offset}&limit=5000&nocache=true`;
             if (effectiveSince > 0) finalUrl += `&since=${effectiveSince}`;
 
-            const resp = await axios.get(finalUrl, { timeout: 300000 });
+            const resp = await fetchWithRetry(finalUrl);
             if (Array.isArray(resp.data)) {
                 allNewProviders.push(...resp.data);
                 if (resp.data.length < 5000) hasMore = false;
