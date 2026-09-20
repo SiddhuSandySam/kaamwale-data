@@ -484,11 +484,9 @@
         "Gundardehi",
         "Chainganj",
         "Amapara",
-        "Infront",
         "Mopka",
         "Sadar Bazaar",
         "Vidya Vihar Colony",
-        "Camp",
         "Katulbod",
         "Jaiswal Colony",
         "Motitalab Para",
@@ -497,7 +495,6 @@
         "Pratappur",
         "Bijapur",
         "Sunder Nagar",
-        "Zone",
         "Shyam Nagar",
         "Jarway Alias Hirapur",
         "Rajkishore Nagar",
@@ -507,7 +504,6 @@
         "Shree Sai Nagar",
         "Neora",
         "Khusrudih",
-        "New",
         "Bazar Para",
         "Purani Toli",
         "Civil Line",
@@ -549,8 +545,6 @@
         "Shailendra Nagar",
         "New Deepak Nagar",
         "Santoshi Nagar",
-        "Old",
-        "Chhattisgarh",
         "Bhagawan Pur",
         "Railway Colony",
         "Bada Bazar",
@@ -622,7 +616,6 @@
         "Caranzalem",
         "Penha de Franc",
         "Ozari",
-        "Goa",
         "Altinho",
         "Durgavado",
         "Aradi Socorro",
@@ -746,7 +739,6 @@
         "Chopdem",
         "Santemol",
         "Sateri Nagar Colony",
-        "Dat",
         "Virnoda  Nagzor",
         "Calata",
         "Shirvodem",
@@ -944,7 +936,6 @@
         "Anand Nagar",
         "Gopipura",
         "Punagam",
-        "Gujarat",
         "Vavdi",
         "Chandreshnagar",
         "Gokul Nagar",
@@ -1102,10 +1093,8 @@
         "Rishi Nagar",
         "Model Town",
         "Krishna Colony",
-        "SCO",
         "Gurugram",
         "Spaze iTech Park",
-        "SCF",
         "Shamshabad",
         "Old Bharat Nagar",
         "Yamuna Nagar",
@@ -2452,9 +2441,7 @@
     },
     {
       "name": "Chandigarh",
-      "cities": [
-        "Chandigarh"
-      ]
+      "cities": []
     },
     {
       "name": "Dadra and Nagar Haveli and Daman and Diu",
@@ -2622,7 +2609,6 @@
     {
       "name": "Puducherry",
       "cities": [
-        "Puducherry",
         "Karaikal",
         "Mahe",
         "Yanam",
