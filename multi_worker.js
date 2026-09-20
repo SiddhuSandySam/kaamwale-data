@@ -793,7 +793,14 @@ async function runOrchestrator() {
                 const category = config.categories[catIdx]; progress.categoryIndex = catIdx;
                 console.log(`\nWorker ${WORKER_ID} | [CAT START] | 📂 Starting Category ${catIdx + 1}/${config.categories.length}: ${category.name}\n`);
 
-                const JUNK_CITY_FILTER = ['old', 'new', 'zone', 'infront', 'camp', 'sco', 'scf', 'dat', 'near', 'opp', 'block', 'phase', 'sector'];
+                const JUNK_CITY_FILTER = [
+                    'old', 'new', 'zone', 'infront', 'camp', 'sco', 'scf', 'dat', 'near', 'opp', 'opposite',
+                    'block', 'phase', 'sector', 'street', 'road', 'marg', 'lane', 'flat', 'plot', 'shop',
+                    'floor', 'building', 'society', 'apartment', 'complex', 'center', 'centre', 'chowk',
+                    'circle', 'bypass', 'yard', 'ward', 'gali', 'khasra', 'dist', 'district', 'state',
+                    'india', 'chhatrapati', 'nagar', 'colony', 'area', 'sub', 'rural', 'urban', 'town',
+                    'station', 'stand', 'stop', 'gate', 'market', 'bazaar', 'bazar', 'peth', 'tola', 'patti'
+                ];
 
                 for (let cIdx = progress.cityIndex; cIdx < cities.length; cIdx++) {
                     const city = cities[cIdx]; progress.cityIndex = cIdx;
