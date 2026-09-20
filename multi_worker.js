@@ -792,8 +792,20 @@ async function runOrchestrator() {
 
                 const category = config.categories[catIdx]; progress.categoryIndex = catIdx;
                 console.log(`\nWorker ${WORKER_ID} | [CAT START] | 📂 Starting Category ${catIdx + 1}/${config.categories.length}: ${category.name}\n`);
+
+                const JUNK_CITY_FILTER = ['old', 'new', 'zone', 'infront', 'camp', 'sco', 'scf', 'dat', 'near', 'opp', 'block', 'phase', 'sector'];
+
                 for (let cIdx = progress.cityIndex; cIdx < cities.length; cIdx++) {
                     const city = cities[cIdx]; progress.cityIndex = cIdx;
+
+                    const cityClean = city.trim().toLowerCase();
+                    if (JUNK_CITY_FILTER.includes(cityClean) || cityClean === state.name.toLowerCase()) {
+                        console.log(`Worker ${WORKER_ID} | 🛑 | SKIP JUNK CITY | "${city}" is an invalid city name in ${state.name}. Skipping...`);
+                        progress.subcategoryIndex = 0;
+                        await saveProgress();
+                        continue;
+                    }
+
                     console.log(`Worker ${WORKER_ID} | [CITY START] | 🏙️ Entering City: ${city} (City ${cIdx + 1}/${cities.length})`);
 
                     for (let subIdx = progress.subcategoryIndex; subIdx < category.sub.length; subIdx++) {

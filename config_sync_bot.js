@@ -1,7 +1,7 @@
 /**
- * RAPIDHELP CONFIG SYNC BOT
+ * RAPIDHELP CONFIG SYNC BOT (V4.3 - JUNK CITY FILTER ENHANCED)
  * 🚀 PURPOSE: Automatically sync config.json with latest data from hub_data.json.
- * This ensures workers always have the latest cities and categories from the Hub.
+ * Filters out invalid junk city words like "Old", "New", "Zone", "Infront", etc.
  */
 
 const fs = require('fs');
@@ -9,6 +9,8 @@ const path = require('path');
 
 const HUB_DATA_FILE = path.join(__dirname, 'hub_data.json');
 const CONFIG_FILE = path.join(__dirname, 'config.json');
+
+const JUNK_CITIES = ['infront', 'camp', 'zone', 'new', 'old', 'dat', 'sco', 'scf', 'near', 'opp', 'block', 'phase', 'sector'];
 
 function sync() {
     console.log("\n===============================================");
@@ -24,15 +26,21 @@ function sync() {
         const hubData = JSON.parse(fs.readFileSync(HUB_DATA_FILE));
         let newConfig = {};
 
-        // 1. Sync States (Locations)
-        // Hub uses 'locations' with 'state' key, Config uses 'states' with 'name' key.
+        // 1. Sync States (Locations) with Junk Filter
         if (hubData.locations && Array.isArray(hubData.locations)) {
             console.log(`📍 Found ${hubData.locations.length} states in Hub.`);
-            newConfig.states = hubData.locations.map(l => ({
-                name: l.state,
-                cities: Array.isArray(l.cities) ? l.cities : (String(l.cities).split(',').map(c => c.trim()))
-            }));
-            console.log("✅ States synced.");
+            newConfig.states = hubData.locations.map(l => {
+                const rawCities = Array.isArray(l.cities) ? l.cities : (String(l.cities).split(',').map(c => c.trim()));
+                const cleanCities = rawCities.filter(c => {
+                    const cl = c.trim().toLowerCase();
+                    return cl.length > 1 && !JUNK_CITIES.includes(cl) && cl !== l.state.toLowerCase();
+                });
+                return {
+                    name: l.state,
+                    cities: cleanCities
+                };
+            });
+            console.log("✅ States synced & junk city names filtered out.");
         } else {
             console.warn("⚠️ Warning: No locations found in hub_data.json");
         }
@@ -58,7 +66,7 @@ function sync() {
 
         // Final Log for verification
         const totalCities = newConfig.states ? newConfig.states.reduce((acc, s) => acc + s.cities.length, 0) : 0;
-        console.log(`📊 Stats: ${newConfig.states?.length || 0} States | ${totalCities} Cities | ${newConfig.categories?.length || 0} Categories`);
+        console.log(`📊 Stats: ${newConfig.states?.length || 0} States | ${totalCities} Clean Cities | ${newConfig.categories?.length || 0} Categories`);
         console.log("===============================================\n");
 
     } catch (e) {
