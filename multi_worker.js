@@ -405,14 +405,20 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
             detectedCity = addressParts[stateIdx - 1];
             detectedState = statePart;
 
-            // 🛡️ SMART LOCALITY EXTRACTION: Enhanced filter to remove landmarks and numeric parts
             const JUNK_KEYWORDS = [
                 'building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block',
                 'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'station', 'bus stop', 'society',
                 'apt', 'apartment', 'villa', 'tower', 'beside', 'behind', 'temple', 'hospital', 'school', 'church',
                 'masjid', 'gate', 'mall', 'market', 'complex', 'center', 'centre', 'chowk', 'circle', 'bypass', 'yard',
-                'ward', 'street', 'gali', 'sector', 'khasra'
+                'ward', 'street', 'gali', 'sector', 'khasra', 'infront', 'camp', 'zone', 'new', 'old', 'dat', 'sco',
+                'scf', 'dist', 'district', 'state', 'india', 'chhatrapati', 'nagar', 'colony', 'area', 'sub', 'rural',
+                'urban', 'town', 'stand', 'stop', 'bazaar', 'bazar', 'peth', 'tola', 'patti'
             ];
+
+            const detectedCityLower = detectedCity.trim().toLowerCase();
+            if (JUNK_KEYWORDS.includes(detectedCityLower) || detectedCityLower === state.toLowerCase() || /^[0-9\s\-\/\#\.]+$/.test(detectedCityLower)) {
+                detectedCity = city;
+            }
 
             let foundLocality = "";
             for (let i = stateIdx - 2; i >= 0; i--) {
@@ -436,14 +442,6 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
 
             // 🚀 EXPANDED AUTO-DISCOVERY: खऱ्या अर्थाने गावं आणि परिसर शोधणे
             try {
-                const JUNK_KEYWORDS = [
-                    'building', 'shop', 'floor', 'plot', 'opp', 'near', 'room', 'flat', 'house', 'no', 'number', 'block',
-                    'phase', 'lane', 'industrial', 'highway', 'road', 'rd', 'marg', 'st', 'station', 'bus stop', 'society',
-                    'apt', 'apartment', 'villa', 'tower', 'beside', 'behind', 'temple', 'hospital', 'school', 'church',
-                    'masjid', 'gate', 'mall', 'market', 'complex', 'center', 'centre', 'chowk', 'circle', 'bypass', 'yard',
-                    'ward', 'street', 'gali', 'sector', 'khasra'
-                ];
-
                 // आपण स्टेटच्या आधीचे ४ भाग तपासूया (उदा. [वाडा], [गाव], [तालुका], [जिल्हा])
                 for (let offset = 1; offset <= 4; offset++) {
                     const idx = stateIdx - offset;
@@ -460,7 +458,8 @@ async function scrapeIndividualProfile(page, businessName, city, state, category
                     if (!isPlusCode && !isJunkCode && !hasJunkWords && rawName.length > 2) {
                         // नावातून पिनकोड किंवा नंबर काढून टाका
                         const cleanName = rawName.replace(/[0-9]/g, '').replace(/[\+\#\-\/\&]/g, '').trim();
-                        if (cleanName.length < 3) continue;
+                        const isJunkName = JUNK_KEYWORDS.includes(cleanName.toLowerCase());
+                        if (cleanName.length < 3 || isJunkName) continue;
 
                         const isExisting = config.states.some(s =>
                             s.name.toLowerCase().includes(state.toLowerCase()) &&
