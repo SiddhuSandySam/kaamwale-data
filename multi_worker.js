@@ -140,53 +140,57 @@ async function flushBuffers(isExiting = false) {
             let overallSuccess = true;
             for (const stateName of Object.keys(groupedLeads)) {
                 let leadsToSync = groupedLeads[stateName];
-                const targetUrl = stateUrls[stateName] || currentTargetUrl;
+                let primaryUrl = stateUrls[stateName] || currentTargetUrl;
 
-                // 🚀 DETAILED LOGGING: Show names of leads being synced
                 const leadNames = leadsToSync.map(l => l.businessName || l.id).join(", ");
                 console.log(`Worker ${WORKER_ID} | [${mode}] | 🚀 Routing ${leadsToSync.length} leads to [${stateName}] Sheet...`);
-                console.log(`Worker ${WORKER_ID} | [DATA] | Leads: [${leadNames}]`);
 
                 let retryAttempt = 0;
-                const MAX_RETRIES = 10;
+                const MAX_RETRIES = 4;
                 let stateSuccess = false;
 
                 while (retryAttempt < MAX_RETRIES && !stateSuccess) {
                     retryAttempt++;
+                    // Try primary state URL first 2 times, then fallback to MAIN_HUB_URL
+                    const activeUrl = (retryAttempt <= 2 && primaryUrl) ? primaryUrl : MAIN_HUB_URL;
+
                     if (retryAttempt > 1) {
-                        const waitTime = Math.min(30000 * retryAttempt, 120000);
-                        console.log(`Worker ${WORKER_ID} | ⏳ Retry ${retryAttempt}/${MAX_RETRIES} in ${waitTime/1000}s...`);
+                        const jitter = Math.floor(Math.random() * 3000);
+                        const waitTime = Math.min(10000 * retryAttempt + jitter, 30000);
+                        console.log(`Worker ${WORKER_ID} | ⏳ Retry ${retryAttempt}/${MAX_RETRIES} via ${activeUrl === MAIN_HUB_URL ? 'Main Hub' : stateName + ' Sheet'} in ${Math.round(waitTime/1000)}s...`);
                         await new Promise(r => setTimeout(r, waitTime));
                     }
 
                     try {
-                        const response = await axios.post(targetUrl, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 240000 });
+                        const response = await axios.post(activeUrl, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 120000 });
                         const resData = String(response.data);
 
                         if (resData.includes("Success") || resData.includes("Complete")) {
                             console.log(`Worker ${WORKER_ID} | [${mode}] | ✅ [${stateName}] Sync Success for: [${leadNames}]`);
                             stateSuccess = true;
                         } else {
-                            const logData = resData.length > 100 ? resData.substring(0, 100) + "..." : resData;
-                            console.warn(`Worker ${WORKER_ID} | [${mode}] | ⚠️ [${stateName}] Server Response: ${logData}`);
+                            console.warn(`Worker ${WORKER_ID} | [${mode}] | ⚠️ [${stateName}] Response: ${resData.substring(0, 80)}`);
                         }
                     } catch (e) {
-                        console.error(`Worker ${WORKER_ID} | [${mode}] | ❌ [${stateName}] Sync Error: ${e.message}`);
+                        console.error(`Worker ${WORKER_ID} | [${mode}] | ❌ [${stateName}] Sync Error (Attempt ${retryAttempt}): ${e.message}`);
                     }
                 }
                 if (!stateSuccess) overallSuccess = false;
             }
 
             if (overallSuccess) {
-                // 🚀 ONLY DELETE IF ALL BATCHES SUCCEEDED
                 sheetBuffer = [];
                 if (fs.existsSync(BACKUP_LEADS_FILE)) {
-                    fs.unlinkSync(BACKUP_LEADS_FILE);
-                    console.log(`Worker ${WORKER_ID} | [${mode}] | 🧹 Success! Local backup [${path.basename(BACKUP_LEADS_FILE)}] deleted.`);
+                    try { fs.unlinkSync(BACKUP_LEADS_FILE); } catch (e) {}
+                    console.log(`Worker ${WORKER_ID} | [${mode}] | 🧹 Success! Local backup deleted.`);
                 }
-                if (fs.existsSync(FAILED_SYNC_FILE)) fs.unlinkSync(FAILED_SYNC_FILE);
+                if (fs.existsSync(FAILED_SYNC_FILE)) try { fs.unlinkSync(FAILED_SYNC_FILE); } catch (e) {}
             } else {
-                console.error(`Worker ${WORKER_ID} | [${mode}] | 🛑 Sync Failed after all retries. Backup kept for safety.`);
+                console.error(`Worker ${WORKER_ID} | [${mode}] | 🛑 Sheet sync busy. Saving to backup and proceeding with scraping...`);
+                try {
+                    fs.writeFileSync(BACKUP_LEADS_FILE, JSON.stringify(sheetBuffer, null, 2));
+                } catch (e) {}
+                sheetBuffer = []; // Clear buffer so worker continues scraping instead of looping forever
             }
         }
     } finally { isFlushing = false; }
