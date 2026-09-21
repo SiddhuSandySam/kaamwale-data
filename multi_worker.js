@@ -149,20 +149,23 @@ async function flushBuffers(isExiting = false) {
                 const MAX_RETRIES = 4;
                 let stateSuccess = false;
 
+                // 🚀 STAGGER DELAY: Worker ID delay + random jitter to prevent concurrent sheet locks
+                const staggerDelay = Math.floor(Math.random() * 4000) + ((WORKER_ID % 5) * 1500);
+                await new Promise(r => setTimeout(r, staggerDelay));
+
                 while (retryAttempt < MAX_RETRIES && !stateSuccess) {
                     retryAttempt++;
-                    // Try primary state URL first 2 times, then fallback to MAIN_HUB_URL
                     const activeUrl = (retryAttempt <= 2 && primaryUrl) ? primaryUrl : MAIN_HUB_URL;
 
                     if (retryAttempt > 1) {
-                        const jitter = Math.floor(Math.random() * 3000);
-                        const waitTime = Math.min(10000 * retryAttempt + jitter, 30000);
+                        const jitter = Math.floor(Math.random() * 5000);
+                        const waitTime = Math.min(15000 * retryAttempt + jitter, 45000);
                         console.log(`Worker ${WORKER_ID} | ⏳ Retry ${retryAttempt}/${MAX_RETRIES} via ${activeUrl === MAIN_HUB_URL ? 'Main Hub' : stateName + ' Sheet'} in ${Math.round(waitTime/1000)}s...`);
                         await new Promise(r => setTimeout(r, waitTime));
                     }
 
                     try {
-                        const response = await axios.post(activeUrl, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 120000 });
+                        const response = await axios.post(activeUrl, { type: "BATCH_PROVIDER_SYNC", providers: leadsToSync }, { timeout: 180000 });
                         const resData = String(response.data);
 
                         if (resData.includes("Success") || resData.includes("Complete")) {
@@ -661,115 +664,146 @@ async function runOrchestrator() {
 
     await loadProgress();
 
-    // 🚀 STARTUP RECOVERY: Loop until all failed data is successfully synced
+    // 🚀 SMART HUB LOADING FIRST: Load stateUrls before recovery so recovery can route directly to state sheets!
+    const HUB_DATA_FILE = path.join(__dirname, 'hub_data.json');
+    const CDN_HUB_URL = "https://cdn.jsdelivr.net/gh/SiddhuSandySam/kaamwale-data@main/hub_data.json";
+    let hubLoaded = false;
+
+    // 1. Try Local File
+    if (fs.existsSync(HUB_DATA_FILE)) {
+        try {
+            const localHub = JSON.parse(fs.readFileSync(HUB_DATA_FILE));
+            if (localHub && localHub.stateUrls) {
+                stateUrls = localHub.stateUrls;
+                console.log(`Worker ${WORKER_ID} | INFO | Hub Data loaded from local hub_data.json.`);
+                hubLoaded = true;
+            }
+        } catch (e) { console.error(`Worker ${WORKER_ID} | ⚠️ | Local Hub Read Fail: ${e.message}`); }
+    }
+
+    // 2. Try CDN (jsDelivr) - Most stable!
+    if (!hubLoaded) {
+        try {
+            console.log(`Worker ${WORKER_ID} | INFO | Fetching Hub Data from jsDelivr CDN...`);
+            const cdnResp = await axios.get(`${CDN_HUB_URL}?cb=${Date.now()}`, { timeout: 30000 });
+            if (cdnResp.data && cdnResp.data.stateUrls) {
+                stateUrls = cdnResp.data.stateUrls;
+                hubLoaded = true;
+                console.log(`Worker ${WORKER_ID} | INFO | Hub Data loaded from CDN.`);
+            }
+        } catch (e) { console.warn(`Worker ${WORKER_ID} | ⚠️ | CDN Hub Fetch Fail: ${e.message}`); }
+    }
+
+    // 3. Fallback to direct API
+    if (!hubLoaded) {
+        for (let retry = 1; retry <= 5; retry++) {
+            try {
+                console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table from API (Attempt ${retry}/5)...`);
+                const hubResp = await axios.get(`${MAIN_HUB_URL}?type=app_data&nocache=true`, { timeout: 30000 });
+                if (hubResp.data && hubResp.data.stateUrls) {
+                    stateUrls = hubResp.data.stateUrls;
+                    hubLoaded = true;
+                    break;
+                }
+            } catch (e) {
+                console.error(`Worker ${WORKER_ID} | ⚠️ | API Hub Fetch Failed: ${e.message}. Retrying in 10s...`);
+                await new Promise(r => setTimeout(r, 10000));
+            }
+        }
+    }
+
+    if (!hubLoaded) {
+        console.error(`Worker ${WORKER_ID} | [FATAL] | Could not load Hub Data after all attempts.`);
+        await gracefulShutdown(true); return;
+    }
+
+    // 🚀 STARTUP RECOVERY: Resilient direct state satellite routing with max 4 retries (NO INFINITE LOOP!)
     const recoveryFiles = [BACKUP_LEADS_FILE, FAILED_SYNC_FILE];
     for (const file of recoveryFiles) {
         if (!fs.existsSync(file)) continue;
 
-        let syncSuccess = false;
-        let attempt = 0;
-
         try {
             const failedLeads = JSON.parse(fs.readFileSync(file));
-            if (failedLeads.length === 0) { fs.unlinkSync(file); continue; }
+            if (!Array.isArray(failedLeads) || failedLeads.length === 0) {
+                try { fs.unlinkSync(file); } catch (e) {}
+                continue;
+            }
 
-            console.log(`Worker ${WORKER_ID} | RECOVERY | Syncing ${failedLeads.length} leads from ${path.basename(file)}...`);
+            console.log(`Worker ${WORKER_ID} | RECOVERY | Found ${failedLeads.length} leads in ${path.basename(file)}. Initializing sync...`);
 
-            // 🚀 CHUNKED RECOVERY: Send in batches of 50 to avoid Google Script Timeouts
-            for (let i = 0; i < failedLeads.length; i += 50) {
-                const chunk = failedLeads.slice(i, i + 50);
-                let chunkSuccess = false;
-                let chunkAttempt = 0;
+            // Group leads by state to route directly to state Satellite URLs
+            const groupedLeads = {};
+            failedLeads.forEach(p => {
+                const s = p.state || "Unknown";
+                if (!groupedLeads[s]) groupedLeads[s] = [];
+                groupedLeads[s].push(p);
+            });
 
-                console.log(`Worker ${WORKER_ID} | RECOVERY | Batch ${Math.floor(i/50) + 1}/${Math.ceil(failedLeads.length/50)} | Sending ${chunk.length} leads...`);
+            let allStatesRecovered = true;
 
-                while (!chunkSuccess) {
-                    chunkAttempt++;
-                    try {
-                        const response = await axios.post(MAIN_HUB_URL, { type: "BATCH_PROVIDER_SYNC", providers: chunk }, { timeout: 150000 });
-                        const resData = String(response.data);
+            for (const stateName of Object.keys(groupedLeads)) {
+                const leadsToSync = groupedLeads[stateName];
+                const primaryUrl = stateUrls[stateName] || currentTargetUrl;
 
-                        // 🚀 STRICT SUCCESS CHECK: Delete ONLY if server confirms receipt
-                        if (resData.includes("Success") || resData.includes("Complete") || resData.includes("already exists")) {
-                            console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ Batch Success confirmed by Server.`);
-                            chunkSuccess = true;
-                        } else {
-                            console.warn(`Worker ${WORKER_ID} | RECOVERY | ⚠️ Server Busy (Attempt ${chunkAttempt}). Retrying until Success...`);
-                            await new Promise(r => setTimeout(r, 30000));
+                for (let i = 0; i < leadsToSync.length; i += 50) {
+                    const chunk = leadsToSync.slice(i, i + 50);
+                    let chunkSuccess = false;
+                    let chunkAttempt = 0;
+                    const MAX_RECOVERY_ATTEMPTS = 4;
+
+                    console.log(`Worker ${WORKER_ID} | RECOVERY | [${stateName}] Batch ${Math.floor(i/50) + 1}/${Math.ceil(leadsToSync.length/50)} | Sending ${chunk.length} leads...`);
+
+                    // Stagger delay between recovery chunks to avoid hitting Google script simultaneously
+                    const staggerDelay = Math.floor(Math.random() * 3000) + ((WORKER_ID % 5) * 1000);
+                    await new Promise(r => setTimeout(r, staggerDelay));
+
+                    while (!chunkSuccess && chunkAttempt < MAX_RECOVERY_ATTEMPTS) {
+                        chunkAttempt++;
+                        const activeUrl = (chunkAttempt <= 2 && primaryUrl) ? primaryUrl : MAIN_HUB_URL;
+
+                        if (chunkAttempt > 1) {
+                            const jitter = Math.floor(Math.random() * 5000);
+                            const waitTime = Math.min(15000 * chunkAttempt + jitter, 45000);
+                            console.log(`Worker ${WORKER_ID} | ⏳ Recovery Retry ${chunkAttempt}/${MAX_RECOVERY_ATTEMPTS} via ${activeUrl === MAIN_HUB_URL ? 'Main Hub' : stateName + ' Sheet'} in ${Math.round(waitTime/1000)}s...`);
+                            await new Promise(r => setTimeout(r, waitTime));
                         }
-                    } catch (e) {
-                        console.error(`Worker ${WORKER_ID} | RECOVERY | ❌ Connection Error (Attempt ${chunkAttempt}): ${e.message}. Waiting for Server to recover...`);
-                        await new Promise(r => setTimeout(r, 60000));
+
+                        try {
+                            const response = await axios.post(activeUrl, { type: "BATCH_PROVIDER_SYNC", providers: chunk }, { timeout: 180000 });
+                            const resData = String(response.data);
+
+                            if (resData.includes("Success") || resData.includes("Complete") || resData.includes("already exists")) {
+                                console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ [${stateName}] Batch Success confirmed.`);
+                                chunkSuccess = true;
+                            } else {
+                                console.warn(`Worker ${WORKER_ID} | RECOVERY | ⚠️ [${stateName}] Server Response: ${resData.substring(0, 80)}`);
+                            }
+                        } catch (e) {
+                            console.error(`Worker ${WORKER_ID} | RECOVERY | ❌ [${stateName}] Error (Attempt ${chunkAttempt}/${MAX_RECOVERY_ATTEMPTS}): ${e.message}`);
+                        }
+                    }
+
+                    if (!chunkSuccess) {
+                        allStatesRecovered = false;
+                        console.warn(`Worker ${WORKER_ID} | RECOVERY | ⚠️ Max recovery retries reached for [${stateName}] batch. Proceeding to scraper...`);
                     }
                 }
             }
 
-            // If we processed chunks, delete the file to stop the loop for next run
-            console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ Restored data from ${path.basename(file)}.`);
-            if (fs.existsSync(file)) fs.unlinkSync(file);
+            if (allStatesRecovered) {
+                console.log(`Worker ${WORKER_ID} | RECOVERY | ✅ All recovery leads successfully synced. Cleaning ${path.basename(file)}.`);
+                if (fs.existsSync(file)) try { fs.unlinkSync(file); } catch (e) {}
+            } else {
+                console.warn(`Worker ${WORKER_ID} | RECOVERY | ⚠️ Unsynced leads retained in backup file for next run. Proceeding to scraper...`);
+            }
         } catch (e) {
-            console.error(`Worker ${WORKER_ID} | RECOVERY | ❌ Critical Recovery Fail: ${e.message}`);
+            console.error(`Worker ${WORKER_ID} | RECOVERY | ❌ Recovery Fail: ${e.message}. Proceeding to scraper...`);
         }
     }
 
     const browser = await chromium.launch({ headless: HEADLESS });
     const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' });
     const page = await context.newPage();
-
-
-    try {
-        // 🚀 SMART HUB LOADING: Use local hub_data.json first, fallback to CDN, then API
-        const HUB_DATA_FILE = path.join(__dirname, 'hub_data.json');
-        const CDN_HUB_URL = "https://cdn.jsdelivr.net/gh/SiddhuSandySam/kaamwale-data@main/hub_data.json";
-        let hubLoaded = false;
-
-        // 1. Try Local File
-        if (fs.existsSync(HUB_DATA_FILE)) {
-            try {
-                const localHub = JSON.parse(fs.readFileSync(HUB_DATA_FILE));
-                if (localHub && localHub.stateUrls) {
-                    stateUrls = localHub.stateUrls;
-                    console.log(`Worker ${WORKER_ID} | INFO | Hub Data loaded from local hub_data.json.`);
-                    hubLoaded = true;
-                }
-            } catch (e) { console.error(`Worker ${WORKER_ID} | ⚠️ | Local Hub Read Fail: ${e.message}`); }
-        }
-
-        // 2. Try CDN (jsDelivr) - Most stable!
-        if (!hubLoaded) {
-            try {
-                console.log(`Worker ${WORKER_ID} | INFO | Fetching Hub Data from jsDelivr CDN...`);
-                const cdnResp = await axios.get(`${CDN_HUB_URL}?cb=${Date.now()}`, { timeout: 30000 });
-                if (cdnResp.data && cdnResp.data.stateUrls) {
-                    stateUrls = cdnResp.data.stateUrls;
-                    hubLoaded = true;
-                    console.log(`Worker ${WORKER_ID} | INFO | Hub Data loaded from CDN.`);
-                }
-            } catch (e) { console.warn(`Worker ${WORKER_ID} | ⚠️ | CDN Hub Fetch Fail: ${e.message}`); }
-        }
-
-        // 3. Fallback to direct API
-        if (!hubLoaded) {
-            for (let retry = 1; retry <= 5; retry++) {
-                try {
-                    console.log(`Worker ${WORKER_ID} | INFO | Fetching Routing Table from API (Attempt ${retry}/5)...`);
-                    const hubResp = await axios.get(`${MAIN_HUB_URL}?type=app_data&nocache=true`, { timeout: 30000 });
-                    if (hubResp.data && hubResp.data.stateUrls) {
-                        stateUrls = hubResp.data.stateUrls;
-                        hubLoaded = true;
-                        break;
-                    }
-                } catch (e) {
-                    console.error(`Worker ${WORKER_ID} | ⚠️ | API Hub Fetch Failed: ${e.message}. Retrying in 10s...`);
-                    await new Promise(r => setTimeout(r, 10000));
-                }
-            }
-        }
-
-        if (!hubLoaded) {
-            console.error(`Worker ${WORKER_ID} | [FATAL] | Could not load Hub Data after all attempts.`);
-            await gracefulShutdown(true); return;
-        }
 
         for (let sIdx = progress.stateIndex; sIdx < config.states.length; sIdx++) {
             // 🚀 DATA INTEGRITY: Flush any leftover data from the PREVIOUS state sheet
