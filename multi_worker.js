@@ -805,6 +805,7 @@ async function runOrchestrator() {
     const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' });
     const page = await context.newPage();
 
+    try {
         for (let sIdx = progress.stateIndex; sIdx < config.states.length; sIdx++) {
             // 🚀 DATA INTEGRITY: Flush any leftover data from the PREVIOUS state sheet
             // before we change the currentTargetUrl to the new state.
