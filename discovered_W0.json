@@ -1384,7 +1384,7 @@
   "Goa|Malim": 1,
   "Goa|Salcette": 2,
   "Goa|Casa Sawanta": 1,
-  "Goa|Goa": 7,
+  "Goa|Goa": 8,
   "Goa|Haveli Curti": 1,
   "Goa|karehill": 1,
   "Goa|Sonsoda": 1,
@@ -1560,7 +1560,7 @@
   "Goa|Varkhande": 1,
   "Goa|Pakollim": 1,
   "Goa|Sukhmani Enclave": 1,
-  "Goa|Girim": 5,
+  "Goa|Girim": 6,
   "Goa|Sarzora": 2,
   "Goa|Olliazote": 2,
   "Goa|Kochi": 1,
@@ -1584,5 +1584,9 @@
   "Goa|Kamat Kinara": 1,
   "Goa|Tonca": 1,
   "Goa|Pazntar": 1,
-  "Goa|Kankanamoddi": 1
+  "Goa|Kankanamoddi": 1,
+  "Goa|GOA": 1,
+  "Goa|Little Vagator": 1,
+  "Goa|Orlim": 1,
+  "Goa|SAMBATTY SALCETTE": 1
 }
